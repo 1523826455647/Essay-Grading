@@ -1,0 +1,516 @@
+/* ================================================================
+   Light theme polish + native control fixes
+   ================================================================ */
+
+html {
+  color-scheme: light;
+  background: var(--color-bg);
+}
+
+/* ---- Icon sizing (Lucide + hand-written SVGs) ---- */
+/* Bare SVG with only viewBox expands to fill the page without explicit size. */
+i[data-lucide],
+svg.lucide,
+svg[data-lucide],
+[data-lucide],
+svg.profile-nav-item-icon,
+.profile-nav-item-icon,
+.profile-nav svg,
+.navbar svg,
+.card > svg:not([width]),
+a > svg:not([width]),
+button > svg:not([width]),
+h1 > svg:not([width]),
+h2 > svg:not([width]),
+h3 > svg:not([width]),
+span > svg:not([width]) {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  max-width: 24px !important;
+  max-height: 24px !important;
+  display: inline-block;
+  vertical-align: middle;
+  flex: 0 0 auto;
+  stroke-width: 1.75;
+}
+
+/* Smaller icons in compact UI */
+.btn-sm i[data-lucide],
+.btn-sm svg.lucide,
+.btn-sm svg[data-lucide],
+.btn.btn-sm i,
+.btn.btn-sm svg,
+.action-btn svg,
+.action-btn i[data-lucide],
+.navbar-menu svg,
+.badge svg {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px;
+  min-height: 16px;
+  max-width: 16px;
+  max-height: 16px;
+}
+
+/* Tiny chevrons / utility icons */
+.step-divider svg,
+.step-divider i[data-lucide] {
+  width: 14px !important;
+  height: 14px !important;
+  min-width: 14px;
+  min-height: 14px;
+  max-width: 14px;
+  max-height: 14px;
+}
+
+/* Feature cards may intentionally use 24px via inline style — allow up to 24 */
+.card > div > i[data-lucide][style*="24"],
+.card svg.lucide[style*="24"] {
+  width: 24px !important;
+  height: 24px !important;
+  max-width: 24px;
+  max-height: 24px;
+}
+
+/* Buttons with icons should not stretch icons */
+.btn i[data-lucide],
+.btn svg.lucide,
+.btn svg {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px;
+  min-height: 16px;
+  max-width: 18px;
+  max-height: 18px;
+}
+
+.btn-lg i[data-lucide],
+.btn-lg svg.lucide,
+.btn-lg svg {
+  width: 18px !important;
+  height: 18px !important;
+  max-width: 18px;
+  max-height: 18px;
+}
+
+body {
+  background:
+    radial-gradient(1200px 500px at 10% -10%, rgba(12, 142, 231, 0.10), transparent 55%),
+    radial-gradient(900px 420px at 90% 0%, rgba(8, 145, 178, 0.08), transparent 50%),
+    linear-gradient(180deg, #f7fbff 0%, #f1f6fc 40%, #eef4fb 100%);
+  background-attachment: fixed;
+  color: var(--color-text);
+}
+
+main {
+  min-height: calc(100dvh - var(--navbar-height) - 80px);
+}
+
+/* Page shell */
+.page-container {
+  padding: var(--sp-6) 0 var(--sp-12);
+}
+
+/* Footer */
+.footer {
+  border-top: 1px solid var(--color-border-subtle);
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--color-text-tertiary);
+  padding: var(--sp-6) 0;
+  text-align: center;
+  font-size: var(--text-sm);
+}
+
+.footer p {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* ---- Critical: native select / option contrast ---- */
+/* Dark-theme leftover made option text white on OS white popup. */
+select,
+select.input-field,
+select.form-select,
+select.form-input {
+  color: var(--input-text) !important;
+  background-color: var(--input-bg) !important;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-primary) 50%),
+    linear-gradient(135deg, var(--color-primary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) calc(50% - 2px),
+    calc(100% - 11px) calc(50% - 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 36px !important;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+select option,
+select.input-field option,
+select.form-select option,
+select.form-input option {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+}
+
+select:disabled,
+select:disabled option {
+  color: #94a3b8 !important;
+  background-color: #f8fafc !important;
+}
+
+/* Inputs / textareas force light surfaces */
+input.input-field,
+textarea.input-field,
+.form-input,
+.form-textarea,
+.input-field {
+  color: var(--input-text) !important;
+  background-color: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+}
+
+input.input-field::placeholder,
+textarea.input-field::placeholder,
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: var(--input-placeholder) !important;
+  opacity: 1;
+}
+
+input.input-field:focus,
+textarea.input-field:focus,
+select.input-field:focus,
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  border-color: var(--color-primary) !important;
+  box-shadow: var(--shadow-glow) !important;
+  background-color: #ffffff !important;
+}
+
+/* Cards on light canvas */
+.card {
+  background: #ffffff !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: var(--shadow-card);
+}
+
+.card:hover,
+.paper-card:hover,
+.type-card:hover,
+.recommend-item:hover,
+.pack-card:hover,
+.topic-card:hover,
+.featured-card:hover,
+.lib-card:hover {
+  border-color: rgba(12, 142, 231, 0.28) !important;
+  box-shadow: var(--shadow-card-hover);
+  transform: none !important;
+}
+
+/* Soft panels used across templates */
+.stat-item,
+.kpi-card,
+.step-item,
+.question-card {
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+}
+
+.stat-value {
+  color: var(--color-primary-dark);
+  font-weight: 700;
+}
+
+.stat-label {
+  color: var(--color-text-tertiary);
+}
+
+/* Hero accents */
+.hero {
+  background:
+    radial-gradient(circle at 85% 15%, rgba(12, 142, 231, 0.14), transparent 40%),
+    radial-gradient(circle at 10% 80%, rgba(8, 145, 178, 0.10), transparent 35%),
+    linear-gradient(180deg, #ffffff 0%, #f3f8fe 100%) !important;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+/* Navbar light glass */
+.navbar {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-bottom: 1px solid rgba(12, 142, 231, 0.10) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8), 0 8px 24px rgba(12, 142, 231, 0.05);
+}
+
+.navbar-brand {
+  color: var(--color-primary-dark) !important;
+  background: linear-gradient(120deg, #0b3f6d, #0c8ee7);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.navbar-menu a {
+  color: var(--color-text-secondary) !important;
+}
+
+.navbar-menu a:hover {
+  color: var(--color-primary-dark) !important;
+  background: var(--color-primary-light) !important;
+}
+
+.navbar-menu a.active {
+  color: var(--color-primary-dark) !important;
+  background: var(--color-primary-light) !important;
+  box-shadow: inset 0 0 0 1px rgba(12, 142, 231, 0.18);
+}
+
+/* Badges readable on white */
+.badge,
+.badge-info,
+.badge-accent,
+.badge-neutral {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border: 1px solid rgba(12, 142, 231, 0.16);
+}
+
+.badge-success {
+  background: var(--color-success-light);
+  color: var(--color-success);
+  border: 1px solid rgba(16, 185, 129, 0.18);
+}
+
+.badge-warning {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+  border: 1px solid rgba(245, 158, 11, 0.22);
+}
+
+.badge-error {
+  background: var(--color-error-light);
+  color: var(--color-error);
+  border: 1px solid rgba(239, 68, 68, 0.18);
+}
+
+/* Buttons */
+.btn-primary {
+  background: linear-gradient(180deg, #1aa0f0 0%, #0c8ee7 100%) !important;
+  border-color: #0a7fd0 !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 16px rgba(12, 142, 231, 0.28);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(180deg, #0c8ee7 0%, #0070c4 100%) !important;
+  color: #ffffff !important;
+}
+
+.btn-secondary,
+.btn-ghost {
+  background: #ffffff !important;
+  color: var(--color-text-secondary) !important;
+  border: 1px solid var(--color-border-strong) !important;
+}
+
+.btn-secondary:hover,
+.btn-ghost:hover {
+  background: var(--color-primary-light) !important;
+  color: var(--color-primary-dark) !important;
+  border-color: rgba(12, 142, 231, 0.35) !important;
+}
+
+/* Empty / skeleton */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #eaf2fa 25%,
+    #f7fbff 50%,
+    #eaf2fa 75%
+  ) !important;
+  background-size: 200% 100%;
+}
+
+.empty-state {
+  color: var(--color-text-tertiary);
+}
+
+/* Modal light */
+.modal,
+.modal-overlay {
+  background: rgba(15, 23, 42, 0.35) !important;
+}
+
+.modal-content {
+  background: #ffffff !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: var(--shadow-xl) !important;
+  color: var(--color-text);
+}
+
+/* Toast */
+.toast,
+#toast-container .toast {
+  background: #ffffff !important;
+  border: 1px solid var(--color-border) !important;
+  color: var(--color-text) !important;
+  box-shadow: var(--shadow-lg);
+}
+
+/* Tables */
+.data-table th,
+.admin-table th {
+  background: #f3f8fe !important;
+  color: var(--color-text-tertiary) !important;
+}
+
+.data-table tbody tr:hover,
+.admin-table tbody tr:hover {
+  background: #f7fbff !important;
+}
+
+/* Soft feature blocks on homepage */
+.step-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  align-items: stretch;
+  justify-content: center;
+}
+
+.step-number {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  font-weight: 700;
+  border: 1px solid rgba(12, 142, 231, 0.2);
+}
+
+.step-number.active {
+  background: linear-gradient(180deg, #1aa0f0, #0c8ee7);
+  color: #fff;
+  border-color: transparent;
+}
+
+.step-title {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.step-desc {
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+}
+
+/* KPI strip */
+.kpi-row {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2xl);
+  padding: var(--sp-4) var(--sp-6);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Auth modal forms */
+#auth-modal .input-field,
+#auth-form-container .input-field {
+  background: #fff !important;
+  color: #0f172a !important;
+}
+
+/* Simulate topbar can stay dark for exam focus, but keep body light */
+body:has(.sim-topbar) {
+  background: #f4f8fd;
+}
+
+/* Utility readable surfaces for inline dark leftovers */
+[style*="background: var(--color-gray-50)"],
+[style*="background:var(--color-gray-50)"] {
+  background: #f8fafc !important;
+}
+
+/* Soft blue chips / dashed upload zones */
+[style*="border-style: dashed"],
+[style*="border-style:dashed"] {
+  background: #f8fbff !important;
+  border-color: #b7d7f3 !important;
+}
+
+/* Make common dark gradient leftovers less harsh */
+[style*="rgba(94,106,210"],
+[style*="rgba(113,112,255"],
+[style*="rgba(158,57,229"] {
+  opacity: 0.9;
+}
+
+/* Page title readability */
+.page-container h1,
+.page-container h2,
+.page-container h3 {
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+}
+
+/* Result score emphasis */
+#total-score {
+  color: var(--color-primary) !important;
+  text-shadow: 0 8px 24px rgba(12, 142, 231, 0.18);
+}
+
+/* Paper cards / type cards */
+.paper-card,
+.type-card,
+.recommend-item {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.paper-card:hover,
+.type-card:hover,
+.recommend-item:hover {
+  transform: none !important;
+  border-color: rgba(12,142,231,.28);
+  box-shadow: var(--shadow-card-hover);
+}
+.type-card.active {
+  border-color: var(--color-primary);
+  background: linear-gradient(180deg, #ffffff 0%, #eef7ff 100%);
+  box-shadow: 0 0 0 1px rgba(12,142,231,.18), var(--shadow-md);
+}
+
+/* Scrollbar soft blue */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #b7d7f3 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #b7d7f3;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #8ec4ef;
+  background-clip: content-box;
+}

@@ -1,0 +1,557 @@
+{% extends "base.html" %}
+
+{% block title %}自定义批改 - 申论帮{% endblock %}
+
+{% block extra_css %}
+<style>
+  .cg-page { width: min(960px, calc(100% - 32px)); margin: 0 auto; padding: 8px 0 48px; }
+  .cg-head { margin-bottom: 28px; }
+  .cg-head h1 {
+    margin: 0 0 12px;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+    color: #0f172a;
+  }
+  .cg-head p {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.75;
+  }
+
+  .cg-form.card,
+  .cg-form.card:hover,
+  .cg-page .card:hover {
+    padding: 28px 28px 24px !important;
+    margin-bottom: 24px;
+    transform: none !important; /* disable hover lift on grading form */
+  }
+  .cg-page .card {
+    transition: box-shadow .2s ease, border-color .2s ease;
+  }
+  .cg-stack {
+    display: grid;
+    gap: 28px; /* section-to-section breathing room */
+  }
+  .cg-field { display: grid; gap: 0; }
+  .cg-field > .form-label,
+  .cg-field > label {
+    display: block;
+    margin: 0 0 12px !important; /* label far enough above control */
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.4;
+    color: #0f172a;
+  }
+  .cg-field .input-field,
+  .cg-field textarea.input-field,
+  .cg-field select.input-field {
+    margin: 0;
+  }
+  .cg-field-actions {
+    margin-top: 14px; /* import button not stuck to textarea */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .cg-field-actions .btn {
+    min-height: 36px;
+  }
+
+  .cg-row-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 18px;
+  }
+  @media (max-width: 720px) {
+    .cg-row-3 { grid-template-columns: 1fr; }
+    .cg-form.card { padding: 20px 16px !important; }
+  }
+
+  .cg-model-panel {
+    margin-top: 4px;
+    padding: 20px 18px !important;
+    background: #f7fbff !important;
+    border: 1px dashed #b7d7f3 !important;
+    border-radius: 14px;
+  }
+  .cg-model-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .cg-model-head strong {
+    font-size: 15px;
+    color: #0f172a;
+  }
+  .cg-mode-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 640px) {
+    .cg-mode-grid { grid-template-columns: 1fr; }
+  }
+  .cg-mode-card {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 14px 14px;
+    border: 1px solid #d7e6f5;
+    border-radius: 12px;
+    background: #fff;
+    cursor: pointer;
+  }
+  .cg-mode-card strong {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    color: #0f172a;
+  }
+  .cg-mode-card span {
+    display: block;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #64748b;
+  }
+  #model-list {
+    display: grid;
+    gap: 10px;
+    min-height: 40px;
+  }
+  #model-list label {
+    display: flex !important;
+    gap: 10px !important;
+    align-items: center !important;
+    padding: 12px 14px !important;
+    border: 1px solid #d7e6f5 !important;
+    border-radius: 10px !important;
+    background: #fff;
+  }
+
+  .cg-actions {
+    display: flex;
+    gap: 14px;
+    margin-top: 4px;
+    padding-top: 8px;
+  }
+  .cg-actions .btn {
+    min-height: 46px;
+    padding: 12px 20px;
+  }
+
+  #login-hint { margin-bottom: 20px; padding: 14px 16px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div class="cg-page">
+    <div class="cg-head">
+      <h1>自定义材料批改</h1>
+      <p>
+        上传/粘贴给定材料、题目、你的答案；参考答案可选。系统会调用一个或多个模型按申论阅卷规则评分，并给出意见与分析。
+      </p>
+    </div>
+
+    <div id="login-hint" class="card" style="display:none; background: var(--color-warning-light); border-color: var(--color-warning);">
+      <div style="display:flex; gap: 10px; align-items:center; font-size: var(--text-sm);">
+        <i data-lucide="alert-circle" style="width:18px;height:18px;"></i>
+        <span>请先 <a href="/login" style="color: var(--color-primary); font-weight:600;">登录</a> 后再提交批改。</span>
+      </div>
+    </div>
+
+    <form id="custom-grade-form" class="card cg-form">
+      <div class="cg-stack">
+        <div class="cg-field">
+          <label class="form-label" for="title">试卷/任务标题（可选）</label>
+          <input id="title" class="input-field" placeholder="例如：2024国考地市级第一题自测">
+        </div>
+
+        <div class="cg-row-3">
+          <div class="cg-field">
+            <label class="form-label" for="question_type">题型</label>
+            <select id="question_type" class="input-field">
+              <option value="guina">归纳概括（概括问题/原因/做法）</option>
+              <option value="zonghe">综合分析（词句理解/观点评析）</option>
+              <option value="duice">提出对策（建议/措施/方案）</option>
+              <option value="zhixing">应用文写作（讲话稿/倡议书/报告/方案/短评）</option>
+              <option value="zuowen">大作文（申发论述/议论文）</option>
+            </select>
+          </div>
+          <div class="cg-field">
+            <label class="form-label" for="score_max">满分</label>
+            <input id="score_max" class="input-field" type="number" min="1" max="100" value="20">
+          </div>
+          <div class="cg-field">
+            <label class="form-label" for="word_limit">字数要求（可选）</label>
+            <input id="word_limit" class="input-field" placeholder="例如 200-300字">
+          </div>
+        </div>
+
+        <div class="cg-field">
+          <label class="form-label" for="material">给定材料 <span style="color: var(--color-error);">*</span></label>
+          <textarea id="material" class="input-field" style="min-height: 180px; line-height:1.8;" required placeholder="粘贴给定资料。可用空行分段，或用“材料1/资料1”标记。"></textarea>
+          <div class="cg-field-actions">
+            <div>
+              <input type="file" id="material-file" accept=".txt,.md,.text,text/plain" style="display:none;" onchange="loadTextFile(this, 'material')">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('material-file').click()">
+                <i data-lucide="upload" style="width:14px;height:14px;"></i> 从文件导入材料
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="cg-field">
+          <label class="form-label" for="stem">题目要求 <span style="color: var(--color-error);">*</span></label>
+          <textarea id="stem" class="input-field" style="min-height: 100px; line-height:1.7;" required placeholder="例如：请根据给定资料，概括当前基层治理中存在的主要问题。"></textarea>
+        </div>
+
+        <div class="cg-field">
+          <label class="form-label" for="reference_answer">参考答案（可选）</label>
+          <textarea id="reference_answer" class="input-field" style="min-height: 130px; line-height:1.7;" placeholder="如有官方/机构参考答案，粘贴在此。系统会对照参考答案与材料评分，但不会要求考生逐字一致。"></textarea>
+          <div class="cg-field-actions">
+            <div>
+              <input type="file" id="ref-file" accept=".txt,.md,.text,text/plain" style="display:none;" onchange="loadTextFile(this, 'reference_answer')">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('ref-file').click()">
+                <i data-lucide="upload" style="width:14px;height:14px;"></i> 导入参考答案
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="cg-field">
+          <label class="form-label" for="key_points">采分点（可选，每行一个）</label>
+          <textarea id="key_points" class="input-field" style="min-height: 100px; line-height:1.7;" placeholder="安全隐患治理不彻底&#10;老旧小区改造群众参与不足&#10;数字政务重建设轻运维"></textarea>
+        </div>
+
+        <div class="cg-field">
+          <label class="form-label" for="user_answer">你的答案 <span style="color: var(--color-error);">*</span></label>
+          <textarea id="user_answer" class="input-field" style="min-height: 190px; line-height:1.8;" required placeholder="粘贴或输入你的作答。"></textarea>
+          <div class="cg-field-actions">
+            <div>
+              <input type="file" id="answer-file" accept=".txt,.md,.text,text/plain" style="display:none;" onchange="loadTextFile(this, 'user_answer')">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('answer-file').click()">
+                <i data-lucide="upload" style="width:14px;height:14px;"></i> 导入答案文本
+              </button>
+            </div>
+            <span style="font-size: 12.5px; color: var(--color-text-muted);">字数：<strong id="answer-count">0</strong></span>
+          </div>
+        </div>
+
+        <div class="cg-model-panel">
+          <div class="cg-model-head">
+            <div style="display:flex; gap:10px; align-items:center;">
+              <i data-lucide="network" style="width:18px;height:18px;color:var(--color-primary);"></i>
+              <strong>批改模型 / 多模型评审</strong>
+            </div>
+            <span id="model-selection-count" class="badge badge-info">0/4</span>
+          </div>
+          <div class="cg-mode-grid">
+            <label class="cg-mode-card">
+              <input type="radio" name="grading-mode" value="fallback" checked>
+              <span>
+                <strong>主备切换</strong>
+                <span>按优先级依次调用模型</span>
+              </span>
+            </label>
+            <label class="cg-mode-card">
+              <input type="radio" name="grading-mode" value="ensemble">
+              <span>
+                <strong>多模型评审</strong>
+                <span>并行评分并汇总综合结果</span>
+              </span>
+            </label>
+          </div>
+          <div id="model-list">
+            <div style="font-size: var(--text-sm); color: var(--color-text-muted); padding: 4px 0;">正在加载模型...</div>
+          </div>
+          <div id="model-cost-summary" style="margin-top: 12px; font-size: 12.5px; color: #64748b; display: none;">
+            本次批改预估消耗：<strong id="estimated-cost" style="color: #0f172a;">0</strong> 次
+          </div>
+        </div>
+
+        <div class="cg-actions">
+          <button type="submit" id="submit-btn" class="btn btn-primary" style="flex:1;">
+            <i data-lucide="sparkles" style="width:18px;height:18px;"></i>
+            开始多模型批改
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="resetForm()">清空</button>
+        </div>
+      </div>
+    </form>
+
+    <div id="progress-card" class="card" style="display:none; margin-bottom: var(--space-6);">
+      <div class="grading-status">
+        <div class="grading-status-spinner"></div>
+        <span class="grading-status-text" id="progress-text">正在调用模型评分，请稍候...</span>
+      </div>
+    </div>
+
+    <div id="result-card" class="card" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: var(--space-4);">
+        <h2 style="margin:0; font-size: var(--text-xl);">批改结果</h2>
+        <a id="result-link" href="#" class="btn btn-secondary btn-sm">打开完整结果页</a>
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4);">
+        <div><div style="font-size:12px;color:var(--color-text-muted);">得分</div><strong id="r-score" style="font-size:28px;color:var(--color-accent);">--</strong></div>
+        <div><div style="font-size:12px;color:var(--color-text-muted);">满分</div><strong id="r-max">--</strong></div>
+        <div><div style="font-size:12px;color:var(--color-text-muted);">模式</div><strong id="r-mode">--</strong></div>
+        <div><div style="font-size:12px;color:var(--color-text-muted);">有效模型</div><strong id="r-valid">--</strong></div>
+      </div>
+      <div style="margin-bottom: var(--space-4);">
+        <h3 style="font-size: var(--text-base); margin-bottom: 8px;">AI 意见</h3>
+        <div id="r-feedback" style="white-space:pre-wrap; line-height:1.8; color: var(--color-text-secondary); font-size: var(--text-sm);"></div>
+      </div>
+      <div style="margin-bottom: var(--space-4);">
+        <h3 style="font-size: var(--text-base); margin-bottom: 8px;">改进建议</h3>
+        <ul id="r-suggestions" style="padding-left: 1.2rem; line-height:1.8; color: var(--color-text-secondary); font-size: var(--text-sm);"></ul>
+      </div>
+      <div id="r-judgments-wrap" style="display:none;">
+        <h3 style="font-size: var(--text-base); margin-bottom: 8px;">逐模型结果</h3>
+        <div id="r-judgments" style="display:grid; gap:10px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const MAX_MODELS = 4;
+  let availableModels = [];
+
+  function token() {
+    return localStorage.getItem('slb_token') || localStorage.getItem('token');
+  }
+
+  function loadTextFile(input, targetId) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      document.getElementById(targetId).value = String(reader.result || '');
+      if (targetId === 'user_answer') updateCount();
+      if (typeof showToast === 'function') showToast('已导入 ' + file.name, 'success');
+    };
+    reader.onerror = () => {
+      if (typeof showToast === 'function') showToast('文件读取失败', 'error');
+    };
+    reader.readAsText(file, 'utf-8');
+  }
+
+  function updateCount() {
+    const el = document.getElementById('user_answer');
+    document.getElementById('answer-count').textContent = (el.value || '').replace(/\s/g, '').length;
+  }
+
+  function selectedModelIds() {
+    return Array.from(document.querySelectorAll('input[name="model_ids"]:checked')).map(i => i.value);
+  }
+
+  function renderModels(models) {
+    const list = document.getElementById('model-list');
+    list.replaceChildren();
+    availableModels = models || [];
+    if (!availableModels.length) {
+      const empty = document.createElement('div');
+      empty.style.fontSize = 'var(--text-sm)';
+      empty.style.color = 'var(--color-text-muted)';
+      empty.textContent = '暂无公开模型，将使用系统默认模型批改。';
+      list.appendChild(empty);
+      document.getElementById('model-selection-count').textContent = '0/4';
+      return;
+    }
+    availableModels.forEach((model, index) => {
+      const label = document.createElement('label');
+      label.style.cssText = 'display:flex; gap:10px; align-items:center; padding:12px 14px; border:1px solid #d7e6f5; border-radius:10px; background:#fff; cursor:pointer;';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.name = 'model_ids';
+      input.value = model.model_id;
+      input.checked = index < MAX_MODELS;
+      input.addEventListener('change', () => {
+        if (selectedModelIds().length > MAX_MODELS) {
+          input.checked = false;
+          showToast('一次最多选择 4 个模型', 'error');
+        }
+        updateModelCountAndCost();
+      });
+      const nameSpan = document.createElement('span');
+      nameSpan.style.cssText = 'flex:1; font-size:14px; font-weight:500; color:#0f172a;';
+      nameSpan.textContent = model.name || model.model_name || '未命名模型';
+      const cost = parseFloat(model.credit_cost) || 0;
+      const costSpan = document.createElement('span');
+      costSpan.style.cssText = 'font-size:12px; padding:2px 8px; border-radius:6px; white-space:nowrap;';
+      if (cost === 0 || cost === 0.5) {
+        costSpan.style.cssText += 'background:#ecfdf5; color:#059669;';
+        costSpan.textContent = cost === 0.5 ? '0.5次' : '免费';
+      } else if (cost === 1) {
+        costSpan.style.cssText += 'background:#eff6ff; color:#2563eb;';
+        costSpan.textContent = '1次';
+      } else {
+        costSpan.style.cssText += 'background:#fef3c7; color:#d97706;';
+        costSpan.textContent = cost + '次';
+      }
+      label.append(input, nameSpan, costSpan);
+      list.appendChild(label);
+    });
+    updateModelCountAndCost();
+  }
+
+  function updateModelCountAndCost() {
+    const ids = selectedModelIds();
+    document.getElementById('model-selection-count').textContent = ids.length + '/' + MAX_MODELS;
+    let totalCost = ids.reduce((sum, id) => {
+      const m = availableModels.find(m => m.model_id === id);
+      return sum + (parseFloat(m?.credit_cost) || 0);
+    }, 0);
+    const summary = document.getElementById('model-cost-summary');
+    const costEl = document.getElementById('estimated-cost');
+    if (ids.length > 0) {
+      summary.style.display = 'block';
+      costEl.textContent = totalCost % 1 === 0 ? totalCost.toFixed(0) : totalCost.toFixed(1);
+    } else {
+      summary.style.display = 'none';
+    }
+  }
+
+  async function loadModels() {
+    try {
+      const headers = {};
+      if (token()) headers['Authorization'] = 'Bearer ' + token();
+      const res = await fetch('/api/models', { headers });
+      const payload = await res.json();
+      renderModels(payload.data?.models || []);
+    } catch (e) {
+      renderModels([]);
+    }
+  }
+
+  function resetForm() {
+    document.getElementById('custom-grade-form').reset();
+    updateCount();
+    document.getElementById('result-card').style.display = 'none';
+    document.getElementById('progress-card').style.display = 'none';
+    loadModels();
+  }
+
+  document.getElementById('user_answer').addEventListener('input', updateCount);
+
+  document.getElementById('custom-grade-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!token()) {
+      document.getElementById('login-hint').style.display = 'block';
+      showToast('请先登录', 'error');
+      return;
+    }
+
+    const material = document.getElementById('material').value.trim();
+    const stem = document.getElementById('stem').value.trim();
+    const user_answer = document.getElementById('user_answer').value.trim();
+    if (!material || !stem || !user_answer) {
+      showToast('请填写材料、题目和答案', 'error');
+      return;
+    }
+
+    const mode = document.querySelector('input[name="grading-mode"]:checked')?.value || 'fallback';
+    const model_ids = selectedModelIds();
+    if (availableModels.length && !model_ids.length) {
+      showToast('请至少选择一个批改模型', 'error');
+      return;
+    }
+    if (mode === 'ensemble' && model_ids.length === 1) {
+      showToast('多模型评审建议选择 2 个及以上模型；将自动改为主备切换', 'warning');
+    }
+
+    const keyPointsRaw = document.getElementById('key_points').value.trim();
+    const body = {
+      title: document.getElementById('title').value.trim(),
+      material,
+      stem,
+      user_answer,
+      reference_answer: document.getElementById('reference_answer').value.trim(),
+      question_type: document.getElementById('question_type').value,
+      score_max: Number(document.getElementById('score_max').value || 20),
+      word_limit: document.getElementById('word_limit').value.trim(),
+      key_points: keyPointsRaw || undefined,
+      mode,
+      model_ids: model_ids.length ? model_ids : undefined,
+    };
+
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    document.getElementById('progress-card').style.display = 'block';
+    document.getElementById('result-card').style.display = 'none';
+    document.getElementById('progress-text').textContent = mode === 'ensemble'
+      ? '多模型并行评审中，这可能需要几十秒...'
+      : '模型评分中，请稍候...';
+
+    try {
+      const res = await fetch('/api/custom-grade', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token(),
+        },
+        body: JSON.stringify(body),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || '批改失败');
+      const data = payload.data || {};
+      if (data.sid) {
+        window.location.href = '/result/' + data.sid;
+        return;
+      }
+      showInlineResult(data);
+    } catch (error) {
+      showToast(error.message || '批改失败', 'error');
+    } finally {
+      btn.disabled = false;
+      document.getElementById('progress-card').style.display = 'none';
+    }
+  });
+
+  function showInlineResult(data) {
+    document.getElementById('result-card').style.display = 'block';
+    document.getElementById('r-score').textContent = data.score == null ? '--' : data.score;
+    document.getElementById('r-max').textContent = data.score_max == null ? '--' : data.score_max;
+    document.getElementById('r-mode').textContent = data.grading_mode || '--';
+    document.getElementById('r-valid').textContent = data.valid_judges == null ? '--' : data.valid_judges;
+    document.getElementById('r-feedback').textContent = data.ai_feedback || data.message || '暂无意见';
+    const ul = document.getElementById('r-suggestions');
+    ul.replaceChildren();
+    const suggestions = Array.isArray(data.improving_suggestions)
+      ? data.improving_suggestions
+      : (data.improving_suggestions ? [data.improving_suggestions] : []);
+    if (!suggestions.length) {
+      const li = document.createElement('li');
+      li.textContent = '暂无建议';
+      ul.appendChild(li);
+    } else {
+      suggestions.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item;
+        ul.appendChild(li);
+      });
+    }
+    if (data.sid) {
+      document.getElementById('result-link').href = '/result/' + data.sid;
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!token()) document.getElementById('login-hint').style.display = 'block';
+    loadModels();
+    updateCount();
+    if (window.lucide) lucide.createIcons();
+  });
+</script>
+{% endblock %}

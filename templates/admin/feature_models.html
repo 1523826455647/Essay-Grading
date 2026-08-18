@@ -1,0 +1,165 @@
+{% extends "admin/base.html" %}
+
+{% block title %}功能模型配置 - 申论帮{% endblock %}
+{% block page_title %}功能模型配置{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* 仅做少量微调，其余复用 admin.css 的统一组件（卡片/表格/下拉框/状态徽章） */
+  .fm-select { width: 100%; }
+  .fm-select.bound {
+    border-color: var(--admin-accent) !important;
+    background-color: var(--admin-accent-light) !important;
+    font-weight: 550;
+  }
+  .fm-group-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--admin-border);
+  }
+  .fm-group-head i { width: 16px; height: 16px; color: var(--admin-accent); }
+  .fm-group-head .fm-group-title { font-weight: 600; font-size: 14px; color: var(--admin-text-primary); }
+  .fm-group-head .fm-group-count { font-size: 12px; color: var(--admin-text-secondary); }
+  .fm-feature-name { display: flex; align-items: center; gap: 8px; font-weight: 550; color: var(--admin-text-primary); white-space: nowrap; }
+  .fm-feature-name i { width: 16px; height: 16px; color: var(--admin-text-secondary); }
+  .fm-feature-desc { font-size: 13px; color: var(--admin-text-secondary); line-height: 1.5; }
+  .fm-hint-text { margin: 0; font-size: 13px; color: var(--admin-text-secondary); line-height: 1.7; }
+</style>
+{% endblock %}
+
+{% block admin_content %}
+<div class="admin-card" style="margin-bottom: 16px; padding: 16px 20px;">
+  <div style="display: flex; gap: 10px; align-items: flex-start;">
+    <i data-lucide="info" style="width: 17px; height: 17px; color: var(--admin-accent); flex-shrink: 0; margin-top: 2px;"></i>
+    <p class="fm-hint-text">
+      为每个业务功能单独指定使用的模型。选择「跟随系统全局配置」时，该功能使用系统设置中的默认模型；
+      选择某个具体模型后，该功能将固定使用它（不受全局配置影响）。改动保存后立即生效。
+    </p>
+  </div>
+</div>
+
+<div id="fm-groups">
+  <div class="admin-card" style="text-align: center; color: var(--admin-text-secondary); padding: 40px;">加载中…</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let features = [];
+  let models = [];
+  let canWrite = false;
+
+  function groupIcon(group) {
+    if (group === '批改') return 'pen-line';
+    if (group === '素材学习') return 'book-open';
+    return 'box';
+  }
+
+  function featureIcon(key) {
+    return { grading: 'pen-tool', simple_feedback: 'message-square', summarize: 'git-merge',
+             reference_extract: 'list-checks', phrase_generate: 'pencil-line', topic_analyze: 'newspaper' }[key] || 'sparkles';
+  }
+
+  function modelLabel(model) {
+    if (!model) return '';
+    return model.model_name ? `${model.name}（${model.model_name}）` : model.name;
+  }
+
+  function buildSelect(f) {
+    const bound = f.model_id ? f.model_id : '';
+    let options = '<option value="">跟随系统全局配置</option>';
+    for (const m of models) {
+      const sel = m.model_id === bound ? ' selected' : '';
+      const tag = m.enabled ? '' : '（已停用）';
+      options += `<option value="${escapeHtml(m.model_id)}"${sel}>${escapeHtml(modelLabel(m))}${tag}</option>`;
+    }
+    if (bound && !models.some(m => m.model_id === bound)) {
+      options += `<option value="${escapeHtml(bound)}" selected>${escapeHtml(f.model_name || f.model_id)}（已失效）</option>`;
+    }
+    const cls = bound ? 'fm-select bound' : 'fm-select';
+    return `<select class="${cls}" data-feature-key="${escapeHtml(f.feature_key)}" ${canWrite ? '' : 'disabled'}>${options}</select>`;
+  }
+
+  function render() {
+    const container = document.getElementById('fm-groups');
+    if (!features.length) {
+      container.innerHTML = '<div class="admin-card" style="text-align:center;color:var(--admin-text-secondary);padding:40px;">暂无功能配置</div>';
+      return;
+    }
+
+    const groups = {};
+    for (const f of features) {
+      (groups[f.group] = groups[f.group] || []).push(f);
+    }
+
+    let html = '';
+    for (const group of Object.keys(groups)) {
+      const items = groups[group];
+      html += `<div class="admin-card" style="margin-bottom: 16px; padding: 0; overflow: hidden;">
+        <div class="fm-group-head">
+          <i data-lucide="${groupIcon(group)}"></i>
+          <span class="fm-group-title">${escapeHtml(group)}</span>
+          <span class="fm-group-count">${items.length} 项功能</span>
+        </div>
+        <table class="admin-table">
+          <thead>
+            <tr><th style="width: 220px;">功能</th><th>说明</th><th style="width: 300px;">使用的模型</th><th style="width: 110px;">状态</th></tr>
+          </thead>
+          <tbody>
+            ${items.map(f => {
+              const badge = f.bound
+                ? '<span class="status-badge status-active">已绑定</span>'
+                : '<span class="status-badge status-draft">全局默认</span>';
+              return `<tr>
+                <td><div class="fm-feature-name"><i data-lucide="${featureIcon(f.feature_key)}"></i>${escapeHtml(f.name)}</div></td>
+                <td><div class="fm-feature-desc">${escapeHtml(f.desc)}</div></td>
+                <td>${buildSelect(f)}</td>
+                <td>${badge}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    }
+    container.innerHTML = html;
+    lucide.createIcons();
+  }
+
+  async function load() {
+    try {
+      const response = await adminFetch('/feature-models');
+      features = response.data.features || [];
+      models = response.data.models || [];
+      canWrite = !!response.data.can_write;
+      render();
+    } catch (error) {
+      document.getElementById('fm-groups').innerHTML =
+        `<div class="admin-card" style="text-align:center;color:var(--status-error);padding:40px;">加载失败：${escapeHtml(error.message)}</div>`;
+    }
+  }
+
+  async function bind(featureKey, modelId) {
+    try {
+      await adminFetch(`/feature-models/${encodeURIComponent(featureKey)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ model_id: modelId || null })
+      });
+      showToast(modelId ? '已更新模型绑定' : '已恢复为全局配置');
+      await load();
+    } catch (error) {
+      showToast(error.message, 'error');
+      await load();
+    }
+  }
+
+  document.getElementById('fm-groups').addEventListener('change', event => {
+    const select = event.target.closest('select[data-feature-key]');
+    if (!select) return;
+    bind(select.dataset.featureKey, select.value);
+  });
+
+  load();
+</script>
+{% endblock %}

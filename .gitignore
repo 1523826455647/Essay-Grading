@@ -1,0 +1,44 @@
+# venv
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# 数据库（不入仓）
+data/slb.db
+data/slb.db.bak-*
+data/*.db
+data/test.db
+data/backups/
+backups/
+slb_backup.db
+
+# 试卷库种子数据（不入仓）
+data/seed_papers.sql
+data/seed_new_papers.sql
+data/seed_phrases.sql
+data/seed_topics.sql
+data/seed_community.sql
+data/rubrics/
+province_parsed.json
+province_parsed_new.json
+
+# 本地和生产密钥
+.env
+
+# 一次性迁移脚本（含数据）
+insert_missing.py
+insert_new34.py
+init_feature_model.py
+scrape_daily.py
+
+# 临时
+_probe*.py
+*.log
+ops/
+scripts/
+
+# IDE
+.vscode/
+.idea/
+deepseek_v4

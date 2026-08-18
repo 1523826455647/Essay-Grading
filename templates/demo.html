@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}免注册试用 - 申论帮{% endblock %}
+
+{% block extra_css %}
+<style>
+  .dm-page { width: min(1100px, calc(100% - 32px)); margin: 0 auto; padding: 12px 0 56px; }
+  .dm-hero {
+    background: linear-gradient(135deg, #0b6fbe, #0c8ee7 52%, #12a8c9);
+    border-radius: 18px; color: #fff; padding: 28px; margin-bottom: 18px;
+    box-shadow: 0 10px 28px rgba(12,142,231,.18);
+  }
+  .dm-hero h1 { margin: 0 0 8px; font-size: 1.5rem; color: #fff; }
+  .dm-hero p { margin: 0; color: rgba(255,255,255,.88); font-size: 14px; line-height: 1.6; }
+
+  .dm-card {
+    background: #fff; border: 1px solid #d7e6f5; border-radius: 16px;
+    padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 14px rgba(12,142,231,.05);
+  }
+  .dm-card:hover { transform: none !important; }
+  .dm-title {
+    margin: 0 0 14px; font-size: 1rem; font-weight: 700; color: #0f172a;
+    padding-bottom: 12px; border-bottom: 1px solid #eef4fb;
+  }
+
+  .dm-papers {
+    display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px;
+  }
+  .dm-paper {
+    background: #f7fbff; border: 1px solid #e3eef9; border-radius: 14px;
+    padding: 16px; cursor: pointer; min-height: 120px;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .dm-paper:hover {
+    border-color: rgba(12,142,231,.4); box-shadow: 0 8px 18px rgba(12,142,231,.08);
+    transform: none !important;
+  }
+  .dm-paper.active {
+    border-color: #0c8ee7; background: #eaf4ff;
+    box-shadow: inset 0 0 0 1px rgba(12,142,231,.18);
+  }
+  .dm-paper h4 {
+    margin: 0 0 8px; font-size: 14.5px; font-weight: 700; color: #0f172a; line-height: 1.45;
+  }
+  .dm-paper p { margin: 0; font-size: 12.5px; color: #64748b; }
+
+  .dm-exam {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+  }
+  .dm-col-title {
+    margin: 0 0 10px; font-size: 14px; font-weight: 700; color: #0b4f8a;
+  }
+  .dm-material {
+    min-height: 280px; max-height: 420px; overflow: auto;
+    padding: 16px; border-radius: 12px; background: #f7fbff; border: 1px solid #e3eef9;
+    font-size: 14px; line-height: 1.85; color: #334155; white-space: pre-wrap;
+  }
+  .dm-stem {
+    margin: 0 0 8px; font-size: 14.5px; font-weight: 650; color: #0f172a; line-height: 1.6;
+  }
+  .dm-limit { margin: 0 0 12px; font-size: 12.5px; color: #64748b; }
+  #demo-answer {
+    min-height: 220px !important; line-height: 1.75 !important;
+  }
+  .dm-answer-foot {
+    display:flex; justify-content:space-between; align-items:center; gap:12px;
+    margin-top: 12px; font-size: 12.5px; color: #64748b;
+  }
+  .dm-submit { width: 100%; min-height: 46px; margin-top: 14px; }
+
+  .dm-score-wrap { text-align:center; padding: 12px 0 8px; }
+  .dm-score {
+    font-size: 3.2rem; font-weight: 800; color: #0c8ee7; line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  .dm-score-lab { margin-top: 8px; font-size: 13px; color: #64748b; }
+  .dm-feedback {
+    margin-top: 16px; padding: 16px; border-radius: 12px;
+    background: #f7fbff; border: 1px solid #e3eef9;
+    font-size: 14px; line-height: 1.75; color: #334155;
+  }
+  .dm-feedback p { margin: 0 0 10px; }
+  .dm-feedback ul { margin: 8px 0 12px; padding-left: 1.2rem; }
+  .dm-result-actions {
+    display:flex; justify-content:center; gap: 12px; flex-wrap:wrap; margin-top: 18px;
+  }
+  .dm-empty {
+    text-align:center; padding: 28px 12px; color:#64748b; border:1px dashed #d7e6f5;
+    border-radius: 12px; background:#fafcff;
+  }
+
+  @media (max-width: 900px) {
+    .dm-papers { grid-template-columns: 1fr; }
+    .dm-exam { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div class="dm-page">
+    <div class="dm-hero">
+      <h1>免注册试用</h1>
+      <p>体验完整批改流程，登录后可保存记录并使用多模型评审</p>
+    </div>
+
+    <div class="dm-card">
+      <h2 class="dm-title">选择示范卷</h2>
+      <div id="demo-papers" class="dm-papers">
+        <div class="dm-empty" style="grid-column:1/-1"><div class="spinner" style="margin:0 auto"></div></div>
+      </div>
+    </div>
+
+    <div id="demo-exam-section" class="dm-card" style="display:none;">
+      <h2 class="dm-title" id="demo-paper-title">作答区</h2>
+      <div class="dm-exam">
+        <div>
+          <div class="dm-col-title">给定材料</div>
+          <div id="demo-material" class="dm-material"></div>
+        </div>
+        <div>
+          <div class="dm-col-title">题目与作答</div>
+          <p class="dm-stem" id="demo-stem"></p>
+          <p class="dm-limit" id="demo-word-limit"></p>
+          <textarea id="demo-answer" class="input-field" placeholder="请输入你的答案..."></textarea>
+          <div class="dm-answer-foot">
+            <span>字数：<strong id="demo-count">0</strong></span>
+          </div>
+          <button class="btn btn-primary dm-submit" type="button" onclick="submitDemo()">提交批改</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="demo-result" class="dm-card" style="display:none;">
+      <h2 class="dm-title">批改结果</h2>
+      <div class="dm-score-wrap">
+        <div class="dm-score" id="demo-score">--</div>
+        <div class="dm-score-lab">百分制得分</div>
+      </div>
+      <div id="demo-feedback" class="dm-feedback"></div>
+      <div class="dm-result-actions">
+        <a href="#" onclick="location.reload(); return false;" class="btn btn-secondary">重新体验</a>
+        <button class="btn btn-primary" type="button" onclick="openAuthModal('register')">登录保存记录</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let selectedPaper = null;
+  let selectedQuestion = null;
+
+  function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function parseQuestions(questionsJson) {
+    if (Array.isArray(questionsJson)) return questionsJson;
+    try { return JSON.parse(questionsJson || '[]'); } catch { return []; }
+  }
+  function formatPoint(p) {
+    if (typeof p === 'string') return p;
+    if (!p || typeof p !== 'object') return '';
+    return p.point || p.description || '';
+  }
+
+  async function loadDemoPapers() {
+    try {
+      const res = await fetch('/api/papers?limit=6');
+      const { data } = await res.json();
+      const container = document.getElementById('demo-papers');
+      const papers = data?.papers || [];
+      if (!papers.length) {
+        container.innerHTML = '<div class="dm-empty" style="grid-column:1/-1">暂无示范卷</div>';
+        return;
+      }
+      container.innerHTML = papers.map(paper => {
+        const questions = parseQuestions(paper.questions);
+        const pid = escapeHtml(paper.pid);
+        const qid = escapeHtml(questions[0]?.qid || 'q1');
+        return `
+          <div class="dm-paper" data-pid="${pid}" data-qid="${qid}" onclick="selectPaper('${pid}', '${qid}', this)">
+            <h4>${escapeHtml(paper.title || '未命名试卷')}</h4>
+            <p>${escapeHtml(paper.exam_type || '')} · ${escapeHtml(paper.year || '')}</p>
+          </div>`;
+      }).join('');
+    } catch (e) {
+      document.getElementById('demo-papers').innerHTML = '<div class="dm-empty" style="grid-column:1/-1">加载失败</div>';
+    }
+  }
+
+  async function selectPaper(pid, qid, el) {
+    try {
+      document.querySelectorAll('.dm-paper').forEach(n => n.classList.remove('active'));
+      if (el) el.classList.add('active');
+      const [paperRes, qRes] = await Promise.all([
+        fetch(`/api/papers/${pid}`),
+        fetch(`/api/papers/${pid}/question/${qid}`)
+      ]);
+      const { data: paper } = await paperRes.json();
+      const { data: question } = await qRes.json();
+      selectedPaper = paper;
+      selectedQuestion = question;
+      document.getElementById('demo-paper-title').textContent = paper.title || '作答区';
+      document.getElementById('demo-material').textContent = (question.material || []).join('\n\n');
+      document.getElementById('demo-stem').textContent = question.stem || '';
+      document.getElementById('demo-word-limit').textContent = '字数要求：' + (question.word_limit || '未指定');
+      document.getElementById('demo-exam-section').style.display = 'block';
+      document.getElementById('demo-result').style.display = 'none';
+      document.getElementById('demo-exam-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (e) {
+      alert('加载失败');
+    }
+  }
+
+  document.getElementById('demo-answer')?.addEventListener('input', function() {
+    document.getElementById('demo-count').textContent = this.value.length;
+  });
+
+  async function submitDemo() {
+    const answer = document.getElementById('demo-answer').value.trim();
+    if (!answer) { alert('请输入答案'); return; }
+    if (!selectedPaper || !selectedQuestion) { alert('请先选择试卷'); return; }
+    const btn = document.querySelector('.dm-submit');
+    btn.disabled = true;
+    btn.textContent = '批改中...';
+    try {
+      const res = await fetch('/api/papers/demo/grade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pid: selectedPaper.pid,
+          qid: selectedQuestion.qid,
+          user_answer: answer
+        })
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        alert(payload.error || '批改失败，请稍后重试');
+        return;
+      }
+      const data = payload.data || {};
+      const score = Math.round(Number(data.score_rate ?? data.score ?? 0));
+      const dims = data.dimension_scores || {};
+      const hits = (data.hit_points || []).map(formatPoint).filter(Boolean);
+      const miss = (data.missing_points || []).map(formatPoint).filter(Boolean);
+      let suggestions = data.improving_suggestions;
+      if (Array.isArray(suggestions)) suggestions = suggestions.join('；');
+      document.getElementById('demo-score').textContent = score;
+      document.getElementById('demo-feedback').innerHTML = `
+        <p><strong>各维度得分</strong></p>
+        <ul>${Object.keys(dims).length ? Object.entries(dims).map(([k,v]) => `<li>${escapeHtml(k)}：${escapeHtml(v)}</li>`).join('') : '<li>暂无维度分</li>'}</ul>
+        ${hits.length ? `<p><strong>命中要点：</strong>${hits.map(escapeHtml).join('、')}</p>` : ''}
+        ${miss.length ? `<p><strong>遗漏要点：</strong>${miss.map(escapeHtml).join('、')}</p>` : ''}
+        <p><strong>AI 评语：</strong>${escapeHtml(data.ai_feedback || '暂无评语')}</p>
+        ${suggestions ? `<p><strong>改进建议：</strong>${escapeHtml(suggestions)}</p>` : ''}
+      `;
+      document.getElementById('demo-exam-section').style.display = 'none';
+      document.getElementById('demo-result').style.display = 'block';
+      document.getElementById('demo-result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (e) {
+      alert('网络错误，请稍后重试');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '提交批改';
+    }
+  }
+
+  loadDemoPapers();
+</script>
+{% endblock %}

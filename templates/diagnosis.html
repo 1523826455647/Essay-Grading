@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block title %}能力诊断 - 申论帮{% endblock %}
+
+{% block extra_css %}
+<style>
+  .dx-page { width: min(1080px, calc(100% - 32px)); margin: 0 auto; padding: 12px 0 56px; }
+  .dx-hero {
+    background: linear-gradient(135deg, #0b6fbe, #0c8ee7 55%, #12a8c9);
+    border-radius: 18px; color: #fff; padding: 28px; margin-bottom: 20px;
+    box-shadow: 0 10px 28px rgba(12,142,231,.18);
+  }
+  .dx-hero h1 { margin: 0 0 8px; font-size: 1.5rem; color: #fff; }
+  .dx-hero p { margin: 0; color: rgba(255,255,255,.88); font-size: 14px; }
+
+  .dx-card {
+    background: #fff; border: 1px solid #d7e6f5; border-radius: 16px;
+    padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 14px rgba(12,142,231,.05);
+  }
+  .dx-card:hover { transform: none !important; }
+  .dx-section-title {
+    margin: 0 0 14px; font-size: 1rem; font-weight: 700; color: #0f172a;
+    padding-bottom: 10px; border-bottom: 1px solid #eef4fb;
+  }
+
+  .dx-score-wrap { text-align: center; padding: 12px 0 4px; }
+  .dx-score {
+    width: 120px; height: 120px; margin: 0 auto; border-radius: 50%;
+    display: grid; place-items: center;
+    background: linear-gradient(180deg, #1aa0f0, #0c8ee7);
+    color: #fff; font-size: 2rem; font-weight: 800;
+    box-shadow: 0 12px 28px rgba(12,142,231,.28);
+  }
+  .dx-score-lab { margin-top: 10px; font-size: 13px; color: #64748b; }
+
+  .dx-dim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .dx-dim {
+    background: #f7fbff; border: 1px solid #e3eef9; border-radius: 12px; padding: 14px;
+  }
+  .dx-dim-top { display:flex; justify-content:space-between; gap:10px; margin-bottom: 10px; }
+  .dx-dim-label { font-size: 13px; color: #475569; font-weight: 600; }
+  .dx-dim-val { font-size: 13px; font-weight: 700; color: #0f172a; }
+  .dx-bar { height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+  .dx-fill { height: 100%; border-radius: 999px; }
+
+  .dx-type-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .dx-type {
+    text-align: center; background: #f7fbff; border: 1px solid #e3eef9;
+    border-radius: 12px; padding: 14px 8px;
+  }
+  .dx-type-name { font-size: 12px; color: #64748b; margin-bottom: 6px; }
+  .dx-type-score { font-size: 1.35rem; font-weight: 800; color: #0b4f8a; }
+
+  .dx-sw { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .dx-sw-title { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+  .dx-sw-title.good { color: #059669; }
+  .dx-sw-title.bad { color: #dc2626; }
+  .dx-item {
+    font-size: 13.5px; line-height: 1.55; color: #334155;
+    padding: 10px 0; border-bottom: 1px solid #eef4fb;
+  }
+  .dx-item:last-child { border-bottom: 0; }
+
+  .dx-rec { display: grid; gap: 10px; }
+  .dx-rec-item {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: #f7fbff; border: 1px solid #e3eef9; border-radius: 12px; padding: 14px;
+  }
+  .dx-badge {
+    flex: 0 0 auto; height: 22px; padding: 0 8px; border-radius: 999px;
+    color: #fff; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center;
+  }
+  .dx-badge.high { background: #dc2626; }
+  .dx-badge.medium { background: #d97706; }
+  .dx-badge.low { background: #059669; }
+  .dx-rec-text { font-size: 13.5px; line-height: 1.55; color: #334155; }
+
+  .dx-empty { text-align: center; padding: 36px 16px; }
+  .dx-empty h3 { margin: 0 0 8px; color: #0f172a; }
+  .dx-empty p { margin: 0 0 16px; color: #64748b; }
+  .dx-hint { max-width: 520px; margin: 24px auto 0; text-align: left; }
+  .dx-hint-item {
+    display: flex; gap: 10px; align-items: center; color: #64748b;
+    font-size: 13.5px; line-height: 1.5; padding: 8px 0;
+  }
+  .dx-hint-item svg { width: 16px; height: 16px; flex: 0 0 16px; color: #0c8ee7; }
+
+  .dx-trend { height: 220px; }
+  .dx-trend canvas { width: 100% !important; height: 100% !important; display: block; }
+
+  @media (max-width: 800px) {
+    .dx-dim-grid, .dx-sw { grid-template-columns: 1fr; }
+    .dx-type-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div class="dx-page">
+    <div class="dx-hero">
+      <h1>能力诊断报告</h1>
+      <p id="reportTime">基于你的练习记录自动生成</p>
+    </div>
+
+    <div id="loadingState" class="dx-card" style="text-align:center;padding:40px;">
+      <div class="spinner" style="margin:0 auto;"></div>
+    </div>
+
+    <div id="emptyState" class="dx-card dx-empty" style="display:none;">
+      <h3>暂无诊断报告</h3>
+      <p>完成一次练习后，系统将自动生成你的能力诊断报告</p>
+      <button class="btn btn-primary" onclick="generateReport()">立即生成报告</button>
+      <div class="dx-hint">
+        <div class="dx-hint-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l2 2"/></svg>五维度能力评估</div>
+        <div class="dx-hint-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 3 5-6"/></svg>题型得分对比与趋势</div>
+        <div class="dx-hint-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>优势短板与下一步建议</div>
+      </div>
+    </div>
+
+    <div id="reportContent" style="display:none;">
+      <div class="dx-card">
+        <div class="dx-score-wrap">
+          <div class="dx-score" id="overallScore">--</div>
+          <div class="dx-score-lab">综合得分</div>
+        </div>
+      </div>
+
+      <div class="dx-card">
+        <h2 class="dx-section-title">能力维度</h2>
+        <div class="dx-dim-grid" id="dimGrid"></div>
+      </div>
+
+      <div class="dx-card">
+        <h2 class="dx-section-title">题型得分</h2>
+        <div class="dx-type-grid" id="typeGrid"></div>
+      </div>
+
+      <div class="dx-sw">
+        <div class="dx-card">
+          <div class="dx-sw-title good">你的优势</div>
+          <div id="strengthsList"></div>
+        </div>
+        <div class="dx-card">
+          <div class="dx-sw-title bad">你的短板</div>
+          <div id="weaknessesList"></div>
+        </div>
+      </div>
+
+      <div class="dx-card">
+        <h2 class="dx-section-title">下一步建议</h2>
+        <div class="dx-rec" id="recList"></div>
+      </div>
+
+      <div class="dx-card">
+        <h2 class="dx-section-title">得分趋势</h2>
+        <div class="dx-trend"><canvas id="trendCanvas"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API = '/api/diagnosis';
+const token = localStorage.getItem('slb_token') || localStorage.getItem('token') || '';
+const headers = () => ({'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'});
+const dimNames = {point_coverage:'踩点命中',logic_structure:'逻辑结构',language:'语言表达',format:'格式规范',word_count:'字数控制'};
+const typeNames = {guina:'归纳概括',zonghe:'综合分析',duice:'提出对策',zhixing:'贯彻执行',zuowen:'大作文'};
+const dimMax = {point_coverage:40,logic_structure:25,language:20,format:5,word_count:10};
+
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+async function loadReport() {
+  try {
+    if (!token) {
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('emptyState').style.display = 'block';
+      return;
+    }
+    const res = await fetch(API + '/latest', {headers: headers()});
+    const data = await res.json();
+    if (!data.data || data.error) {
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('emptyState').style.display = 'block';
+      return;
+    }
+    renderReport(data.data);
+  } catch (e) {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('emptyState').style.display = 'block';
+  }
+}
+
+function renderReport(r) {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('reportContent').style.display = 'block';
+  document.getElementById('reportTime').textContent = '报告时间：' + (r.created_at || '').substring(0, 16);
+  document.getElementById('overallScore').textContent = r.overall_score ?? '--';
+
+  const dims = r.dimension_scores || {};
+  document.getElementById('dimGrid').innerHTML = Object.entries(dimNames).map(([k, label]) => {
+    const val = Number(dims[k] || 0);
+    const max = dimMax[k] || 20;
+    const pct = Math.min(100, (val / max) * 100);
+    const color = pct >= 75 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+    return `<div class="dx-dim"><div class="dx-dim-top"><span class="dx-dim-label">${label}</span><span class="dx-dim-val">${val}/${max}</span></div><div class="dx-bar"><div class="dx-fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+  }).join('');
+
+  const types = r.type_scores || {};
+  document.getElementById('typeGrid').innerHTML = Object.entries(typeNames).map(([k, label]) => {
+    const raw = types[k];
+    const val = raw == null ? '--' : (typeof raw === 'object' ? (raw.score ?? '--') : raw);
+    return `<div class="dx-type"><div class="dx-type-name">${label}</div><div class="dx-type-score">${val}</div></div>`;
+  }).join('');
+
+  renderList('strengthsList', r.strengths || [], '暂无数据');
+  renderList('weaknessesList', r.weaknesses || [], '暂无数据');
+
+  const recs = r.recommendations || [];
+  document.getElementById('recList').innerHTML = recs.length
+    ? recs.map(rec => {
+        const p = rec.priority || 'medium';
+        return `<div class="dx-rec-item"><span class="dx-badge ${esc(p)}">${esc(String(p).toUpperCase())}</span><span class="dx-rec-text">${esc(rec.action || '')}</span></div>`;
+      }).join('')
+    : '<div class="dx-item">暂无建议</div>';
+
+  if (r.score_trend && r.score_trend.length) drawTrend(r.score_trend);
+}
+
+function renderList(id, items, emptyText) {
+  const el = document.getElementById(id);
+  if (!items.length) { el.innerHTML = `<div class="dx-item">${emptyText}</div>`; return; }
+  el.innerHTML = items.map(i => `<div class="dx-item">${esc(i)}</div>`).join('');
+}
+
+function drawTrend(trend) {
+  const canvas = document.getElementById('trendCanvas');
+  const parent = canvas.parentElement;
+  const dpr = window.devicePixelRatio || 1;
+  const w = parent.clientWidth, h = parent.clientHeight || 220;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const max = 100, pad = 36;
+  const cw = w - pad * 2, ch = h - pad * 2;
+  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad + (ch / 4) * i;
+    ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(pad + cw, y); ctx.stroke();
+    ctx.fillStyle = '#94a3b8'; ctx.font = '11px sans-serif';
+    ctx.fillText(String(Math.round(max - (max / 4) * i)), 6, y + 4);
+  }
+  ctx.strokeStyle = '#0c8ee7'; ctx.lineWidth = 2.5; ctx.beginPath();
+  trend.forEach((s, i) => {
+    const x = pad + (cw / Math.max(trend.length - 1, 1)) * i;
+    const y = pad + ch - (Number(s) / max) * ch;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  trend.forEach((s, i) => {
+    const x = pad + (cw / Math.max(trend.length - 1, 1)) * i;
+    const y = pad + ch - (Number(s) / max) * ch;
+    ctx.fillStyle = '#0c8ee7';
+    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+  });
+}
+
+async function generateReport() {
+  if (!token) { showToast('请先登录', 'error'); return; }
+  const res = await fetch(API + '/generate', { method: 'POST', headers: headers() });
+  const data = await res.json();
+  if (data.data) renderReport(data.data);
+  else showToast(data.error || '生成失败，请先完成一次练习', 'error');
+}
+
+loadReport();
+</script>
+{% endblock %}

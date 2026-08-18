@@ -1,0 +1,382 @@
+{% extends "admin/base.html" %}
+
+{% block title %}数据统计 - 申论帮管理后台{% endblock %}
+{% block page_title %}数据统计{% endblock %}
+
+{% block admin_content %}
+<!-- 统计概览 -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-card-label">总用户数</div>
+    <div class="stat-card-value" id="stat-users">-</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-label">今日新增</div>
+    <div class="stat-card-value" id="stat-today-users">-</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-label">总批改数</div>
+    <div class="stat-card-value" id="stat-submissions">-</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-label">VIP用户</div>
+    <div class="stat-card-value" id="stat-vip-users">-</div>
+  </div>
+</div>
+
+<!-- 图表区 -->
+<div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-4);">
+  <!-- 用户增长趋势 -->
+  <div class="card">
+    <h3 style="margin-bottom: var(--space-3);">用户增长趋势</h3>
+    <div id="user-chart" style="height: 250px; display: flex; align-items: flex-end; justify-content: space-around; padding: var(--space-2);">
+      <!-- 动态渲染 -->
+    </div>
+    <div style="display: flex; justify-content: space-around; margin-top: var(--space-2); font-size: var(--text-xs); color: var(--color-text-secondary);">
+      <span>7天前</span>
+      <span>6天前</span>
+      <span>5天前</span>
+      <span>4天前</span>
+      <span>3天前</span>
+      <span>昨天</span>
+      <span>今天</span>
+    </div>
+  </div>
+
+  <!-- 批改分数分布 -->
+  <div class="card">
+    <h3 style="margin-bottom: var(--space-3);">批改分数分布</h3>
+    <div id="score-distribution" style="padding: var(--space-3);">
+      <!-- 动态渲染 -->
+    </div>
+  </div>
+</div>
+
+<!-- 详细数据表 -->
+<div class="card" style="margin-top: var(--space-4);">
+  <div class="admin-table-header">
+    <h3 class="admin-table-title">用户数据明细</h3>
+  </div>
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>日期</th>
+        <th>新增用户</th>
+        <th>活跃用户</th>
+        <th>新增批改</th>
+        <th>VIP转化</th>
+      </tr>
+    </thead>
+    <tbody id="daily-stats">
+      <tr><td colspan="5" style="text-align: center;">加载中...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Token 消耗统计 -->
+<div class="card" style="margin-top: var(--space-4);">
+  <div class="admin-table-header">
+    <h3 class="admin-table-title">Token 消耗统计（近 7 天）</h3>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <span class="badge badge-info" id="token-total-tokens">- tokens</span>
+      <span class="badge badge-accent" id="token-total-cost">- 元</span>
+    </div>
+  </div>
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>模型</th>
+        <th>调用次数</th>
+        <th>Token 总数</th>
+        <th>成本（元）</th>
+      </tr>
+    </thead>
+    <tbody id="token-by-model">
+      <tr><td colspan="4" style="text-align: center;">加载中...</td></tr>
+    </tbody>
+  </table>
+  <div id="token-daily" style="display:flex; align-items:flex-end; gap:8px; height:120px; padding:16px 16px 8px;"></div>
+</div>
+
+<!-- Token 消耗明细 -->
+<div class="card" style="margin-top: var(--space-4);">
+  <div class="admin-table-header">
+    <h3 class="admin-table-title">每次调用消耗明细</h3>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <select id="token-record-source" style="width: 150px;">
+        <option value="">全部来源</option>
+        <option value="grading">批改</option>
+        <option value="summarize">汇总</option>
+        <option value="analyze">素材分析</option>
+        <option value="phrase_generate">AI 造段</option>
+        <option value="reference_extract">采分点提取</option>
+        <option value="simple_feedback">简化反馈</option>
+      </select>
+    </div>
+  </div>
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>时间</th>
+        <th>模型</th>
+        <th>来源</th>
+        <th>输入 Token</th>
+        <th>输出 Token</th>
+        <th>总 Token</th>
+        <th>金额（元）</th>
+      </tr>
+    </thead>
+    <tbody id="token-records">
+      <tr><td colspan="7" style="text-align: center;">加载中...</td></tr>
+    </tbody>
+  </table>
+  <div id="token-records-pagination" style="display:flex; justify-content: space-between; align-items: center; padding-top: 14px;"></div>
+</div>
+
+<!-- 热门试卷 -->
+<div class="card" style="margin-top: var(--space-4);">
+  <div class="admin-table-header">
+    <h3 class="admin-table-title">热门试卷 TOP 10</h3>
+  </div>
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>排名</th>
+        <th>标题</th>
+        <th>考试类型</th>
+        <th>年份</th>
+        <th>批改次数</th>
+        <th>平均得分</th>
+      </tr>
+    </thead>
+    <tbody id="hot-papers">
+      <tr><td colspan="6" style="text-align: center;">加载中...</td></tr>
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  async function loadStats() {
+    try {
+      const data = await adminFetch('/stats');
+      const stats = data.data;
+
+      // 更新概览数据
+      document.getElementById('stat-users').textContent = stats.total_users || 0;
+      document.getElementById('stat-today-users').textContent = stats.today_users || 0;
+      document.getElementById('stat-submissions').textContent = stats.total_submissions || 0;
+      document.getElementById('stat-vip-users').textContent = stats.vip_users || 0;
+
+      // 渲染用户增长趋势
+      renderUserChart(stats.user_growth || []);
+
+      // 渲染分数分布
+      renderScoreDistribution(stats.score_distribution || {});
+
+      // 渲染每日数据
+      renderDailyStats(stats.daily_stats || []);
+
+      // 渲染热门试卷
+      renderHotPapers(stats.hot_papers || []);
+
+      lucide.createIcons();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function loadTokenUsage() {
+    try {
+      const data = await adminFetch('/token-usage?days=7');
+      const u = data.data || {};
+      document.getElementById('token-total-tokens').textContent = (u.total_tokens || 0) + ' tokens';
+      document.getElementById('token-total-cost').textContent = '¥' + (u.total_cost || 0).toFixed(2);
+
+      const tbody = document.getElementById('token-by-model');
+      const models = u.by_model || [];
+      if (!models.length) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">暂无数据（开始批改后自动统计）</td></tr>';
+      } else {
+        tbody.innerHTML = models.map(m => `
+          <tr>
+            <td>${m.model_name}</td>
+            <td>${m.calls}</td>
+            <td>${m.tokens}</td>
+            <td>¥${m.cost.toFixed(4)}</td>
+          </tr>`).join('');
+      }
+
+      // 按天柱状图（token 数）
+      const dailyBox = document.getElementById('token-daily');
+      const daily = (u.daily || []).slice().reverse();
+      if (!daily.length) {
+        dailyBox.innerHTML = '<span style="color:var(--color-text-secondary);font-size:13px;">暂无数据</span>';
+      } else {
+        const maxTok = Math.max(...daily.map(d => d.tokens), 1);
+        dailyBox.innerHTML = daily.map(d => {
+          const h = Math.max((d.tokens / maxTok) * 90, 3);
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;" title="${d.day}: ${d.tokens} tokens / ¥${d.cost}">
+            <div style="width:100%;max-width:36px;height:${h}px;background:var(--color-primary);border-radius:4px 4px 0 0;"></div>
+            <span style="font-size:10px;color:var(--color-text-secondary);">${d.day.slice(5)}</span>
+          </div>`;
+        }).join('');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const SOURCE_LABELS = {
+    grading: '批改', summarize: '汇总', analyze: '素材分析',
+    phrase_generate: 'AI 造段', reference_extract: '采分点提取',
+    simple_feedback: '简化反馈', other: '其他'
+  };
+
+  function fmtNum(n) { return (n || 0).toLocaleString('zh-CN'); }
+
+  function fmtCost(c) {
+    if (c == null) return '-';
+    return '¥' + Number(c).toFixed(4);
+  }
+
+  async function loadTokenRecords(page = 1) {
+    const source = document.getElementById('token-record-source').value;
+    try {
+      const data = await adminFetch(`/token-usage/records?page=${page}&limit=20&source=${encodeURIComponent(source)}`);
+      renderTokenRecords(data.data);
+    } catch (e) {
+      document.getElementById('token-records').innerHTML =
+        `<tr><td colspan="7" style="text-align:center;color:var(--status-error);">加载失败：${escapeHtml(e.message)}</td></tr>`;
+    }
+  }
+
+  function renderTokenRecords(d) {
+    const tbody = document.getElementById('token-records');
+    const records = d.records || [];
+    if (!records.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">暂无明细（开始批改后自动记录）</td></tr>';
+    } else {
+      tbody.innerHTML = records.map(r => {
+        const time = r.created_at
+          ? new Date(r.created_at.replace(' ', 'T') + 'Z').toLocaleString('zh-CN')
+          : '-';
+        return `<tr>
+          <td style="white-space:nowrap;">${escapeHtml(time)}</td>
+          <td>${escapeHtml(r.model_name)}</td>
+          <td><span class="status-badge status-draft">${escapeHtml(SOURCE_LABELS[r.source] || r.source)}</span></td>
+          <td>${fmtNum(r.prompt_tokens)}</td>
+          <td>${fmtNum(r.completion_tokens)}</td>
+          <td>${fmtNum(r.total_tokens)}</td>
+          <td style="font-weight:600;color:var(--admin-accent);">${fmtCost(r.cost)}</td>
+        </tr>`;
+      }).join('');
+    }
+    renderTokenPagination(d);
+  }
+
+  function renderTokenPagination(d) {
+    const box = document.getElementById('token-records-pagination');
+    const total = d.total || 0;
+    const pages = d.pages || 0;
+    if (!total) {
+      box.innerHTML = '';
+      return;
+    }
+    let html = `<span style="font-size:13px;color:var(--admin-text-secondary);">共 ${total} 条 · 第 ${d.page}/${pages} 页</span>`;
+    if (pages > 1) {
+      const prevDisabled = d.page <= 1;
+      const nextDisabled = d.page >= pages;
+      html += '<div style="display:flex;gap:6px;">';
+      html += `<button class="action-btn action-btn-view" ${prevDisabled ? 'disabled style="opacity:.4;cursor:not-allowed;"' : ''} onclick="loadTokenRecords(${d.page - 1})">上一页</button>`;
+      html += `<button class="action-btn action-btn-view" ${nextDisabled ? 'disabled style="opacity:.4;cursor:not-allowed;"' : ''} onclick="loadTokenRecords(${d.page + 1})">下一页</button>`;
+      html += '</div>';
+    }
+    box.innerHTML = html;
+  }
+
+  function renderUserChart(growthData) {
+    const container = document.getElementById('user-chart');
+    if (!growthData.length) {
+      container.innerHTML = '<p style="text-align: center; color: var(--color-text-secondary);">暂无数据</p>';
+      return;
+    }
+
+    const maxValue = Math.max(...growthData.map(d => d.count), 1);
+    container.innerHTML = growthData.map(d => {
+      const height = Math.max((d.count / maxValue) * 200, 4);
+      return `<div style="width: 30px; height: ${height}px; background: var(--color-primary); border-radius: 4px 4px 0 0;" title="${d.date}: ${d.count}人"></div>`;
+    }).join('');
+  }
+
+  function renderScoreDistribution(distribution) {
+    const container = document.getElementById('score-distribution');
+    const ranges = [
+      { label: '0-60', key: 'low', color: 'var(--color-error)' },
+      { label: '60-75', key: 'medium', color: 'var(--color-warning)' },
+      { label: '75-90', key: 'high', color: 'var(--color-success)' },
+      { label: '90-100', key: 'excellent', color: 'var(--color-primary)' }
+    ];
+
+    const total = Object.values(distribution).reduce((sum, v) => sum + v, 0) || 1;
+
+    container.innerHTML = ranges.map(range => {
+      const count = distribution[range.key] || 0;
+      const percent = ((count / total) * 100).toFixed(1);
+      return `
+        <div style="display: flex; align-items: center; margin-bottom: var(--space-2);">
+          <span style="width: 60px;">${range.label}分</span>
+          <div style="flex: 1; height: 20px; background: var(--color-bg); border-radius: 4px; margin: 0 var(--space-2);">
+            <div style="width: ${percent}%; height: 100%; background: ${range.color}; border-radius: 4px;"></div>
+          </div>
+          <span style="width: 80px; text-align: right;">${count}人 (${percent}%)</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderDailyStats(stats) {
+    const tbody = document.getElementById('daily-stats');
+    if (!stats.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">暂无数据</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = stats.map(s => `
+      <tr>
+        <td>${s.date}</td>
+        <td>${s.new_users || 0}</td>
+        <td>${s.active_users || 0}</td>
+        <td>${s.new_submissions || 0}</td>
+        <td>${s.new_vip || 0}</td>
+      </tr>
+    `).join('');
+  }
+
+  function renderHotPapers(papers) {
+    const tbody = document.getElementById('hot-papers');
+    if (!papers.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">暂无数据</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = papers.map((p, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${p.title}</td>
+        <td>${p.exam_type}</td>
+        <td>${p.year}</td>
+        <td>${p.submission_count || 0}</td>
+        <td>${p.avg_score ? p.avg_score.toFixed(1) : '-'}</td>
+      </tr>
+    `).join('');
+  }
+
+  loadStats();
+  loadTokenUsage();
+  loadTokenRecords();
+
+  document.getElementById('token-record-source').addEventListener('change', () => loadTokenRecords(1));
+</script>
+{% endblock %}

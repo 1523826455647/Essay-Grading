@@ -1,0 +1,20 @@
+/* ================================================================
+   SLB Glass — light soft-blue glass
+   ================================================================ */
+
+.glass {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(12, 142, 231, 0.10);
+  box-shadow: 0 4px 18px rgba(12, 142, 231, 0.06);
+}
+
+.glass-hover {
+  transition: background var(--dur-normal) ease, box-shadow var(--dur-normal) ease;
+}
+
+.glass-hover:hover {
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 24px rgba(12, 142, 231, 0.10);
+}

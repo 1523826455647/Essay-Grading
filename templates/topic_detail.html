@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}{{ topic.title }} - 申论帮{% endblock %}
+
+{% block extra_css %}
+<style>
+  .td-wrap { width: min(880px, calc(100% - 32px)); margin: 0 auto; padding: 20px 0 56px; }
+  .td-back {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: #64748b; text-decoration: none; font-size: 14px; font-weight: 600;
+    margin-bottom: 16px; padding: 8px 10px; border-radius: 10px; transition: all .15s;
+  }
+  .td-back:hover { background: #eef6ff; color: #0b4f8a; transform: none; }
+  .td-card {
+    background: #fff; border: 1px solid #d7e6f5; border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(12,142,231,.06); overflow: hidden;
+  }
+  .td-header { padding: 28px 32px 22px; border-bottom: 1px solid #eaf2fa; }
+  .td-title { margin: 0 0 14px; font-size: 1.5rem; font-weight: 750; color: #0f172a; line-height: 1.5; letter-spacing: -0.01em; }
+  .td-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .td-badge {
+    display: inline-flex; align-items: center; height: 24px; padding: 0 10px;
+    border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff;
+  }
+  .badge-shiping { background: #0c8ee7; }
+  .badge-lilun { background: #7c3aed; }
+  .badge-dangjian { background: #dc2626; }
+  .badge-xuexi { background: #db2777; }
+  .badge-jingji { background: #059669; }
+  .badge-shehui { background: #0c8ee7; }
+  .badge-wenhua { background: #7c3aed; }
+  .badge-shengtai { background: #059669; }
+  .badge-minsheng { background: #d97706; }
+  .badge-zhili { background: #0e7490; }
+  .badge-keji { background: #2563eb; }
+  .td-date { font-size: 12.5px; color: #94a3b8; }
+  .td-source-link { font-size: 13px; color: #0c8ee7; text-decoration: none; font-weight: 600; }
+  .td-source-link:hover { text-decoration: underline; }
+  .td-keywords { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .keyword-tag {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; background: #e8f4fe; color: #0b4f8a;
+  }
+  .td-body { padding: 28px 32px 32px; }
+  .td-body .content p {
+    margin: 0 0 18px; font-size: 16px; line-height: 1.95; color: #334155;
+    text-indent: 2em; text-align: justify; word-break: break-word;
+  }
+  .td-body .content p:last-child { margin-bottom: 0; }
+  .td-empty { color: #94a3b8; font-size: 14px; }
+  .td-actions { display: flex; gap: 12px; margin-top: 24px; justify-content: center; flex-wrap: wrap; }
+  .td-actions .btn { min-width: 120px; }
+  @media (max-width: 640px) {
+    .td-header { padding: 20px 18px 16px; }
+    .td-body { padding: 20px 18px 24px; }
+    .td-title { font-size: 1.25rem; }
+    .td-body .content p { font-size: 15px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="td-wrap">
+  <a href="/topics" class="td-back">
+    <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+    返回热点列表
+  </a>
+
+  <div class="td-card">
+    <div class="td-header">
+      <h1 class="td-title">{{ topic.title }}</h1>
+      <div class="td-meta">
+        <span class="td-badge badge-{{ topic.category }}">{{ topic.category_name or topic.category }}</span>
+        {% if topic.created_at %}
+        <span class="td-date">{{ topic.created_at[:10] }}</span>
+        {% endif %}
+        {% if topic.source_url %}
+        <a href="{{ topic.source_url }}" target="_blank" rel="noopener" class="td-source-link">查看原文 ↗</a>
+        {% endif %}
+      </div>
+      {% if topic.keywords %}
+      <div class="td-keywords">
+        {% for kw in topic.keywords %}
+        {% if kw %}<span class="keyword-tag">{{ kw }}</span>{% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="td-body">
+      <div class="content" id="article-content"></div>
+    </div>
+
+    <div class="td-actions">
+      {% if topic.source_url %}
+      <a href="{{ topic.source_url }}" target="_blank" rel="noopener" class="btn btn-secondary">阅读完整原文 ↗</a>
+      {% endif %}
+      <button class="btn btn-accent" id="bookmarkBtn" onclick="toggleBookmark()">收藏</button>
+      <a href="/topics" class="btn btn-secondary">返回列表</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const topicId = {{ topic.topic_id }};
+  const token = localStorage.getItem('slb_token');
+  const headers = () => ({'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'});
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  // 正文按段落渲染：\n\n 分段，段内单换行转 <br>
+  function renderContent(text) {
+    const box = document.getElementById('article-content');
+    if (!text || !text.trim()) {
+      box.innerHTML = '<div class="td-empty">暂无正文内容</div>';
+      return;
+    }
+    const paras = text.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+    box.innerHTML = paras.map(p =>
+      '<p>' + escapeHtml(p).replace(/\n/g, '<br>') + '</p>'
+    ).join('');
+  }
+
+  renderContent({{ topic.original_text|tojson }});
+
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+
+  // 标记已读
+  if (token) {
+    fetch('/api/topics/' + topicId + '/read', {method: 'POST', headers: headers()}).catch(() => {});
+  }
+
+  async function loadState() {
+    if (!token) return;
+    try {
+      const res = await fetch('/api/topics/' + topicId, {headers: headers()});
+      const data = await res.json();
+      if (data.data && data.data.user_state && data.data.user_state.is_bookmarked) {
+        document.getElementById('bookmarkBtn').textContent = '取消收藏';
+      }
+    } catch (e) {}
+  }
+
+  async function toggleBookmark() {
+    if (!token) { if (typeof showToast === 'function') showToast('请先登录'); else alert('请先登录'); return; }
+    try {
+      const res = await fetch('/api/topics/' + topicId + '/bookmark', {method: 'POST', headers: headers()});
+      const data = await res.json();
+      if (data.data) {
+        document.getElementById('bookmarkBtn').textContent = data.data.is_bookmarked ? '取消收藏' : '收藏';
+        if (typeof showToast === 'function') showToast(data.data.is_bookmarked ? '已收藏' : '已取消收藏');
+      }
+    } catch (e) {}
+  }
+
+  loadState();
+</script>
+{% endblock %}

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理员登录 - 申论帮</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/variables.css', v=6) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css', v=6) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme-light.css', v=6) }}">
+  <style>
+    body {
+      min-height: 100dvh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      font-family: var(--font-sans);
+      background:
+        radial-gradient(900px 420px at 12% 0%, rgba(12,142,231,.16), transparent 55%),
+        radial-gradient(700px 360px at 90% 100%, rgba(8,145,178,.12), transparent 50%),
+        #f4f8fd;
+      color: var(--color-text);
+    }
+    .login-shell {
+      width: min(420px, calc(100vw - 32px));
+      background: #fff;
+      border: 1px solid var(--color-border);
+      border-radius: 20px;
+      box-shadow: 0 18px 48px rgba(12,142,231,.12);
+      padding: 32px 28px;
+    }
+    .brand {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .brand h1 {
+      margin: 0 0 8px;
+      font-size: 1.75rem;
+      background: linear-gradient(120deg, #0b3f6d, #0c8ee7);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .brand p {
+      margin: 0;
+      color: var(--color-text-tertiary);
+      font-size: .9rem;
+    }
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: .875rem;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+    }
+    .input-field {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid #cfe0f1;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fff;
+      color: #0f172a;
+      font: inherit;
+      box-sizing: border-box;
+    }
+    .input-field:focus {
+      outline: none;
+      border-color: #0c8ee7;
+      box-shadow: 0 0 0 3px rgba(12,142,231,.18);
+    }
+    .btn-primary {
+      width: 100%;
+      min-height: 46px;
+      border: 0;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #1aa0f0, #0c8ee7);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(12,142,231,.28);
+    }
+    .btn-primary:disabled { opacity: .65; cursor: not-allowed; }
+    .footer-links {
+      margin-top: 18px;
+      text-align: center;
+      font-size: .875rem;
+    }
+    .footer-links a { color: #0c8ee7; text-decoration: none; }
+    .hint {
+      margin-top: 14px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #eef7ff;
+      color: #0b4f8a;
+      font-size: .8rem;
+      line-height: 1.5;
+    }
+    #toast-container { position: fixed; right: 16px; bottom: 16px; z-index: 50; }
+    .toast {
+      background: #0f172a;
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin-top: 8px;
+      box-shadow: 0 8px 24px rgba(15,23,42,.18);
+    }
+    .toast.error { background: #dc2626; }
+    .toast.success { background: #059669; }
+  </style>
+</head>
+<body>
+  <div class="login-shell">
+    <div class="brand">
+      <h1>申论帮 · 管理后台</h1>
+      <p>请使用管理员账号登录</p>
+    </div>
+    <form id="login-form">
+      <div class="form-group">
+        <label for="admin-username">用户名</label>
+        <input id="admin-username" class="input-field" autocomplete="username" required placeholder="admin">
+      </div>
+      <div class="form-group">
+        <label for="admin-password">密码</label>
+        <input id="admin-password" class="input-field" type="password" autocomplete="current-password" required placeholder="请输入密码">
+      </div>
+      <button id="login-btn" class="btn-primary" type="submit">登录管理后台</button>
+    </form>
+    <div class="hint">
+      登录成功后将同时写入会话 Cookie 与本地 Token，可直接进入工作台、用户/试卷/模型管理等页面。
+    </div>
+    <div class="footer-links">
+      <a href="/">返回前台</a>
+    </div>
+  </div>
+  <div id="toast-container"></div>
+  <script>
+    function showToast(message, type = 'success') {
+      const box = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      el.className = 'toast ' + type;
+      el.textContent = message;
+      box.appendChild(el);
+      setTimeout(() => el.remove(), 2800);
+    }
+
+    document.getElementById('login-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const btn = document.getElementById('login-btn');
+      const username = document.getElementById('admin-username').value.trim();
+      const password = document.getElementById('admin-password').value;
+      if (!username || !password) {
+        showToast('请输入用户名和密码', 'error');
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = '登录中...';
+      try {
+        const res = await fetch('/api/admin/auth/login', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.error || '登录失败');
+        const token = payload.data?.token;
+        if (!token) throw new Error('登录响应缺少 token');
+        localStorage.setItem('admin_token', token);
+        localStorage.setItem('slb_token', token);
+        showToast('登录成功', 'success');
+        setTimeout(() => { window.location.href = '/admin'; }, 350);
+      } catch (error) {
+        showToast(error.message || '登录失败', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '登录管理后台';
+      }
+    });
+  </script>
+</body>
+</html>

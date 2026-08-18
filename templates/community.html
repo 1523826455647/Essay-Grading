@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+{% block title %}社区互助 - 申论帮{% endblock %}
+
+{% block extra_css %}
+<style>
+  .cm-page { width: min(980px, calc(100% - 32px)); margin: 0 auto; padding: 12px 0 56px; }
+  .cm-hero {
+    background: linear-gradient(135deg, #0b6fbe, #0c8ee7 55%, #12a8c9);
+    border-radius: 18px; color: #fff; padding: 28px; margin-bottom: 18px;
+    box-shadow: 0 10px 28px rgba(12,142,231,.18);
+  }
+  .cm-hero h1 { margin: 0 0 8px; font-size: 1.5rem; color: #fff; }
+  .cm-hero p { margin: 0; color: rgba(255,255,255,.88); font-size: 14px; }
+
+  .cm-card {
+    background: #fff; border: 1px solid #d7e6f5; border-radius: 16px;
+    padding: 18px; margin-bottom: 14px; box-shadow: 0 4px 14px rgba(12,142,231,.05);
+  }
+  .cm-card:hover { transform: none !important; }
+  .cm-title {
+    margin: 0 0 14px; font-size: 1rem; font-weight: 700; color: #0f172a;
+    padding-bottom: 12px; border-bottom: 1px solid #eef4fb;
+  }
+
+  .cm-create-toggle {
+    display:block; width:100%; min-height:48px; border-radius:14px;
+    border:1px dashed #b7d7f3; background:#f7fbff; color:#0b4f8a;
+    font-size:14px; font-weight:650; cursor:pointer;
+  }
+  .cm-create-toggle:hover { border-color:#0c8ee7; background:#eaf4ff; transform:none !important; }
+  .cm-create-form { display:none; margin-top: 12px; }
+  .cm-form-row { display:grid; grid-template-columns: 1fr 1.4fr; gap: 14px; margin-bottom: 14px; }
+  .cm-form-actions { display:flex; gap: 10px; margin-top: 8px; }
+
+  .cm-featured { display:grid; gap: 12px; }
+  .cm-featured-item {
+    background: linear-gradient(135deg, #0b4f8a, #0c8ee7);
+    color:#fff; border-radius: 14px; padding: 18px; cursor:pointer;
+  }
+  .cm-featured-item:hover { transform: none !important; filter: brightness(1.03); }
+  .cm-featured-badge {
+    display:inline-flex; height:22px; padding:0 10px; border-radius:999px;
+    background: rgba(255,255,255,.18); font-size:11px; font-weight:700; margin-bottom:10px;
+  }
+  .cm-featured-title { font-size:15px; font-weight:700; margin-bottom:8px; line-height:1.45; }
+  .cm-featured-content { font-size:13.5px; line-height:1.65; opacity:.9; margin-bottom:10px; }
+  .cm-featured-meta { font-size:12px; opacity:.75; }
+
+  .cm-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+  .cm-filters, .cm-sorts { display:flex; flex-wrap:wrap; gap:8px; }
+  .cm-chip {
+    min-height:32px; padding:0 12px; border-radius:999px; border:1px solid #d7e6f5;
+    background:#fff; color:#475569; font-size:12.5px; font-weight:600; cursor:pointer;
+  }
+  .cm-chip:hover, .cm-chip.active { border-color:rgba(12,142,231,.4); background:#eaf4ff; color:#0b4f8a; transform:none !important; }
+  .cm-sort {
+    border:none; background:transparent; color:#94a3b8; font-size:12.5px; cursor:pointer; font-weight:600;
+  }
+  .cm-sort.active { color:#0c8ee7; }
+
+  .cm-list { display:grid; gap:12px; }
+  .cm-post {
+    background:#fff; border:1px solid #d7e6f5; border-radius:14px; padding:16px 18px; cursor:pointer;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .cm-post:hover { border-color:rgba(12,142,231,.35); box-shadow:0 8px 20px rgba(12,142,231,.08); transform:none !important; }
+  .cm-post-top { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
+  .cm-type {
+    display:inline-flex; align-items:center; height:24px; padding:0 10px; border-radius:999px;
+    font-size:12px; font-weight:700; color:#fff;
+  }
+  .type-answer_share { background:#059669; }
+  .type-question { background:#d97706; }
+  .type-discussion { background:#0c8ee7; }
+  .type-tips { background:#7c3aed; }
+  .cm-nick { font-size:12.5px; color:#94a3b8; }
+  .cm-post-title { margin:0 0 8px; font-size:1.02rem; font-weight:700; color:#0f172a; line-height:1.45; }
+  .cm-post-content {
+    margin:0 0 12px; font-size:13.5px; line-height:1.7; color:#64748b;
+    display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .cm-post-foot { display:flex; flex-wrap:wrap; gap:8px 14px; font-size:12.5px; color:#94a3b8; }
+  .cm-star { color:#0c8ee7; font-weight:700; }
+
+  .cm-empty {
+    text-align:center; padding:42px 16px; border:1px dashed #d7e6f5; border-radius:14px; color:#64748b; background:#fafcff;
+  }
+
+  .cm-overlay {
+    position:fixed; inset:0; z-index:200; display:none; align-items:center; justify-content:center;
+    background: rgba(15,23,42,.4); backdrop-filter: blur(4px); padding: 16px;
+  }
+  .cm-modal {
+    width: min(720px, 100%); max-height: 85vh; overflow:auto; background:#fff;
+    border-radius: 16px; border:1px solid #d7e6f5; box-shadow: 0 20px 48px rgba(15,23,42,.18);
+    padding: 24px;
+  }
+  .cm-close {
+    float:right; width:32px; height:32px; border:0; border-radius:8px; background:#f1f5f9;
+    color:#64748b; font-size:20px; cursor:pointer;
+  }
+  .cm-detail-title { margin: 0 40px 10px 0; font-size:1.2rem; font-weight:750; color:#0f172a; line-height:1.4; }
+  .cm-detail-meta { font-size:12.5px; color:#94a3b8; margin-bottom:16px; }
+  .cm-detail-content {
+    font-size:14.5px; line-height:1.8; color:#334155; white-space:pre-wrap; margin-bottom:18px;
+    padding: 14px 16px; background:#f7fbff; border:1px solid #e3eef9; border-radius:12px;
+  }
+  .cm-like {
+    min-height:36px; padding:0 14px; border-radius:10px; border:1px solid #d7e6f5;
+    background:#fff; cursor:pointer; font-size:13.5px; color:#475569;
+  }
+  .cm-like.liked { border-color:#fecaca; color:#dc2626; background:#fef2f2; }
+  .cm-comments { margin-top:18px; border-top:1px solid #eef4fb; padding-top:16px; }
+  .cm-comment { padding:12px 0; border-bottom:1px solid #f1f5f9; }
+  .cm-comment-head { display:flex; justify-content:space-between; margin-bottom:6px; }
+  .cm-comment-nick { font-size:12.5px; font-weight:700; color:#0f172a; }
+  .cm-comment-time { font-size:12px; color:#94a3b8; }
+  .cm-comment-body { font-size:13.5px; line-height:1.65; color:#475569; }
+  .cm-comment-form { display:flex; gap:10px; margin-top:14px; }
+  .cm-comment-form textarea {
+    flex:1; min-height:70px; border:1px solid #d7e6f5; border-radius:10px;
+    padding:10px 12px; font:inherit; color:#0f172a; background:#fff; resize:vertical;
+  }
+
+  @media (max-width: 700px) {
+    .cm-form-row { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div class="cm-page">
+    <div class="cm-hero">
+      <h1>社区互助</h1>
+      <p>分享交流，共同进步</p>
+    </div>
+
+    <div class="cm-card">
+      <button class="cm-create-toggle" type="button" onclick="toggleCreate()">+ 发布新帖</button>
+      <div class="cm-create-form cm-card" id="createForm" style="box-shadow:none; margin:12px 0 0; padding:16px;">
+        <div class="cm-form-row">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">帖子类型</label>
+            <select class="input-field" id="postType">
+              <option value="answer_share">晒答案</option>
+              <option value="question">求助</option>
+              <option value="discussion">讨论</option>
+              <option value="tips">备考经验</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">标题</label>
+            <input type="text" class="input-field" id="postTitle" placeholder="简短描述">
+          </div>
+        </div>
+        <div class="form-group" style="margin:0 0 8px;">
+          <label class="form-label">内容</label>
+          <textarea class="input-field" id="postContent" style="min-height:120px;" placeholder="分享你的经验、提出你的问题..."></textarea>
+        </div>
+        <div class="cm-form-actions">
+          <button class="btn btn-primary" type="button" onclick="submitPost()">发布</button>
+          <button class="btn btn-secondary" type="button" onclick="toggleCreate()">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="cm-card" id="featuredSection" style="display:none;">
+      <h2 class="cm-title">精选范文</h2>
+      <div class="cm-featured" id="featuredList"></div>
+    </div>
+
+    <div class="cm-card">
+      <h2 class="cm-title">社区帖子</h2>
+      <div class="cm-toolbar">
+        <div class="cm-filters">
+          <button class="cm-chip active" onclick="filterType('', this)">全部</button>
+          <button class="cm-chip" onclick="filterType('answer_share', this)">晒答案</button>
+          <button class="cm-chip" onclick="filterType('question', this)">求助</button>
+          <button class="cm-chip" onclick="filterType('discussion', this)">讨论</button>
+          <button class="cm-chip" onclick="filterType('tips', this)">备考经验</button>
+        </div>
+        <div class="cm-sorts">
+          <button class="cm-sort active" onclick="changeSort('latest', this)">最新</button>
+          <button class="cm-sort" onclick="changeSort('hot', this)">最热</button>
+        </div>
+      </div>
+      <div class="cm-list" id="postList">
+        <div class="cm-empty"><div class="spinner" style="margin:0 auto"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="cm-overlay" id="detailOverlay" onclick="closeDetail(event)">
+  <div class="cm-modal" id="detailBox" onclick="event.stopPropagation()">
+    <button class="cm-close" type="button" onclick="document.getElementById('detailOverlay').style.display='none'">&times;</button>
+    <div id="detailContent"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API = '/api/community';
+const token = localStorage.getItem('slb_token') || localStorage.getItem('token') || '';
+const headers = () => ({'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'});
+let currentType = '';
+let currentSort = 'latest';
+
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function loadFeatured() {
+  try {
+    const res = await fetch(API + '/featured?limit=3');
+    const data = await res.json();
+    const items = data.data?.items || [];
+    if (!items.length) return;
+    document.getElementById('featuredSection').style.display = 'block';
+    document.getElementById('featuredList').innerHTML = items.map(p => `
+      <div class="cm-featured-item" onclick="viewPost(${p.post_id})">
+        <span class="cm-featured-badge">精选</span>
+        <div class="cm-featured-title">${escapeHtml(p.title || (p.content || '').substring(0, 50))}</div>
+        <div class="cm-featured-content">${escapeHtml((p.content || '').substring(0, 100))}...</div>
+        <div class="cm-featured-meta">${escapeHtml(p.nickname || '')} · ${p.like_count || 0}赞 · ${p.comment_count || 0}评论</div>
+      </div>`).join('');
+  } catch (e) {}
+}
+
+async function loadPosts(page = 1) {
+  const params = new URLSearchParams({page, limit: 20, sort: currentSort});
+  if (currentType) params.append('type', currentType);
+  const h = token ? headers() : {'Content-Type': 'application/json'};
+  try {
+    const res = await fetch(API + '/posts?' + params, {headers: h});
+    const data = await res.json();
+    const list = document.getElementById('postList');
+    const items = data.data?.items || [];
+    if (!items.length) {
+      list.innerHTML = `
+        <div class="cm-empty">
+          <p style="font-size:15px;font-weight:700;color:#0f172a;margin:0 0 8px">还没有帖子</p>
+          <p style="margin:0 0 16px">成为第一个分享的人吧</p>
+          <button class="btn btn-primary btn-sm" onclick="toggleCreate()">发布新帖</button>
+        </div>`;
+      return;
+    }
+    list.innerHTML = items.map(p => `
+      <div class="cm-post" onclick="viewPost(${p.post_id})">
+        <div class="cm-post-top">
+          <span class="cm-type type-${escapeHtml(p.post_type || '')}">${escapeHtml(p.post_type_name || '')}</span>
+          <span class="cm-nick">${escapeHtml(p.nickname || '')}</span>
+        </div>
+        ${p.title ? `<div class="cm-post-title">${escapeHtml(p.title)}</div>` : ''}
+        <div class="cm-post-content">${escapeHtml(p.content || '')}</div>
+        <div class="cm-post-foot">
+          ${p.is_featured ? '<span class="cm-star">★ 精选</span>' : ''}
+          <span>${p.view_count || 0} 浏览</span>
+          <span>${p.like_count || 0} 赞</span>
+          <span>${p.comment_count || 0} 评论</span>
+          <span>${timeAgo(p.created_at)}</span>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    document.getElementById('postList').innerHTML = '<div class="cm-empty">加载失败，请刷新重试</div>';
+  }
+}
+
+function filterType(type, btn) {
+  currentType = type;
+  document.querySelectorAll('.cm-chip').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  loadPosts();
+}
+function changeSort(sort, btn) {
+  currentSort = sort;
+  document.querySelectorAll('.cm-sort').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  loadPosts();
+}
+function toggleCreate() {
+  const form = document.getElementById('createForm');
+  form.style.display = form.style.display === 'none' || !form.style.display ? 'block' : 'none';
+}
+
+async function submitPost() {
+  if (!token) { showToast('请先登录', 'error'); openAuthModal('login'); return; }
+  const post_type = document.getElementById('postType').value;
+  const title = document.getElementById('postTitle').value.trim();
+  const content = document.getElementById('postContent').value.trim();
+  if (!content) { showToast('请输入内容', 'error'); return; }
+  const res = await fetch(API + '/posts', {
+    method: 'POST', headers: headers(),
+    body: JSON.stringify({post_type, title, content})
+  });
+  const data = await res.json();
+  if (data.error) { showToast(data.error, 'error'); return; }
+  showToast('发布成功');
+  toggleCreate();
+  document.getElementById('postContent').value = '';
+  document.getElementById('postTitle').value = '';
+  loadPosts();
+}
+
+async function viewPost(id) {
+  const h = token ? headers() : {'Content-Type': 'application/json'};
+  const res = await fetch(API + '/posts/' + id, {headers: h});
+  const data = await res.json();
+  if (!data.data) return;
+  renderDetail(data.data);
+  document.getElementById('detailOverlay').style.display = 'flex';
+}
+
+function renderDetail(p) {
+  let html = `<div class="cm-detail-title">${escapeHtml(p.title || p.post_type_name || '帖子详情')}</div>`;
+  html += `<div class="cm-detail-meta">${escapeHtml(p.nickname || '')} · ${timeAgo(p.created_at)} · ${p.view_count || 0}浏览 · ${p.like_count || 0}赞 · ${p.comment_count || 0}评论</div>`;
+  html += `<div class="cm-detail-content">${escapeHtml(p.content || '')}</div>`;
+  html += `<button class="cm-like${p.is_liked ? ' liked' : ''}" onclick="toggleLike(${p.post_id})">${p.is_liked ? '已赞' : '点赞'} ${p.like_count || 0}</button>`;
+  html += `<div class="cm-comments"><h4 style="margin:0 0 12px;font-size:14px;color:#0f172a">评论 (${(p.comments || []).length})</h4>`;
+  (p.comments || []).forEach(c => {
+    html += `<div class="cm-comment"><div class="cm-comment-head"><span class="cm-comment-nick">${escapeHtml(c.nickname || '')}</span><span class="cm-comment-time">${timeAgo(c.created_at)}</span></div><div class="cm-comment-body">${escapeHtml(c.content || '')}</div></div>`;
+  });
+  if (token) {
+    html += `<div class="cm-comment-form"><textarea id="commentInput" placeholder="写下你的评论..."></textarea><button class="btn btn-primary btn-sm" onclick="submitComment(${p.post_id})">发送</button></div>`;
+  }
+  html += '</div>';
+  document.getElementById('detailContent').innerHTML = html;
+}
+
+async function toggleLike(postId) {
+  if (!token) { showToast('请先登录', 'error'); openAuthModal('login'); return; }
+  await fetch(API + '/post/' + postId + '/like', {method: 'POST', headers: headers()});
+  viewPost(postId);
+}
+async function submitComment(postId) {
+  const input = document.getElementById('commentInput');
+  const content = (input?.value || '').trim();
+  if (!content) return;
+  await fetch(API + '/posts/' + postId + '/comments', {
+    method: 'POST', headers: headers(), body: JSON.stringify({content})
+  });
+  viewPost(postId);
+}
+function closeDetail(e) {
+  if (e.target === document.getElementById('detailOverlay')) {
+    document.getElementById('detailOverlay').style.display = 'none';
+  }
+}
+function timeAgo(dt) {
+  if (!dt) return '';
+  const diff = (Date.now() - new Date(dt).getTime()) / 1000;
+  if (diff < 60) return '刚刚';
+  if (diff < 3600) return Math.floor(diff/60) + '分钟前';
+  if (diff < 86400) return Math.floor(diff/3600) + '小时前';
+  if (diff < 604800) return Math.floor(diff/86400) + '天前';
+  return String(dt).substring(0, 10);
+}
+
+loadFeatured();
+loadPosts();
+</script>
+{% endblock %}

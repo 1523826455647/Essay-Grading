@@ -1,0 +1,996 @@
+{% extends "base.html" %}
+
+{% block title %}个人中心 - 申论帮{% endblock %}
+{% block description %}查看学习数据、批改记录、薄弱点追踪和个人设置{% endblock %}
+
+{% block content %}
+<div class="profile-page">
+  <!-- 顶部用户条 -->
+  <section class="pf-hero">
+    <div class="pf-hero-inner">
+      <div class="pf-identity">
+        <div class="pf-avatar" id="profile-avatar">用</div>
+        <div class="pf-identity-text">
+          <div class="pf-name-row">
+            <h1 class="pf-name" id="profile-name">加载中...</h1>
+            <span class="pf-role-pill" id="profile-role">普通用户</span>
+          </div>
+          <p class="pf-sub">学习数据 · 批改记录 · 薄弱点追踪</p>
+        </div>
+      </div>
+      <div class="pf-hero-metrics">
+        <div class="pf-metric">
+          <div class="pf-metric-val" id="stat-credits" style="color:var(--color-primary);">0</div>
+          <div class="pf-metric-lab">剩余批改次数</div>
+        </div>
+        <div class="pf-metric">
+          <div class="pf-metric-val" id="stat-submissions">0</div>
+          <div class="pf-metric-lab">累计批改</div>
+        </div>
+        <div class="pf-metric">
+          <div class="pf-metric-val" id="stat-avg-score">0</div>
+          <div class="pf-metric-lab">平均得分</div>
+        </div>
+        <div class="pf-metric">
+          <div class="pf-metric-val" id="stat-streak">0</div>
+          <div class="pf-metric-lab">连续天数</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="pf-shell">
+    <!-- 左侧导航 -->
+    <aside class="pf-side">
+      <nav class="pf-nav" aria-label="个人中心导航">
+        <a href="#overview" class="pf-nav-item active" data-panel="overview">
+          <span class="pf-nav-ico" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          </span>
+          <span>学习概览</span>
+        </a>
+        <a href="#history" class="pf-nav-item" data-panel="history">
+          <span class="pf-nav-ico" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+          </span>
+          <span>批改记录</span>
+        </a>
+        <a href="#weak" class="pf-nav-item" data-panel="weak">
+          <span class="pf-nav-ico" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </span>
+          <span>薄弱点</span>
+          <span class="pf-nav-badge" id="weak-count">0</span>
+        </a>
+        <a href="#favorites" class="pf-nav-item" data-panel="favorites">
+          <span class="pf-nav-ico" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+          </span>
+          <span>我的收藏</span>
+        </a>
+        <a href="#settings" class="pf-nav-item" data-panel="settings">
+          <span class="pf-nav-ico" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.32 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          </span>
+          <span>账号设置</span>
+        </a>
+      </nav>
+      <div class="pf-side-foot">
+        <a class="pf-side-link" href="/custom-grade">去批改 →</a>
+        <a class="pf-side-link" href="/papers">真题卷库 →</a>
+      </div>
+    </aside>
+
+    <!-- 右侧内容 -->
+    <main class="pf-main">
+      <!-- 概览 -->
+      <section class="pf-panel active" id="panel-overview">
+        <div class="pf-panel-head">
+          <div>
+            <h2 class="pf-panel-title">学习概览</h2>
+            <p class="pf-panel-desc">本周进度与能力画像</p>
+          </div>
+        </div>
+
+        <div class="pf-kpi-grid">
+          <article class="pf-kpi">
+            <div class="pf-kpi-top">
+              <span class="pf-kpi-label">本周批改</span>
+              <span class="pf-kpi-dot blue"></span>
+            </div>
+            <div class="pf-kpi-value" id="week-count">0</div>
+            <div class="pf-kpi-foot" id="week-change">-</div>
+          </article>
+          <article class="pf-kpi">
+            <div class="pf-kpi-top">
+              <span class="pf-kpi-label">本周平均分</span>
+              <span class="pf-kpi-dot cyan"></span>
+            </div>
+            <div class="pf-kpi-value" id="week-avg">0</div>
+            <div class="pf-kpi-foot" id="week-avg-change">-</div>
+          </article>
+          <article class="pf-kpi">
+            <div class="pf-kpi-top">
+              <span class="pf-kpi-label">薄弱点待攻克</span>
+              <span class="pf-kpi-dot amber"></span>
+            </div>
+            <div class="pf-kpi-value" id="weak-pending">0</div>
+            <div class="pf-kpi-foot">继续练习可自动更新</div>
+          </article>
+          <article class="pf-kpi">
+            <div class="pf-kpi-top">
+              <span class="pf-kpi-label">收藏好词好句</span>
+              <span class="pf-kpi-dot green"></span>
+            </div>
+            <div class="pf-kpi-value" id="fav-count">0</div>
+            <div class="pf-kpi-foot">来自素材学习</div>
+          </article>
+        </div>
+
+        <div class="pf-module" style="background:linear-gradient(135deg,#eef4ff,#f0fdf4);border:1px solid #d4e4f7;border-radius:12px;padding:20px;margin-bottom:24px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <div>
+              <h3 class="pf-module-title" style="margin:0 0 4px;">兑换批改次数</h3>
+              <p class="pf-module-sub" style="margin:0;">输入兑换码获取更多批改机会，管理员可在后台生成兑换码</p>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <input id="redeem-code-input" class="input-field" style="width:180px;" placeholder="输入兑换码" autocomplete="off">
+              <button class="btn btn-primary btn-sm" onclick="redeemCode()">兑换</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="pf-module">
+          <div class="pf-module-head">
+            <div>
+              <h3 class="pf-module-title">消费记录</h3>
+              <p class="pf-module-sub">充值、消耗、赠送记录</p>
+            </div>
+          </div>
+          <div id="transaction-list" style="max-height:240px;overflow-y:auto;">
+            <p style="color:#94a3b8;font-size:13px;">加载中...</p>
+          </div>
+        </div>
+
+        <div class="pf-module">
+          <div class="pf-module-head">
+            <div>
+              <h3 class="pf-module-title">得分趋势</h3>
+              <p class="pf-module-sub">近 30 次批改得分变化</p>
+            </div>
+          </div>
+          <div class="pf-chart-box pf-chart-tall">
+            <canvas id="chart-score-trend"></canvas>
+          </div>
+        </div>
+
+        <div class="pf-module-grid">
+          <div class="pf-module">
+            <div class="pf-module-head">
+              <div>
+                <h3 class="pf-module-title">能力雷达</h3>
+                <p class="pf-module-sub">五维度能力评估</p>
+              </div>
+            </div>
+            <div class="pf-chart-box pf-chart-square">
+              <canvas id="chart-ability-radar"></canvas>
+            </div>
+          </div>
+          <div class="pf-module">
+            <div class="pf-module-head">
+              <div>
+                <h3 class="pf-module-title">题型分布</h3>
+                <p class="pf-module-sub">各题型练习占比</p>
+              </div>
+            </div>
+            <div class="pf-chart-box pf-chart-square">
+              <canvas id="chart-type-doughnut"></canvas>
+            </div>
+            <div class="pf-legend" id="doughnut-legend"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 批改记录 -->
+      <section class="pf-panel" id="panel-history">
+        <div class="pf-panel-head">
+          <div>
+            <h2 class="pf-panel-title">批改记录</h2>
+            <p class="pf-panel-desc">最近提交与得分</p>
+          </div>
+        </div>
+        <div id="history-list" class="pf-list">
+          <div class="pf-empty">登录后加载批改记录</div>
+        </div>
+      </section>
+
+      <!-- 薄弱点 -->
+      <section class="pf-panel" id="panel-weak">
+        <div class="pf-panel-head">
+          <div>
+            <h2 class="pf-panel-title">薄弱点追踪</h2>
+            <p class="pf-panel-desc">反复遗漏的采分点</p>
+          </div>
+        </div>
+        <div id="weak-list" class="pf-list">
+          <div class="pf-empty">暂无薄弱点</div>
+        </div>
+      </section>
+
+      <!-- 收藏 -->
+      <section class="pf-panel" id="panel-favorites">
+        <div class="pf-panel-head">
+          <div>
+            <h2 class="pf-panel-title">我的收藏</h2>
+            <p class="pf-panel-desc">收藏的好词好句</p>
+          </div>
+        </div>
+        <div id="favorites-list" class="pf-list">
+          <div class="pf-empty">暂无收藏，去素材学习看看</div>
+        </div>
+      </section>
+
+      <!-- 设置 -->
+      <section class="pf-panel" id="panel-settings">
+        <div class="pf-panel-head">
+          <div>
+            <h2 class="pf-panel-title">账号设置</h2>
+            <p class="pf-panel-desc">修改登录密码</p>
+          </div>
+        </div>
+        <div class="pf-module pf-settings">
+          <form id="password-form" class="pf-form">
+            <div class="form-group">
+              <label class="form-label">当前密码</label>
+              <input type="password" name="old_password" class="input-field" required>
+            </div>
+            <div class="pf-form-row">
+              <div class="form-group">
+                <label class="form-label">新密码</label>
+                <input type="password" name="new_password" class="input-field" required minlength="6">
+              </div>
+              <div class="form-group">
+                <label class="form-label">确认新密码</label>
+                <input type="password" name="confirm_password" class="input-field" required minlength="6">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">保存修改</button>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ========== Profile redesign (roomy hierarchy) ========== */
+  .profile-page {
+    --pf-blue: #0c8ee7;
+    --pf-blue-dark: #0b4f8a;
+    --pf-line: #d7e6f5;
+    --pf-soft: #f3f8fe;
+    --pf-text: #0f172a;
+    --pf-muted: #64748b;
+    background: transparent;
+    padding-bottom: 48px;
+  }
+
+  /* Hero */
+  .pf-hero {
+    background:
+      radial-gradient(700px 180px at 12% 0%, rgba(255,255,255,.25), transparent 60%),
+      linear-gradient(120deg, #0b6fbe 0%, #0c8ee7 48%, #12a8c9 100%);
+    color: #fff;
+    padding: 28px 0 40px;
+  }
+  .pf-hero-inner {
+    width: min(1280px, calc(100% - 40px));
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 28px;
+  }
+  .pf-identity {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    min-width: 0;
+  }
+  .pf-avatar {
+    width: 64px;
+    height: 64px;
+    min-width: 64px;
+    border-radius: 16px;
+    background: rgba(255,255,255,.18);
+    border: 1px solid rgba(255,255,255,.35);
+    display: grid;
+    place-items: center;
+    font-size: 24px;
+    font-weight: 700;
+  }
+  .pf-name {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+  }
+  .pf-name-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .pf-role-pill {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.18);
+    border: 1px solid rgba(255,255,255,.28);
+    font-size: 12px;
+    color: #fff;
+  }
+  .pf-sub {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: rgba(255,255,255,.86);
+  }
+  .pf-hero-metrics {
+    display: flex;
+    gap: 12px;
+  }
+  .pf-metric {
+    min-width: 104px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.14);
+    border: 1px solid rgba(255,255,255,.22);
+    text-align: center;
+  }
+  .pf-metric-val {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.15;
+  }
+  .pf-metric-lab {
+    margin-top: 6px;
+    font-size: 12px;
+    color: rgba(255,255,255,.84);
+  }
+
+  /* Shell: wide but not edge-hugging */
+  .pf-shell {
+    width: min(1280px, calc(100% - 40px));
+    margin: -18px auto 0;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* Side nav */
+  .pf-side {
+    background: #fff;
+    border: 1px solid var(--pf-line);
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(12,142,231,.06);
+    padding: 12px;
+    position: sticky;
+    top: 76px;
+  }
+  .pf-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .pf-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 48px;
+    padding: 12px 12px;
+    border-radius: 12px;
+    color: #334155;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 550;
+    line-height: 1.3;
+    transition: .15s ease;
+  }
+  .pf-nav-item:hover {
+    background: #eef6ff;
+    color: var(--pf-blue-dark);
+  }
+  .pf-nav-item.active {
+    background: linear-gradient(180deg, #eaf4ff, #e3f1ff);
+    color: var(--pf-blue-dark);
+    box-shadow: inset 0 0 0 1px rgba(12,142,231,.16);
+  }
+  .pf-nav-ico {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: #f3f8fe;
+    color: var(--pf-blue);
+    flex: 0 0 32px;
+  }
+  .pf-nav-item.active .pf-nav-ico {
+    background: rgba(12,142,231,.12);
+  }
+  .pf-nav-ico svg {
+    width: 16px !important;
+    height: 16px !important;
+    max-width: 16px !important;
+    max-height: 16px !important;
+  }
+  .pf-nav-badge {
+    margin-left: auto;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #fee2e2;
+    color: #dc2626;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pf-side-foot {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--pf-line);
+    display: grid;
+    gap: 6px;
+  }
+  .pf-side-link {
+    font-size: 13px;
+    color: var(--pf-blue);
+    text-decoration: none;
+    padding: 10px 12px;
+    border-radius: 10px;
+    line-height: 1.4;
+  }
+  .pf-side-link:hover { background: #eef6ff; }
+
+  /* Main content — more breathing room between modules */
+  .pf-main {
+    min-width: 0;
+    display: grid;
+    gap: 18px;
+  }
+  .pf-panel { display: none; }
+  .pf-panel.active {
+    display: grid;
+    gap: 18px;
+    animation: pfIn .18s ease;
+  }
+  @keyframes pfIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+  }
+  .pf-panel-head {
+    background: #fff;
+    border: 1px solid var(--pf-line);
+    border-radius: 16px;
+    padding: 20px 22px;
+    box-shadow: 0 4px 16px rgba(12,142,231,.05);
+  }
+  .pf-panel-title {
+    margin: 0 0 8px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--pf-text);
+    line-height: 1.3;
+    letter-spacing: -0.02em;
+  }
+  .pf-panel-desc {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--pf-muted);
+  }
+
+  /* KPI tiles */
+  .pf-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .pf-kpi {
+    background: #fff;
+    border: 1px solid var(--pf-line);
+    border-radius: 16px;
+    padding: 18px 18px 16px;
+    box-shadow: 0 4px 16px rgba(12,142,231,.05);
+    min-height: 118px;
+  }
+  .pf-kpi-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .pf-kpi-label {
+    font-size: 13px;
+    color: var(--pf-muted);
+    font-weight: 600;
+    line-height: 1.35;
+  }
+  .pf-kpi-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: 0 0 8px;
+  }
+  .pf-kpi-dot.blue { background: #0c8ee7; }
+  .pf-kpi-dot.cyan { background: #0891b2; }
+  .pf-kpi-dot.amber { background: #f59e0b; }
+  .pf-kpi-dot.green { background: #10b981; }
+  .pf-kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--pf-text);
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    margin-bottom: 8px;
+  }
+  .pf-kpi-foot {
+    margin-top: 0;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: #94a3b8;
+  }
+
+  /* Modules / cards */
+  .pf-module {
+    background: #fff;
+    border: 1px solid var(--pf-line);
+    border-radius: 16px;
+    padding: 20px 20px 18px;
+    box-shadow: 0 4px 16px rgba(12,142,231,.05);
+  }
+  .pf-module-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #eef4fb;
+  }
+  .pf-module-title {
+    margin: 0 0 6px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--pf-text);
+    line-height: 1.35;
+  }
+  .pf-module-sub {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--pf-muted);
+  }
+  .pf-module-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .pf-chart-box {
+    position: relative;
+    width: 100%;
+    margin-top: 4px;
+  }
+  .pf-chart-tall {
+    height: 260px;
+    min-height: 260px;
+  }
+  /* Keep radar / doughnut truly square so they are not crushed horizontally */
+  .pf-chart-square {
+    width: min(100%, 320px);
+    height: min(100vw, 320px);
+    max-height: 320px;
+    min-height: 260px;
+    margin: 0 auto;
+    aspect-ratio: 1 / 1;
+  }
+  .pf-module-grid .pf-module {
+    display: flex;
+    flex-direction: column;
+  }
+  .pf-module-grid .pf-chart-square {
+    flex: 0 0 auto;
+  }
+  .pf-chart-box canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+  }
+  .pf-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #eef4fb;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: #475569;
+  }
+  .chart-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .chart-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  /* Lists */
+  .pf-list {
+    display: grid;
+    gap: 12px;
+  }
+  .pf-list-item {
+    background: #fff;
+    border: 1px solid var(--pf-line);
+    border-radius: 14px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .pf-list-title {
+    font-size: 14.5px;
+    font-weight: 650;
+    color: var(--pf-text);
+    line-height: 1.4;
+  }
+  .pf-list-meta {
+    margin-top: 6px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--pf-muted);
+  }
+  .pf-empty {
+    background: #fff;
+    border: 1px dashed var(--pf-line);
+    border-radius: 14px;
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--pf-muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .pf-settings { max-width: 600px; }
+  .pf-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .pf-form .form-group { margin-bottom: 16px; }
+  .pf-form .form-label {
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  .pf-form .btn { margin-top: 8px; }
+
+  @media (max-width: 980px) {
+    .pf-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pf-module-grid { grid-template-columns: 1fr; }
+    .pf-hero-inner { flex-direction: column; align-items: flex-start; }
+  }
+  @media (max-width: 820px) {
+    .pf-shell {
+      width: min(100% - 24px, 1280px);
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    .pf-side {
+      position: static;
+      padding: 10px;
+    }
+    .pf-nav {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .pf-nav-item {
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+      gap: 6px;
+      min-height: 64px;
+      padding: 10px 4px;
+      font-size: 12px;
+    }
+    .pf-nav-badge { margin-left: 0; }
+    .pf-side-foot { display: none; }
+    .pf-form-row { grid-template-columns: 1fr; }
+    .pf-main, .pf-panel.active { gap: 16px; }
+  }
+  @media (max-width: 560px) {
+    .pf-hero-metrics { width: 100%; }
+    .pf-metric { flex: 1; min-width: 0; }
+    .pf-kpi-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+    .pf-hero { padding: 22px 0 32px; }
+  }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  document.querySelectorAll('.pf-nav-item[data-panel]').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      const panelId = item.dataset.panel;
+      document.querySelectorAll('.pf-nav-item').forEach(n => n.classList.remove('active'));
+      item.classList.add('active');
+      document.querySelectorAll('.pf-panel').forEach(p => p.classList.remove('active'));
+      const panel = document.getElementById('panel-' + panelId);
+      if (panel) panel.classList.add('active');
+    });
+  });
+
+  function authToken() {
+    return localStorage.getItem('slb_token') || localStorage.getItem('token') || '';
+  }
+
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    })[c]);
+  }
+
+  async function loadProfile() {
+    try {
+      const token = authToken();
+      if (!token) {
+        document.getElementById('profile-name').textContent = '未登录';
+        document.getElementById('profile-role').textContent = '请先登录';
+        return;
+      }
+      const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (!res.ok) return;
+      const payload = await res.json();
+      const user = payload.data || payload;
+      const name = user.nickname || user.username || '用户';
+      document.getElementById('profile-name').textContent = name;
+      document.getElementById('profile-avatar').textContent = name.charAt(0);
+      const role = user.role || 'user';
+      document.getElementById('profile-role').textContent =
+        (role === 'vip' || user.is_vip) ? 'VIP 用户' :
+        (role === 'admin' || role === 'super_admin') ? '管理员' : '普通用户';
+    } catch (e) {}
+  }
+
+  async function loadStats() {
+    try {
+      const token = authToken();
+      if (!token) return;
+      const res = await fetch('/api/submissions/history?limit=100', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!res.ok) return;
+      const payload = await res.json();
+      const data = payload.data || payload;
+      const subs = data.submissions || [];
+
+      document.getElementById('stat-submissions').textContent = subs.length;
+      if (subs.length > 0) {
+        const avg = subs.reduce((s, x) => s + (Number(x.score) || 0), 0) / subs.length;
+        document.getElementById('stat-avg-score').textContent = Math.round(avg);
+      }
+
+      // week stats
+      const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+      const weekSubs = subs.filter(s => {
+        const t = Date.parse(s.created_at || s.graded_at || '');
+        return Number.isFinite(t) && t >= weekAgo;
+      });
+      document.getElementById('week-count').textContent = weekSubs.length;
+      if (weekSubs.length) {
+        const wavg = weekSubs.reduce((s, x) => s + (Number(x.score) || 0), 0) / weekSubs.length;
+        document.getElementById('week-avg').textContent = Math.round(wavg);
+        document.getElementById('week-change').textContent = `本周 ${weekSubs.length} 次练习`;
+        document.getElementById('week-avg-change').textContent = '基于本周已批改记录';
+      }
+
+      renderHistory(subs.slice(0, 20));
+      renderCharts(subs);
+    } catch (e) {
+      console.error('loadStats', e);
+    }
+  }
+
+  function renderHistory(subs) {
+    const box = document.getElementById('history-list');
+    if (!box) return;
+    if (!subs.length) {
+      box.innerHTML = '<div class="pf-empty">暂无批改记录，去智能批改试试</div>';
+      return;
+    }
+    box.innerHTML = subs.map(s => {
+      const title = s.paper_title || s.pid || '自定义批改';
+      const score = s.score == null ? '批改中' : `${s.score}${s.score_max ? '/' + s.score_max : ''}`;
+      const when = s.created_at || s.graded_at || '';
+      const href = s.sid ? `/result/${s.sid}` : '#';
+      return `
+        <a class="pf-list-item" href="${esc(href)}" style="text-decoration:none;color:inherit">
+          <div>
+            <div class="pf-list-title">${esc(title)}</div>
+            <div class="pf-list-meta">${esc(s.qid || '')} · ${esc(when)}</div>
+          </div>
+          <span class="badge badge-info">${esc(score)}</span>
+        </a>`;
+    }).join('');
+  }
+
+  function renderCharts(subs) {
+    if (typeof SLBCharts === 'undefined' || !subs.length) return;
+    const recent = [...subs].reverse().slice(-30);
+    SLBCharts.line('chart-score-trend', {
+      labels: recent.map((_, i) => String(i + 1)),
+      datasets: [{ label: '得分', data: recent.map(s => Number(s.score) || 0), color: '#0c8ee7' }],
+      max: 100
+    });
+
+    const dims = { 踩点命中: [], 逻辑结构: [], 语言规范: [], 字数控制: [], 卷面整洁: [] };
+    const enMap = {
+      point_coverage: '踩点命中',
+      logic_structure: '逻辑结构',
+      language: '语言规范',
+      word_count: '字数控制',
+      format: '卷面整洁',
+      conciseness: '语言规范',
+      accuracy: '逻辑结构'
+    };
+    subs.forEach(s => {
+      if (!s.dimension_scores) return;
+      try {
+        const ds = typeof s.dimension_scores === 'string' ? JSON.parse(s.dimension_scores) : s.dimension_scores;
+        Object.entries(ds || {}).forEach(([k, v]) => {
+          const key = dims[k] ? k : enMap[k];
+          if (key && dims[key]) dims[key].push(Number(v) || 0);
+        });
+      } catch (e) {}
+    });
+    const avgDims = Object.values(dims).map(arr => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : 0);
+    SLBCharts.radar('chart-ability-radar', { labels: Object.keys(dims), data: avgDims });
+
+    const typeCount = {};
+    subs.forEach(s => {
+      const t = s.question_type || s.qid || '其他';
+      typeCount[t] = (typeCount[t] || 0) + 1;
+    });
+    const typeLabels = Object.keys(typeCount);
+    const typeData = Object.values(typeCount);
+    SLBCharts.doughnut('chart-type-doughnut', { labels: typeLabels, data: typeData });
+    const legend = document.getElementById('doughnut-legend');
+    if (legend && typeLabels.length) {
+      const colors = (SLBCharts.colors && SLBCharts.colors.palette) || ['#0c8ee7','#0891b2','#10b981','#f59e0b','#8b5cf6'];
+      legend.innerHTML = typeLabels.map((l, i) =>
+        `<div class="chart-legend-item"><span class="chart-legend-dot" style="background:${colors[i % colors.length]}"></span>${esc(l)} (${typeData[i]})</div>`
+      ).join('');
+    }
+  }
+
+  async function loadWeak() {
+    try {
+      const token = authToken();
+      if (!token) return;
+      const res = await fetch('/api/weak', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (!res.ok) return;
+      const payload = await res.json();
+      const data = payload.data || payload;
+      const points = data.weak_points || [];
+      document.getElementById('weak-count').textContent = points.length;
+      document.getElementById('weak-pending').textContent = points.length;
+      const container = document.getElementById('weak-list');
+      if (!points.length) {
+        container.innerHTML = '<div class="pf-empty">暂无薄弱点，继续练习会自动追踪</div>';
+        return;
+      }
+      container.innerHTML = points.map(p => `
+        <div class="pf-list-item">
+          <div>
+            <div class="pf-list-title">${esc(p.missing_key || p.point || '薄弱点')}</div>
+            <div class="pf-list-meta">${esc(p.topic_tag || '未分类')} · 遗漏 ${esc(p.times_missed || 1)} 次</div>
+          </div>
+          <span class="badge badge-warning">待攻克</span>
+        </div>
+      `).join('');
+    } catch (e) {
+      console.error('loadWeak', e);
+    }
+  }
+
+  loadProfile();
+  loadStats();
+  loadWeak();
+  loadCredits();
+  loadTransactions();
+})();
+
+async function loadTransactions() {
+  const token = localStorage.getItem('slb_token') || localStorage.getItem('token');
+  if (!token) return;
+  try {
+    const res = await fetch('/api/user/transactions', { headers: { 'Authorization': 'Bearer ' + token } });
+    const { data } = await res.json();
+    const list = document.getElementById('transaction-list');
+    if (!data || !data.transactions || !data.transactions.length) {
+      list.innerHTML = '<p style=\"color:#94a3b8;font-size:13px;\">暂无消费记录</p>';
+      return;
+    }
+    const colors = { recharge: '#059669', consume: '#dc2626', grant: '#7c3aed' };
+    list.innerHTML = data.transactions.slice(0, 20).map(t => {
+      const c = colors[t.trans_type] || '#64748b';
+      const sign = t.amount >= 0 ? '+' : '';
+      return '<div style=\"display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:13px;\">' +
+        '<div><span style=\"color:' + c + ';font-weight:500;\">' + (t.type_label || t.trans_type) + '</span>' +
+        ' <span style=\"color:#94a3b8;\">' + (t.detail || '') + '</span></div>' +
+        '<div style=\"display:flex;gap:12px;\">' +
+        '<span style=\"color:' + c + ';font-weight:600;\">' + sign + t.amount + '</span>' +
+        '<span style=\"color:#94a3b8;\">余额:' + t.balance + '</span>' +
+        '<span style=\"color:#cbd5e1;font-size:11px;\">' + (t.created_at || '').substr(0, 16) + '</span>' +
+        '</div></div>';
+    }).join('');
+  } catch (e) { console.error('loadTransactions', e); }
+}
+
+async function loadCredits() {
+  const token = localStorage.getItem('slb_token') || localStorage.getItem('token');
+  if (!token) return;
+  try {
+    const res = await fetch('/api/user/credits', { headers: { 'Authorization': 'Bearer ' + token } });
+    const { data } = await res.json();
+    if (data) {
+      const c = data.credits;
+      document.getElementById('stat-credits').textContent = c === null || c >= 9999 ? '无限' : (Number.isInteger(c) ? c : c.toFixed(1));
+    }
+  } catch (e) { console.error('loadCredits', e); }
+}
+
+async function redeemCode() {
+  const input = document.getElementById('redeem-code-input');
+  const code = input.value.trim().toUpperCase();
+  if (!code) { alert('请输入兑换码'); return; }
+  const token = localStorage.getItem('slb_token') || localStorage.getItem('token');
+  if (!token) { alert('请先登录'); return; }
+  try {
+    const res = await fetch('/api/codes/redeem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ code })
+    });
+    const result = await res.json();
+    if (res.ok) {
+      alert(result.data.message || '兑换成功！');
+      input.value = '';
+      loadCredits();
+    } else {
+      alert((result.error || '兑换失败'));
+    }
+  } catch (e) { alert('兑换失败，请重试'); }
+}
+</script>
+{% endblock %}

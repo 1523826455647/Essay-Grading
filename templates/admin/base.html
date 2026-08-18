@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}管理后台 - 申论帮{% endblock %}</title>
+
+  <!-- Fonts: Geist for Latin, Noto for CJK -->
+  <link href="https://cdn.jsdelivr.net/npm/geist@1.4.1/dist/fonts/geist-sans/style.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/variables.css', v=12) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/interactions.css', v=12) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css', v=12) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme-light.css', v=12) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app-ui.css', v=12) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site-refresh.css', v=12) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css', v=20) }}">
+
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+  <div class="admin-layout">
+    <!-- 侧边栏 -->
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar-header">
+        <h1>申论帮</h1>
+        <span>管理后台</span>
+      </div>
+      <nav class="admin-nav">
+        <a href="/admin" class="admin-nav-item {% if request.path == '/admin' %}active{% endif %}">
+          <i data-lucide="layout-dashboard"></i>
+          工作台
+        </a>
+        <div class="admin-nav-divider"></div>
+        <a href="/admin/users" class="admin-nav-item {% if '/admin/users' in request.path %}active{% endif %}">
+          <i data-lucide="users"></i>
+          用户管理
+        </a>
+        <a href="/admin/papers" class="admin-nav-item {% if '/admin/papers' in request.path %}active{% endif %}">
+          <i data-lucide="file-text"></i>
+          试卷管理
+        </a>
+        <a href="/admin/models" class="admin-nav-item {% if '/admin/models' in request.path %}active{% endif %}">
+          <i data-lucide="cpu"></i>
+          模型管理
+        </a>
+        <a href="/admin/feature-models" class="admin-nav-item {% if '/admin/feature-models' in request.path %}active{% endif %}">
+          <i data-lucide="network"></i>
+          功能模型配置
+        </a>
+        <a href="/admin/reviews" class="admin-nav-item {% if '/admin/reviews' in request.path %}active{% endif %}">
+          <i data-lucide="check-square"></i>
+          批改复核
+        </a>
+        <div class="admin-nav-divider"></div>
+        <a href="/admin/codes" class="admin-nav-item {% if '/admin/codes' in request.path %}active{% endif %}">
+          <i data-lucide="ticket"></i>
+          兑换码管理
+        </a>
+        <a href="/admin/stats" class="admin-nav-item {% if '/admin/stats' in request.path %}active{% endif %}">
+          <i data-lucide="bar-chart-2"></i>
+          数据统计
+        </a>
+        <a href="/admin/logs" class="admin-nav-item {% if '/admin/logs' in request.path %}active{% endif %}">
+          <i data-lucide="scroll-text"></i>
+          操作日志
+        </a>
+        <a href="/admin/settings" class="admin-nav-item {% if '/admin/settings' in request.path %}active{% endif %}">
+          <i data-lucide="settings"></i>
+          系统设置
+        </a>
+        <div class="admin-nav-divider"></div>
+        <a href="/" class="admin-nav-item">
+          <i data-lucide="external-link"></i>
+          返回前台
+        </a>
+      </nav>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="admin-main">
+      <header class="admin-header">
+        <div>
+          <h2>{% block page_title %}工作台{% endblock %}</h2>
+        </div>
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
+          <span id="admin-user">管理员</span>
+          <button id="admin-logout" class="btn btn-ghost btn-sm" type="button" onclick="adminLogout()" title="退出管理后台">
+            <i data-lucide="log-out"></i>
+            退出
+          </button>
+        </div>
+      </header>
+
+      <div class="admin-content">
+        {% block admin_content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast-container"></div>
+
+  <!-- 模态框 -->
+  <div id="admin-modal" class="admin-modal">
+    <div class="admin-modal-content">
+      <div class="admin-modal-header">
+        <h3 class="admin-modal-title" id="modal-title">标题</h3>
+        <button class="admin-modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div id="modal-body">
+        <!-- 动态内容 -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function escapeHtml(str) {
+      if (str == null) return '';
+      const div = document.createElement('div');
+      div.appendChild(document.createTextNode(String(str)));
+      return div.innerHTML;
+    }
+
+    const API_BASE = '/api/admin';
+
+    function getAdminToken() {
+      return localStorage.getItem('admin_token') || localStorage.getItem('slb_token') || '';
+    }
+
+    document.addEventListener('DOMContentLoaded', async function() {
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      // Soft verify: session cookie OR local token can keep admin pages alive.
+      try {
+        const me = await adminFetch('/auth/me');
+        const user = me.data || {};
+        const label = user.nickname || user.username || '管理员';
+        const el = document.getElementById('admin-user');
+        if (el) el.textContent = label + (user.role ? `（${user.role}）` : '');
+      } catch (error) {
+        // Server page guard already redirected unauthenticated HTML requests.
+        // If token is stale but session is gone, bounce to login.
+        if (!getAdminToken()) {
+          window.location.href = '/admin/login';
+        }
+      }
+    });
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast toast-' + type;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    function openModal(title, content) {
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-body').innerHTML = content;
+      document.getElementById('admin-modal').classList.add('active');
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function closeModal() {
+      document.getElementById('admin-modal').classList.remove('active');
+    }
+
+    async function adminFetch(url, options = {}) {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      };
+      const token = getAdminToken();
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+
+      const res = await fetch(API_BASE + url, {
+        credentials: 'same-origin',
+        ...options,
+        headers
+      });
+
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (error) {
+        data = {};
+      }
+      if (res.status === 401 || res.status === 403) {
+        localStorage.removeItem('admin_token');
+        // Keep slb_token for front-end; only force admin re-login.
+        window.location.href = '/admin/login';
+        throw new Error(data.error || '请重新登录管理后台');
+      }
+      if (!res.ok) {
+        throw new Error(data.error || '请求失败');
+      }
+      return data;
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      return new Date(dateStr).toLocaleString('zh-CN');
+    }
+
+    async function adminLogout() {
+      try {
+        await adminFetch('/auth/logout', { method: 'POST' });
+      } catch (error) {
+        // Clear local credentials even when the server is unavailable.
+      } finally {
+        localStorage.removeItem('admin_token');
+        window.location.href = '/admin/login';
+      }
+    }
+  </script>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

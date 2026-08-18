@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}素材学习 - 申论帮{% endblock %}
+
+{% block extra_css %}
+<style>
+  .st-page { width: min(920px, calc(100% - 32px)); margin: 0 auto; padding: 12px 0 56px; }
+  .st-hero {
+    background: linear-gradient(135deg, #0b6fbe, #0c8ee7 52%, #12a8c9);
+    border-radius: 18px; color: #fff; padding: 28px; margin-bottom: 18px;
+    box-shadow: 0 10px 28px rgba(12,142,231,.18); text-align: left;
+  }
+  .st-hero h1 { margin: 0 0 8px; font-size: 1.5rem; color: #fff; }
+  .st-hero p { margin: 0; color: rgba(255,255,255,.88); font-size: 14px; }
+
+  .st-metrics {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px;
+  }
+  .st-metric {
+    background: #fff; border: 1px solid #d7e6f5; border-radius: 14px; padding: 16px;
+    text-align: center; box-shadow: 0 4px 14px rgba(12,142,231,.05);
+  }
+  .st-metric:hover { transform: none !important; }
+  .st-metric-num { font-size: 1.6rem; font-weight: 800; color: #0b4f8a; line-height: 1.1; }
+  .st-metric-lab { margin-top: 6px; font-size: 12.5px; color: #64748b; }
+
+  .st-card {
+    background: #fff; border: 1px solid #d7e6f5; border-radius: 16px;
+    padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 14px rgba(12,142,231,.05);
+  }
+  .st-card:hover { transform: none !important; }
+  .st-title {
+    margin: 0 0 14px; font-size: 1rem; font-weight: 700; color: #0f172a;
+    padding-bottom: 10px; border-bottom: 1px solid #eef4fb;
+  }
+
+  .st-dist-bar { display:flex; height: 12px; border-radius: 999px; overflow: hidden; margin-bottom: 12px; background:#e2e8f0; }
+  .st-dist-bar .d0 { background:#ef4444; } .st-dist-bar .d1 { background:#f59e0b; }
+  .st-dist-bar .d2 { background:#0c8ee7; } .st-dist-bar .d3 { background:#10b981; }
+  .st-legend { display:flex; flex-wrap:wrap; gap: 12px 16px; font-size: 12.5px; color:#64748b; }
+  .st-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:6px; }
+
+  .phrase-card { position: relative; padding: 22px !important; }
+  .new-badge {
+    position: absolute; top: 14px; right: 14px; background: #0c8ee7; color:#fff;
+    padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
+  }
+  .phrase-text {
+    font-size: 1.15rem; font-weight: 700; color:#0f172a; line-height: 1.7;
+    margin: 0 0 12px; padding-right: 72px;
+  }
+  .phrase-meta { font-size: 12.5px; color:#94a3b8; margin-bottom: 12px; line-height: 1.5; }
+  .phrase-translation { font-size: 14px; color:#475569; line-height: 1.7; margin-bottom: 12px; }
+  .phrase-usage {
+    font-size: 13.5px; color:#334155; line-height: 1.6; padding: 12px 14px;
+    background:#f7fbff; border:1px solid #e3eef9; border-radius: 12px; margin-bottom: 16px;
+  }
+  .mastery-btns { display:grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+  .mastery-btns button {
+    min-height: 42px; border-radius: 10px; border: 1px solid #d7e6f5; background:#fff;
+    font-size: 13.5px; font-weight: 650; cursor:pointer; color:#334155;
+  }
+  .mastery-btns button:hover { border-color:#0c8ee7; color:#0b4f8a; transform:none; }
+  .btn-new { color:#dc2626 !important; }
+  .btn-know { color:#d97706 !important; }
+  .btn-familiar { color:#0c8ee7 !important; }
+  .btn-mastered { color:#059669 !important; }
+
+  .empty-card { text-align:center; padding: 40px 16px; color:#64748b; }
+  .pack-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .pack-card {
+    background:#fff; border:1px solid #d7e6f5; border-radius: 14px; padding: 16px;
+    cursor:pointer; box-shadow: 0 4px 14px rgba(12,142,231,.05);
+  }
+  .pack-card:hover { border-color: rgba(12,142,231,.35); transform: none !important; }
+  .pack-name { font-size: 14px; font-weight: 700; color:#0f172a; margin-bottom: 6px; }
+  .pack-count { font-size: 12.5px; color:#64748b; }
+
+  .st-actions { text-align:center; margin: 8px 0 20px; }
+  @media (max-width: 700px) {
+    .st-metrics { grid-template-columns: 1fr; }
+    .mastery-btns { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div class="st-page">
+    <div class="st-hero">
+      <h1>素材学习</h1>
+      <p>间隔重复，科学记忆申论好词好句</p>
+    </div>
+
+    <div class="st-metrics" id="statsBar">
+      <div class="st-metric"><div class="st-metric-num" id="statDue">-</div><div class="st-metric-lab">今日待学</div></div>
+      <div class="st-metric"><div class="st-metric-num" id="statMastered">-</div><div class="st-metric-lab">已掌握</div></div>
+      <div class="st-metric"><div class="st-metric-num" id="statTotal">-</div><div class="st-metric-lab">总库存</div></div>
+    </div>
+
+    <div id="distSection" class="st-card" style="display:none;">
+      <h2 class="st-title">掌握度分布</h2>
+      <div class="st-dist-bar" id="distBar"></div>
+      <div class="st-legend">
+        <span><span class="st-dot" style="background:#ef4444"></span>新学</span>
+        <span><span class="st-dot" style="background:#f59e0b"></span>认识</span>
+        <span><span class="st-dot" style="background:#0c8ee7"></span>熟悉</span>
+        <span><span class="st-dot" style="background:#10b981"></span>掌握</span>
+      </div>
+    </div>
+
+    <div class="st-card">
+      <h2 class="st-title">今日学习</h2>
+      <div id="cardArea"><div class="empty-card"><div class="spinner" style="margin:0 auto"></div></div></div>
+      <div class="st-actions"><button class="btn btn-secondary" onclick="loadCards()">换一批</button></div>
+    </div>
+
+    <div class="st-card">
+      <h2 class="st-title">素材包</h2>
+      <div class="pack-grid" id="packGrid"></div>
+    </div>
+
+    <div class="st-actions">
+      <a href="/phrases/generate" class="btn btn-primary">AI 造段 · 输入论点生成示范段落</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API = '/api/phrases';
+const token = localStorage.getItem('slb_token') || localStorage.getItem('token') || '';
+const headers = () => ({'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'});
+let cards = [];
+let cardIdx = 0;
+
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function tryParseJson(v) {
+  if (Array.isArray(v)) return v;
+  if (!v) return [];
+  try { const x = JSON.parse(v); return Array.isArray(x) ? x : []; } catch { return []; }
+}
+
+async function loadStats() {
+  if (!token) return;
+  const res = await fetch(API + '/study/stats', {headers: headers()});
+  const data = await res.json();
+  if (!data.data) return;
+  const s = data.data;
+  document.getElementById('statDue').textContent = s.due_today ?? 0;
+  document.getElementById('statMastered').textContent = s.mastered ?? 0;
+  document.getElementById('statTotal').textContent = s.total_phrases ?? 0;
+  const dist = s.distribution || {};
+  const vals = [dist['新学']||0, dist['认识']||0, dist['熟悉']||0, dist['掌握']||0];
+  const total = vals.reduce((a,b)=>a+b,0);
+  if (total > 0) {
+    document.getElementById('distSection').style.display = 'block';
+    document.getElementById('distBar').innerHTML = vals.map((v,i)=>`<div class="d${i}" style="width:${v/total*100}%"></div>`).join('');
+  }
+}
+
+async function loadCards() {
+  const area = document.getElementById('cardArea');
+  if (!token) {
+    area.innerHTML = '<div class="empty-card">请先登录后开始素材学习</div>';
+    return;
+  }
+  const res = await fetch(API + '/study/cards?limit=5', {headers: headers()});
+  const data = await res.json();
+  cards = data.data?.cards || [];
+  cardIdx = 0;
+  renderCard();
+}
+
+function renderCard() {
+  const area = document.getElementById('cardArea');
+  if (!cards.length || cardIdx >= cards.length) {
+    area.innerHTML = `
+      <div class="empty-card">
+        <p style="font-size:15px;font-weight:700;color:#0f172a;margin:0 0 8px">今日素材已全部学完</p>
+        <p style="margin:0 0 16px">坚持每天学习，积累申论素材</p>
+        <a href="/phrases/generate" class="btn btn-primary btn-sm">试试 AI 造段</a>
+      </div>`;
+    return;
+  }
+  const c = cards[cardIdx];
+  const tags = tryParseJson(c.tag);
+  area.innerHTML = `
+    <div class="phrase-card st-card" style="margin:0">
+      ${c.is_new ? '<span class="new-badge">新素材</span>' : ''}
+      <div class="phrase-text">${escapeHtml(c.phrase)}</div>
+      <div class="phrase-meta">${escapeHtml(c.source||'')}${c.source_date ? ' · ' + escapeHtml(c.source_date) : ''}${tags.length ? ' · ' + tags.map(escapeHtml).join(' / ') : ''}</div>
+      ${c.translation ? `<div class="phrase-translation">${escapeHtml(c.translation)}</div>` : ''}
+      ${c.usage ? `<div class="phrase-usage">适用：${escapeHtml(c.usage)}</div>` : ''}
+      <div class="mastery-btns">
+        <button class="btn-new" onclick="answer(0)">不认识</button>
+        <button class="btn-know" onclick="answer(1)">认识</button>
+        <button class="btn-familiar" onclick="answer(2)">熟悉</button>
+        <button class="btn-mastered" onclick="answer(3)">掌握</button>
+      </div>
+    </div>`;
+}
+
+async function answer(level) {
+  const c = cards[cardIdx];
+  if (!c) return;
+  await fetch(API + '/study/record', {
+    method: 'POST', headers: headers(),
+    body: JSON.stringify({phrase_id: c.phrase_id, mastery_level: level})
+  });
+  cardIdx += 1;
+  renderCard();
+  loadStats();
+}
+
+async function loadPacks() {
+  const grid = document.getElementById('packGrid');
+  try {
+    const res = await fetch(API + '/packs', {headers: headers()});
+    const data = await res.json();
+    const items = data.data?.items || data.data?.packs || [];
+    if (!items.length) {
+      grid.innerHTML = '<div class="empty-card" style="grid-column:1/-1">暂无素材包</div>';
+      return;
+    }
+    grid.innerHTML = items.map(p => `
+      <div class="pack-card">
+        <div class="pack-name">${escapeHtml(p.name || p.title || '素材包')}</div>
+        <div class="pack-count">${escapeHtml(p.count || p.phrase_count || 0)} 条素材</div>
+      </div>`).join('');
+  } catch (e) {
+    grid.innerHTML = '<div class="empty-card" style="grid-column:1/-1">素材包加载失败</div>';
+  }
+}
+
+loadStats();
+loadCards();
+loadPacks();
+</script>
+{% endblock %}

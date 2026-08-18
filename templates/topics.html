@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}时政热点 - 申论帮{% endblock %}
+
+{% block extra_css %}
+<style>
+  .tp-page { width: min(1080px, calc(100% - 32px)); margin: 0 auto; padding: 12px 0 56px; }
+  .tp-hero {
+    background: linear-gradient(135deg, #0b6fbe 0%, #0c8ee7 52%, #12a8c9 100%);
+    border-radius: 18px; color: #fff; padding: 28px 28px 26px; margin-bottom: 18px;
+    box-shadow: 0 10px 28px rgba(12,142,231,.18);
+  }
+  .tp-hero h1 { margin: 0 0 8px; font-size: 1.5rem; color: #fff; letter-spacing: -0.02em; }
+  .tp-hero p { margin: 0; color: rgba(255,255,255,.88); font-size: 14px; line-height: 1.6; }
+
+  .tp-metrics {
+    display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 18px;
+  }
+  .tp-metric {
+    background: #fff; border: 1px solid #d7e6f5; border-radius: 14px; padding: 16px 14px;
+    text-align: center; box-shadow: 0 4px 14px rgba(12,142,231,.05);
+  }
+  .tp-metric:hover { transform: none !important; }
+  .tp-metric-num { font-size: 1.55rem; font-weight: 800; color: #0b4f8a; line-height: 1.1; }
+  .tp-metric-lab { margin-top: 6px; font-size: 12.5px; color: #64748b; }
+
+  .tp-panel {
+    background: #fff; border: 1px solid #d7e6f5; border-radius: 16px;
+    padding: 18px 18px 16px; box-shadow: 0 4px 14px rgba(12,142,231,.05);
+  }
+  .tp-panel:hover { transform: none !important; }
+  .tp-panel-title {
+    margin: 0 0 14px; font-size: 1rem; font-weight: 700; color: #0f172a;
+    padding-bottom: 12px; border-bottom: 1px solid #eef4fb;
+  }
+
+  .tp-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .tp-filter {
+    min-height: 34px; padding: 0 14px; border-radius: 999px;
+    border: 1px solid #d7e6f5; background: #fff; color: #475569;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .tp-filter:hover, .tp-filter.active {
+    border-color: rgba(12,142,231,.4); background: #eaf4ff; color: #0b4f8a;
+    transform: none !important;
+  }
+
+  .tp-list { display: grid; gap: 12px; }
+  .tp-card {
+    display: block; text-decoration: none; color: inherit;
+    background: #fff; border: 1px solid #d7e6f5; border-radius: 14px;
+    padding: 16px 18px; transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .tp-card:hover {
+    border-color: rgba(12,142,231,.35); box-shadow: 0 8px 20px rgba(12,142,231,.08);
+    transform: none !important; color: inherit;
+  }
+  .tp-card-top { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom: 10px; }
+  .tp-badge {
+    display:inline-flex; align-items:center; height: 24px; padding: 0 10px;
+    border-radius: 999px; font-size: 12px; font-weight: 700; color:#fff;
+  }
+  .badge-shiping,.badge-jingji { background:#0c8ee7; }
+  .badge-lilun,.badge-wenhua { background:#7c3aed; }
+  .badge-dangjian { background:#dc2626; }
+  .badge-xuexi,.badge-keji { background:#db2777; }
+  .badge-shehui { background:#059669; }
+  .badge-shengtai { background:#0891b2; }
+  .badge-minsheng { background:#d97706; }
+  .badge-zhili { background:#475569; }
+  .prob-high { color:#dc2626; font-size:12.5px; font-weight:700; }
+  .prob-medium { color:#d97706; font-size:12.5px; font-weight:700; }
+  .prob-low { color:#059669; font-size:12.5px; font-weight:700; }
+  .tp-title { margin: 0 0 8px; font-size: 1.02rem; font-weight: 700; color:#0f172a; line-height:1.45; }
+  .tp-summary {
+    margin: 0 0 12px; font-size: 13.5px; line-height: 1.7; color:#64748b;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .tp-foot { display:flex; flex-wrap:wrap; gap: 8px 14px; font-size: 12.5px; color:#94a3b8; }
+  .tp-empty {
+    text-align:center; padding: 42px 16px; color:#64748b; border:1px dashed #d7e6f5;
+    border-radius: 14px; background:#fafcff;
+  }
+
+  @media (max-width: 800px) {
+    .tp-metrics { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 520px) {
+    .tp-metrics { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div class="tp-page">
+    <div class="tp-hero">
+      <h1>时政热点专题</h1>
+      <p>系统积累，精准押题 · 按专题梳理考点与关键词</p>
+    </div>
+
+    <div class="tp-metrics" id="statsBar">
+      <div class="tp-metric"><div class="tp-metric-num" id="statTotal">-</div><div class="tp-metric-lab">总专题</div></div>
+      <div class="tp-metric"><div class="tp-metric-num" id="statRead">-</div><div class="tp-metric-lab">已学习</div></div>
+      <div class="tp-metric"><div class="tp-metric-num" id="statUnread">-</div><div class="tp-metric-lab">未学习</div></div>
+      <div class="tp-metric"><div class="tp-metric-num" id="statBookmark">-</div><div class="tp-metric-lab">已收藏</div></div>
+    </div>
+
+    <div class="tp-panel">
+      <h2 class="tp-panel-title">全部热点</h2>
+      <div class="tp-filters" id="filterBar">
+        <button class="tp-filter active" onclick="filterByCategory('', this)">全部</button>
+        <button class="tp-filter" onclick="filterByCategory('xuexi', this)">学习强国</button>
+        <button class="tp-filter" onclick="filterByCategory('shiping', this)">时评</button>
+        <button class="tp-filter" onclick="filterByCategory('lilun', this)">理论</button>
+        <button class="tp-filter" onclick="filterByCategory('dangjian', this)">党建</button>
+        <button class="tp-filter" onclick="filterByCategory('jingji', this)">经济</button>
+        <button class="tp-filter" onclick="filterByCategory('shehui', this)">社会</button>
+      </div>
+      <div class="tp-list" id="topicList">
+        <div class="tp-empty"><div class="spinner" style="margin:0 auto"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API = '/api/topics';
+const token = localStorage.getItem('slb_token') || localStorage.getItem('token') || '';
+const headers = () => ({'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'});
+let currentCategory = '';
+
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function loadStats() {
+  if (!token) return;
+  try {
+    const res = await fetch(API + '/stats', {headers: headers()});
+    const data = await res.json();
+    if (!data.data) return;
+    const s = data.data;
+    document.getElementById('statTotal').textContent = s.total_topics ?? 0;
+    document.getElementById('statRead').textContent = s.read_count ?? 0;
+    document.getElementById('statUnread').textContent = s.unread_count ?? 0;
+    document.getElementById('statBookmark').textContent = s.bookmark_count ?? 0;
+  } catch (e) {}
+}
+
+async function loadTopics(page = 1) {
+  const params = new URLSearchParams({page, limit: 20});
+  if (currentCategory) params.append('category', currentCategory);
+  const h = token ? headers() : {'Content-Type': 'application/json'};
+  try {
+    const res = await fetch(API + '?' + params, {headers: h});
+    const data = await res.json();
+    const list = document.getElementById('topicList');
+    const items = data.data?.items || [];
+    if (!items.length) {
+      list.innerHTML = '<div class="tp-empty">暂无热点专题</div>';
+      return;
+    }
+    list.innerHTML = items.map(t => {
+      const probCls = t.probability === '高' ? 'prob-high' : t.probability === '中' ? 'prob-medium' : 'prob-low';
+      const kws = (t.keywords || []).slice(0, 3).map(k => escapeHtml(k)).join(' · ');
+      return `
+        <a class="tp-card" href="/topics/${t.topic_id}">
+          <div class="tp-card-top">
+            <span class="tp-badge badge-${escapeHtml(t.category || '')}">${escapeHtml(t.category_name || '热点')}</span>
+            ${t.probability ? `<span class="${probCls}">考试概率：${escapeHtml(t.probability)}</span>` : ''}
+          </div>
+          <div class="tp-title">${escapeHtml(t.title || '')}</div>
+          <div class="tp-summary">${escapeHtml(t.summary || '')}</div>
+          <div class="tp-foot">
+            ${kws ? `<span>${kws}</span>` : ''}
+            ${t.related_count ? `<span>关联真题 ${t.related_count} 道</span>` : ''}
+          </div>
+        </a>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('topicList').innerHTML = '<div class="tp-empty">加载失败，请刷新重试</div>';
+  }
+}
+
+function filterByCategory(cat, btn) {
+  currentCategory = cat;
+  document.querySelectorAll('.tp-filter').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadTopics();
+}
+
+loadStats();
+loadTopics();
+</script>
+{% endblock %}

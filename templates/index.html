@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}申论帮 - AI智能申论批改·拍照识卷·多模型评分{% endblock %}
+
+{% block content %}
+<style>
+  .lp { max-width: 1100px; margin:0 auto; padding:0 20px; }
+  .lp-hero { padding: 80px 0 60px; text-align:center; }
+  .lp-hero h1 { font-size:clamp(2rem,5vw,3.2rem); font-weight:800; letter-spacing:-1.5px; line-height:1.15; color:#0f172a; }
+  .lp-hero h1 span { background:linear-gradient(135deg,#6366f1,#8b5cf6); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .lp-hero p { font-size:1.1rem; color:#64748b; max-width:540px; margin:16px auto 32px; line-height:1.7; }
+  .lp-hero .btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .lp-section { padding:60px 0; }
+  .lp-section h2 { font-size:1.6rem; font-weight:700; color:#0f172a; text-align:center; margin-bottom:12px; }
+  .lp-section .sub { text-align:center; color:#64748b; font-size:15px; margin-bottom:36px; }
+
+  .lp-features { display:grid; grid-template-columns:repeat(4,1fr); gap:24px; }
+  .lp-feat { background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:28px 22px; text-align:center; transition:box-shadow .2s; }
+  .lp-feat:hover { box-shadow:0 4px 20px rgba(0,0,0,.06); }
+  .lp-feat-icon { font-size:40px; margin-bottom:14px; display:block; }
+  .lp-feat h3 { font-size:16px; font-weight:650; color:#111827; margin-bottom:8px; }
+  .lp-feat p { font-size:13px; color:#6b7280; line-height:1.6; }
+
+  .lp-pricing { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
+  .lp-plan { background:#fff; border:1px solid #e5e7eb; border-radius:20px; padding:32px 24px; text-align:center; position:relative; transition:transform .2s,box-shadow .2s; }
+  .lp-plan:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(0,0,0,.08); }
+  .lp-plan.popular { border:2px solid #6366f1; box-shadow:0 4px 24px rgba(99,102,241,.12); }
+  .lp-plan .badge-pop { position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; font-size:12px; font-weight:600; padding:4px 16px; border-radius:20px; }
+  .lp-plan h3 { font-size:18px; font-weight:700; color:#111827; margin-bottom:4px; }
+  .lp-plan .price { font-size:36px; font-weight:800; color:#111827; margin:12px 0; }
+  .lp-plan .price sub { font-size:14px; font-weight:400; color:#9ca3af; }
+  .lp-plan .desc { font-size:13px; color:#6b7280; margin-bottom:20px; line-height:1.5; }
+  .lp-plan ul { list-style:none; padding:0; margin:0 0 24px; text-align:left; font-size:13px; color:#374151; line-height:2; }
+  .lp-plan ul li:before { content:'✓'; color:#10b981; margin-right:6px; font-weight:700; }
+  .lp-plan .btn { width:100%; padding:12px 0; font-weight:600; border-radius:12px; }
+
+  .lp-steps { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+  .lp-step { text-align:center; position:relative; }
+  .lp-step .num { width:48px; height:48px; margin:0 auto 16px; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:700; }
+  .lp-step h4 { font-size:15px; font-weight:650; color:#111827; margin-bottom:6px; }
+  .lp-step p { font-size:13px; color:#6b7280; line-height:1.6; }
+
+  .lp-cta { background:linear-gradient(135deg,#6366f1,#8b5cf6); border-radius:24px; padding:48px; text-align:center; color:#fff; }
+  .lp-cta h2 { font-size:1.8rem; font-weight:700; margin-bottom:12px; color:#fff; }
+  .lp-cta p { opacity:.85; margin-bottom:28px; }
+
+  @media (max-width:768px) {
+    .lp-features,.lp-pricing { grid-template-columns:1fr; }
+    .lp-steps { grid-template-columns:1fr; }
+  }
+</style>
+
+<div class="lp">
+  <!-- Hero -->
+  <section class="lp-hero">
+    <h1>AI<span>申论帮</span> · 一键拍卷即时评分</h1>
+    <p>拍照上传答卷，4个主流大模型交叉评分，五维度精准分析，30秒内给出完整批改报告。已服务公考考生批改超5000次。</p>
+    <div class="btns">
+      <a href="/custom-grade" class="btn btn-primary btn-lg" style="padding:14px 32px;font-size:16px;">免费试用批改</a>
+      <a href="#pricing" class="btn btn-secondary btn-lg" style="padding:14px 32px;font-size:16px;">查看套餐</a>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="lp-section">
+    <h2>为什么选择申论帮</h2>
+    <p class="sub">相比传统人工批改，更快、更准、更便宜</p>
+    <div class="lp-features">
+      <div class="lp-feat"><span class="lp-feat-icon">📱</span><h3>拍照识别</h3><p>手机拍照自动 OCR，支持手写体和印刷体，10秒内完成文字提取</p></div>
+      <div class="lp-feat"><span class="lp-feat-icon">🤖</span><h3>多模型评审</h3><p>DeepSeek+GPT+Claude 四大模型并行评分，综合汇总最客观结果</p></div>
+      <div class="lp-feat"><span class="lp-feat-icon">📊</span><h3>五维分析</h3><p>采点命中·逻辑结构·语言表达·格式规范·字数控制，雷达图可视化</p></div>
+      <div class="lp-feat"><span class="lp-feat-icon">💰</span><h3>超高性价比</h3><p>最低仅需每次批改成本，远低于培训机构单次批改的价格</p></div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="lp-section">
+    <h2>三步搞定申论批改</h2>
+    <p class="sub">从拍照到出分，全程不到一分钟</p>
+    <div class="lp-steps">
+      <div class="lp-step"><div class="num">1</div><h4>拍照或输入答案</h4><p>用手机拍照答卷，或直接粘贴作答文字</p></div>
+      <div class="lp-step"><div class="num">2</div><h4>AI 多模型评分</h4><p>4个大模型同时评分，交叉验证确保准确</p></div>
+      <div class="lp-step"><div class="num">3</div><h4>查看批改报告</h4><p>分数·雷达图·采分点对照·改进建议一键查看</p></div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section class="lp-section" id="pricing">
+    <h2>灵活套餐，按需选择</h2>
+    <p class="sub">所有套餐均包含全部真题库和批改功能</p>
+    <div class="lp-pricing">
+      <div class="lp-plan">
+        <h3>体验包</h3>
+        <div class="price">9.9<sub>元</sub></div>
+        <p class="desc">适合初次体验</p>
+        <ul><li>3次批改</li><li>基础评分维度</li><li>7天有效期</li></ul>
+        <a href="/register" class="btn btn-secondary">开始体验</a>
+      </div>
+      <div class="lp-plan popular">
+        <span class="badge-pop">最受欢迎</span>
+        <h3>月卡</h3>
+        <div class="price">29.9<sub>元/月</sub></div>
+        <p class="desc">适合日常练习</p>
+        <ul><li>20次/月批改</li><li>全维度分析报告</li><li>全部真题库</li><li>成绩趋势追踪</li><li>每日一练</li></ul>
+        <a href="/register" class="btn btn-primary">立即订阅</a>
+      </div>
+      <div class="lp-plan">
+        <h3>季卡</h3>
+        <div class="price">79<sub>元/季</sub></div>
+        <p class="desc">适合系统备考</p>
+        <ul><li>不限次批改</li><li>全维度+弱项诊断</li><li>全部真题库</li><li>考前冲刺计划</li><li>每日一练</li></ul>
+        <a href="/register" class="btn btn-secondary">立即订阅</a>
+      </div>
+      <div class="lp-plan">
+        <h3>年卡</h3>
+        <div class="price">199<sub>元/年</sub></div>
+        <p class="desc">适合长期备考</p>
+        <ul><li>全部功能不限</li><li>优先体验新功能</li><li>专属客服</li><li>考前押题资料</li></ul>
+        <a href="/register" class="btn btn-secondary">立即订阅</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="lp-section">
+    <div class="lp-cta">
+      <h2>立即体验 AI 申论批改</h2>
+      <p>新用户注册即送 1 次免费批改机会</p>
+      <a href="/register" class="btn btn-primary btn-lg" style="background:#fff;color:#6366f1;padding:14px 40px;font-size:16px;font-weight:700;">免费注册</a>
+    </div>
+  </section>
+</div>
+{% endblock %}

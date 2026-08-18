@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+{% block title %}卷库 - 申论帮{% endblock %}
+
+{% block extra_css %}
+<style>
+  .lib-page { width: min(1200px, calc(100% - 32px)); margin: 0 auto; padding: 12px 0 56px; }
+  .lib-hero {
+    background: linear-gradient(135deg, #0b6fbe 0%, #0c8ee7 50%, #12a8c9 100%);
+    border-radius: 18px;
+    color: #fff;
+    padding: 28px 28px 26px;
+    margin-bottom: 20px;
+    box-shadow: 0 10px 28px rgba(12,142,231,.18);
+  }
+  .lib-hero h1 { margin: 0 0 8px; font-size: 1.55rem; letter-spacing: -0.02em; color: #fff; }
+  .lib-hero p { margin: 0; color: rgba(255,255,255,.88); font-size: 14px; line-height: 1.6; }
+
+  .lib-filter {
+    background: #fff;
+    border: 1px solid #d7e6f5;
+    border-radius: 16px;
+    padding: 18px 18px 14px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 14px rgba(12,142,231,.05);
+  }
+  .lib-filter-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1.4fr auto auto;
+    gap: 14px;
+    align-items: end;
+  }
+  .lib-field label {
+    display: block;
+    margin: 0 0 8px;
+    font-size: 12.5px;
+    font-weight: 650;
+    color: #64748b;
+  }
+  .lib-field .input-field { width: 100%; }
+  .lib-filter .btn { min-height: 42px; }
+  .lib-search-row { margin-bottom: 12px; }
+  .lib-search-row .input-field { width: 100%; }
+  .lib-province-stats {
+    margin-top: 14px; padding-top: 12px;
+    border-top: 1px dashed #e2e8f0;
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .lib-province-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 12px; border-radius: 999px;
+    background: #f1f5f9; color: #475569;
+    font-size: 12.5px; font-weight: 600;
+  }
+  .lib-province-chip b { color: #0b4f8a; font-weight: 750; }
+  .lib-province-chip.on { background: #e8f4fe; color: #0b4f8a; border: 1px solid rgba(12,142,231,.35); }
+  .lib-province-chip:hover { cursor: pointer; background: #e8f4fe; }
+  .lib-province-toggle { font-size: 12.5px; color: #64748b; cursor: pointer; user-select: none; }
+  .lib-province-toggle:hover { color: #0c8ee7; }
+  .lib-stats {
+    margin: 0 0 14px;
+    font-size: 13.5px;
+    color: #64748b;
+  }
+
+  .lib-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .lib-card {
+    background: #fff;
+    border: 1px solid #d7e6f5;
+    border-radius: 16px;
+    padding: 18px 18px 16px;
+    box-shadow: 0 4px 14px rgba(12,142,231,.05);
+    display: flex;
+    flex-direction: column;
+    min-height: 188px;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .lib-card:hover {
+    border-color: rgba(12,142,231,.35);
+    box-shadow: 0 8px 22px rgba(12,142,231,.10);
+    transform: none !important;
+  }
+  .lib-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .lib-tag {
+    display: inline-flex; align-items: center; height: 24px;
+    padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 650;
+  }
+  .lib-tag.gk { background: #e8f4fe; color: #0b4f8a; }
+  .lib-tag.sk { background: #e0f7fb; color: #0e7490; }
+  .lib-tag.sydw { background: #ecfdf5; color: #047857; }
+  .lib-tag.lk { background: #fffbeb; color: #b45309; }
+  .lib-tag.year { background: #f1f5f9; color: #475569; }
+  .lib-title {
+    margin: 0 0 10px;
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.45;
+    letter-spacing: -0.01em;
+  }
+  .lib-meta {
+    display: flex; flex-wrap: wrap; gap: 12px 16px;
+    margin-bottom: 16px; font-size: 12.5px; color: #64748b;
+  }
+  .lib-actions { margin-top: auto; display: flex; gap: 10px; }
+  .lib-actions .btn { flex: 1; min-height: 40px; }
+
+  .lib-qlist { margin-top: 14px; padding-top: 12px; border-top: 1px dashed #e2e8f0; }
+  .lib-qlist-label {
+    font-size: 12.5px; font-weight: 650; color: #64748b; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .lib-qgrid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .lib-qitem {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 12px; border-radius: 10px;
+    border: 1px solid #d7e6f5; background: #f8fbff;
+    font-size: 12.5px; color: #334155; text-decoration: none;
+    transition: all .15s ease;
+  }
+  .lib-qitem:hover {
+    border-color: #0c8ee7; background: #e8f4fe; color: #0b4f8a;
+    box-shadow: 0 2px 8px rgba(12,142,231,.12);
+  }
+  .lib-qnum { font-weight: 750; color: #0b4f8a; }
+  .lib-qtype { color: #64748b; }
+  .lib-qscore { font-weight: 700; color: #059669; }
+
+  .lib-pager {
+    margin-top: 22px;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .lib-pager .btn { min-width: 40px; min-height: 38px; padding: 8px 12px; }
+
+  .lib-empty {
+    background: #fff; border: 1px dashed #d7e6f5; border-radius: 16px;
+    padding: 48px 20px; text-align: center; color: #64748b;
+  }
+
+  @media (max-width: 900px) {
+    .lib-filter-grid { grid-template-columns: 1fr 1fr; }
+    .lib-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .lib-filter-grid { grid-template-columns: 1fr; }
+    .lib-hero { padding: 22px 18px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div class="lib-page">
+    <div class="lib-hero">
+      <h1>试卷库</h1>
+      <p>国考 / 省考 / 事业单位真题练习，支持逐题批改与全真模拟。</p>
+    </div>
+
+    <div class="lib-filter">
+      <div class="lib-search-row">
+        <input id="filter-keyword" class="input-field" type="text"
+               placeholder="搜索试卷标题关键词，如「山东」「联考」「乡村振兴」…" />
+      </div>
+      <div class="lib-filter-grid">
+        <div class="lib-field">
+          <label for="filter-exam-type">考试类型</label>
+          <select id="filter-exam-type" class="input-field">
+            <option value="">全部类型</option>
+            <option value="国考">国考</option>
+            <option value="省考">省考</option>
+            <option value="事业单位">事业单位</option>
+            <option value="联考">联考</option>
+          </select>
+        </div>
+        <div class="lib-field">
+          <label for="filter-year">年份</label>
+          <select id="filter-year" class="input-field">
+            <option value="">全部年份</option>
+          </select>
+        </div>
+        <div class="lib-field">
+          <label for="filter-province">地区</label>
+          <select id="filter-province" class="input-field">
+            <option value="">全部地区</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="loadPapers(1)">搜索</button>
+        <button class="btn btn-secondary" onclick="resetFilters()">重置</button>
+      </div>
+      <div class="lib-province-stats" id="lib-province-stats"></div>
+    </div>
+
+    <div id="papers-stats" class="lib-stats"></div>
+    <div id="papers-list"></div>
+    <div id="pagination" class="lib-pager"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let currentPage = 1;
+
+  function esc(str) {
+    if (str == null) return '';
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function parseQuestions(q) {
+    if (Array.isArray(q)) return q;
+    if (!q) return [];
+    try { return JSON.parse(q); } catch { return []; }
+  }
+  function typeClass(t) {
+    if (t === '国考') return 'gk';
+    if (t === '省考') return 'sk';
+    if (t === '事业单位') return 'sydw';
+    if (t === '联考') return 'lk';
+    return 'year';
+  }
+
+  async function loadPapers(page = 1) {
+    currentPage = page;
+    const examType = document.getElementById('filter-exam-type').value;
+    const year = document.getElementById('filter-year').value;
+    const province = document.getElementById('filter-province').value;
+    const keyword = document.getElementById('filter-keyword').value.trim();
+    const params = new URLSearchParams({ page, limit: 20 });
+    if (examType) params.append('exam_type', examType);
+    if (year) params.append('year', year);
+    if (province) params.append('province', province);
+    if (keyword) params.append('keyword', keyword);
+
+    document.getElementById('papers-list').innerHTML = `
+      <div class="lib-grid">
+        <div class="skeleton" style="height:180px;border-radius:16px"></div>
+        <div class="skeleton" style="height:180px;border-radius:16px"></div>
+      </div>`;
+
+    try {
+      const res = await fetch(`/api/papers?${params}`);
+      const { data } = await res.json();
+      renderPapers(data.papers || []);
+      renderPagination(data);
+      document.getElementById('papers-stats').textContent =
+        `共 ${data.total || 0} 套试卷 · 第 ${data.page || 1}/${data.pages || 1} 页`;
+    } catch (e) {
+      document.getElementById('papers-list').innerHTML = '<div class="lib-empty">加载失败，请刷新重试</div>';
+    }
+  }
+
+  function renderPapers(papers) {
+    const box = document.getElementById('papers-list');
+    if (!papers.length) {
+      box.innerHTML = '<div class="lib-empty">暂无试卷，试试调整筛选条件</div>';
+      return;
+    }
+    box.innerHTML = `<div class="lib-grid">${papers.map(paper => {
+      const questions = parseQuestions(paper.questions);
+      const pid = esc(paper.pid);
+      const examType = paper.exam_type || '未分类';
+      const stars = '★'.repeat(paper.difficulty || 3) + '☆'.repeat(Math.max(0, 5 - (paper.difficulty || 3)));
+      const qlist = questions.length ? `
+        <div class="lib-qlist">
+          <div class="lib-qlist-label"><i data-lucide="list-checks" style="width:14px;height:14px;"></i>选择题目作答</div>
+          <div class="lib-qgrid">${questions.map((q, i) => `
+            <a class="lib-qitem" href="/exam/${pid}/${esc(q.qid)}" title="${esc(q.stem || '')}">
+              <span class="lib-qnum">第${i + 1}题</span>
+              <span class="lib-qtype">${esc(q.type || '题目')}</span>
+              ${q.score_max ? `<span class="lib-qscore">${esc(q.score_max)}分</span>` : ''}
+            </a>`).join('')}
+          </div>
+        </div>` : `
+        <div class="lib-qlist"><div class="lib-qlist-label">暂无可练习题目</div></div>`;
+      return `
+        <article class="lib-card">
+          <div class="lib-tags">
+            <span class="lib-tag ${typeClass(examType)}">${esc(examType)}</span>
+            <span class="lib-tag year">${esc(paper.year || '')}</span>
+            ${paper.province ? `<span class="lib-tag year">${esc(paper.province)}</span>` : ''}
+          </div>
+          <h3 class="lib-title">${esc(paper.title || '未命名试卷')}</h3>
+          <div class="lib-meta">
+            <span>${questions.length || paper.question_count || 0} 题</span>
+            <span>${stars}</span>
+            <span>热度 ${esc(paper.heat || 0)}</span>
+          </div>
+          ${qlist}
+        </article>`;
+    }).join('')}</div>`;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+
+  function renderPagination(data) {
+    const box = document.getElementById('pagination');
+    if (!data || !data.pages || data.pages <= 1) { box.innerHTML = ''; return; }
+    let html = '';
+    if (data.page > 1) html += `<button class="btn btn-secondary" onclick="loadPapers(${data.page - 1})">上一页</button>`;
+    const start = Math.max(1, data.page - 2), end = Math.min(data.pages, data.page + 2);
+    for (let i = start; i <= end; i++) {
+      html += `<button class="btn ${i === data.page ? 'btn-primary' : 'btn-secondary'}" onclick="loadPapers(${i})">${i}</button>`;
+    }
+    if (data.page < data.pages) html += `<button class="btn btn-secondary" onclick="loadPapers(${data.page + 1})">下一页</button>`;
+    box.innerHTML = html;
+  }
+
+  function resetFilters() {
+    document.getElementById('filter-exam-type').value = '';
+    document.getElementById('filter-year').value = '';
+    document.getElementById('filter-province').value = '';
+    document.getElementById('filter-keyword').value = '';
+    loadPapers(1);
+  }
+
+  // 加载年份列表 + 各省试卷数量
+  let metaData = { years: [], provinces: [], total: 0 };
+  async function loadMeta() {
+    try {
+      const res = await fetch('/api/papers/meta');
+      const { data } = await res.json();
+      metaData = data || metaData;
+
+      // 年份下拉
+      const yearSel = document.getElementById('filter-year');
+      yearSel.innerHTML = '<option value="">全部年份</option>' +
+        (metaData.years || []).map(y => `<option value="${y}">${y}年</option>`).join('');
+
+      // 地区下拉（含数量）
+      const provSel = document.getElementById('filter-province');
+      provSel.innerHTML = '<option value="">全部地区</option>' +
+        (metaData.provinces || []).map(p =>
+          `<option value="${esc(p.name)}">${esc(p.name)}（${p.count}）</option>`).join('');
+
+      renderProvinceStats();
+    } catch (e) {
+      console.error('loadMeta failed', e);
+    }
+  }
+
+  function renderProvinceStats() {
+    const box = document.getElementById('lib-province-stats');
+    const provs = metaData.provinces || [];
+    if (!provs.length) { box.innerHTML = ''; return; }
+    const cur = document.getElementById('filter-province').value;
+    box.innerHTML = `<span class="lib-province-toggle" onclick="toggleProvinces()">📚 各省试卷数量（共 ${metaData.total} 套，点击地区可快速筛选）</span>` +
+      provs.map(p => `<span class="lib-province-chip ${p.name === cur ? 'on' : ''}" onclick="filterByProvince('${esc(p.name)}')">${esc(p.name)} <b>${p.count}</b></span>`).join('');
+  }
+
+  function filterByProvince(name) {
+    document.getElementById('filter-province').value = name;
+    renderProvinceStats();
+    loadPapers(1);
+  }
+
+  function toggleProvinces() {
+    const box = document.getElementById('lib-province-stats');
+    const chips = box.querySelectorAll('.lib-province-chip');
+    const hidden = chips.length && chips[0].style.display === 'none';
+    chips.forEach(c => c.style.display = hidden ? '' : 'none');
+  }
+
+  // 搜索框回车触发
+  document.getElementById('filter-keyword').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') loadPapers(1);
+  });
+
+  loadMeta();
+  loadPapers();
+</script>
+{% endblock %}

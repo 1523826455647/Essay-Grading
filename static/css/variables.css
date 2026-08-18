@@ -1,0 +1,311 @@
+/* ================================================================
+   SLB Design Tokens — Light Blue / White Theme
+   Clean exam-prep UI: white surfaces + soft sky blues
+   ================================================================ */
+
+:root {
+  /* ---- Primitives ---- */
+  --blue-50: #f0f7ff;
+  --blue-100: #e0effe;
+  --blue-200: #bae0fd;
+  --blue-300: #7cc8fb;
+  --blue-400: #36aaf5;
+  --blue-500: #0c8ee7;
+  --blue-600: #0070c4;
+  --blue-700: #01599f;
+  --blue-800: #064b83;
+  --blue-900: #0b3f6d;
+
+  --slate-25: #fbfcfe;
+  --slate-50: #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+
+  --green-500: #10b981;
+  --green-600: #059669;
+  --amber-500: #f59e0b;
+  --amber-600: #d97706;
+  --red-500: #ef4444;
+  --red-600: #dc2626;
+  --purple-500: #8b5cf6;
+
+  /* Spacing */
+  --sp-0: 0;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+  --sp-20: 80px;
+  --sp-24: 96px;
+
+  /* Radius */
+  --rad-sm: 6px;
+  --rad-md: 10px;
+  --rad-lg: 12px;
+  --rad-xl: 16px;
+  --rad-2xl: 20px;
+  --rad-3xl: 28px;
+  --rad-full: 9999px;
+
+  /* Shadows — soft blue-tinted for light UI */
+  --sh-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --sh-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --sh-md: 0 4px 14px rgba(12, 142, 231, 0.08), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --sh-lg: 0 12px 28px rgba(12, 142, 231, 0.10), 0 4px 12px rgba(15, 23, 42, 0.05);
+  --sh-xl: 0 20px 48px rgba(12, 142, 231, 0.12), 0 8px 16px rgba(15, 23, 42, 0.06);
+  --sh-focus: 0 0 0 3px rgba(12, 142, 231, 0.22);
+
+  /* Typography */
+  --font-sans: 'Inter', 'Noto Sans SC', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+  --text-5xl: 3rem;
+
+  --lh-tight: 1.15;
+  --lh-snug: 1.3;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.7;
+  --lh-loose: 1.85;
+
+  --ls-tight: -0.02em;
+  --ls-snug: -0.01em;
+  --ls-normal: 0;
+  --ls-wide: 0.02em;
+  --ls-wider: 0.04em;
+
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 120ms;
+  --dur-normal: 200ms;
+  --dur-slow: 350ms;
+  --dur-slower: 500ms;
+}
+
+/* ---- Semantic tokens ---- */
+:root {
+  /* Surfaces */
+  --color-bg: #f4f8fd;
+  --color-bg-panel: #ffffff;
+  --color-bg-surface: #ffffff;
+  --color-bg-elevated: #ffffff;
+  --color-bg-hover: #eef5fc;
+  --color-bg-subtle: #eaf3fb;
+  --color-bg-sunken: #e8f1fa;
+
+  /* Text */
+  --color-text: #0f172a;
+  --color-text-secondary: #334155;
+  --color-text-tertiary: #64748b;
+  --color-text-muted: #94a3b8;
+  --color-text-inverse: #ffffff;
+
+  /* Brand — soft sky blue */
+  --color-primary: #0c8ee7;
+  --color-primary-hover: #0070c4;
+  --color-primary-bg: #0c8ee7;
+  --color-primary-soft: rgba(12, 142, 231, 0.10);
+  --color-primary-medium: rgba(12, 142, 231, 0.16);
+  --color-primary-light: #e8f4fe;
+  --color-primary-dark: #01599f;
+
+  /* Accent — cool cyan-blue */
+  --color-accent: #0891b2;
+  --color-accent-hover: #0e7490;
+  --color-accent-light: #e0f7fb;
+
+  /* Status */
+  --color-success: #059669;
+  --color-success-soft: rgba(16, 185, 129, 0.12);
+  --color-success-light: #ecfdf5;
+  --color-warning: #d97706;
+  --color-warning-soft: rgba(245, 158, 11, 0.14);
+  --color-warning-light: #fffbeb;
+  --color-error: #dc2626;
+  --color-error-soft: rgba(239, 68, 68, 0.12);
+  --color-error-light: #fef2f2;
+  --color-info: #0284c7;
+  --color-info-light: #e0f2fe;
+
+  /* Borders */
+  --color-border: #dbe7f3;
+  --color-border-subtle: #e8f0f8;
+  --color-border-strong: #b7cde3;
+  --color-border-accent: rgba(12, 142, 231, 0.35);
+
+  /* Shadows */
+  --shadow-xs: var(--sh-xs);
+  --shadow-sm: var(--sh-sm);
+  --shadow-md: var(--sh-md);
+  --shadow-lg: var(--sh-lg);
+  --shadow-xl: var(--sh-xl);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 0 0 1px rgba(12, 142, 231, 0.06);
+  --shadow-card-hover: 0 10px 28px rgba(12, 142, 231, 0.12), 0 0 0 1px rgba(12, 142, 231, 0.12);
+  --shadow-glow: var(--sh-focus);
+  --shadow-glow-primary: var(--sh-focus);
+  --shadow-glow-accent: 0 0 0 3px rgba(8, 145, 178, 0.2);
+  --shadow-float: var(--sh-xl);
+
+  /* Spacing semantic */
+  --space-xs: var(--sp-1);
+  --space-sm: var(--sp-2);
+  --space-md: var(--sp-4);
+  --space-lg: var(--sp-6);
+  --space-xl: var(--sp-8);
+  --space-2xl: var(--sp-12);
+  --space-3xl: var(--sp-16);
+  --space-4xl: var(--sp-24);
+  --space-0: var(--sp-0);
+  --space-5: var(--sp-5);
+  --space-10: var(--sp-10);
+  --space-14: 56px;
+
+  --section-gap: var(--sp-16);
+  --section-gap-mobile: var(--sp-10);
+
+  /* Radius semantic */
+  --radius-xs: var(--rad-sm);
+  --radius-sm: var(--rad-sm);
+  --radius-md: var(--rad-md);
+  --radius-lg: var(--rad-lg);
+  --radius-xl: var(--rad-xl);
+  --radius-2xl: var(--rad-2xl);
+  --radius-3xl: var(--rad-3xl);
+  --radius-full: var(--rad-full);
+
+  /* Layout */
+  --max-width: 1200px;
+  --max-width-narrow: 720px;
+  --max-width-wide: 1440px;
+  --navbar-height: 64px;
+  --sidebar-width: 260px;
+  --container-pad: var(--sp-4);
+
+  /* Gray scale for templates that still use gray-* */
+  --color-gray-50: #f8fafc;
+  --color-gray-100: #f1f5f9;
+  --color-gray-200: #e2e8f0;
+  --color-gray-300: #cbd5e1;
+  --color-gray-400: #94a3b8;
+  --color-gray-500: #64748b;
+  --color-gray-600: #475569;
+  --color-gray-700: #334155;
+  --color-gray-800: #1e293b;
+  --color-gray-900: #0f172a;
+
+  /* Compat tokens used by older CSS */
+  --color-brand-dark: #0b3f6d;
+  --color-card: #ffffff;
+  --color-card-hover: #f0f7ff;
+  --white-03: rgba(12, 142, 231, 0.03);
+  --white-05: rgba(12, 142, 231, 0.05);
+  --white-08: rgba(12, 142, 231, 0.08);
+  --white-10: rgba(12, 142, 231, 0.10);
+  --white-15: rgba(12, 142, 231, 0.15);
+  --indigo-400: #36aaf5;
+  --indigo-500: #0c8ee7;
+  --indigo-600: #0070c4;
+  --indigo-700: #01599f;
+  --purple-400: #8b5cf6;
+  --green-400: #34d399;
+  --amber-400: #fbbf24;
+  --red-400: #f87171;
+  --bg-900: #f4f8fd;
+  --bg-800: #ffffff;
+  --bg-700: #eaf3fb;
+  --bg-600: #ffffff;
+  --bg-500: #ffffff;
+  --bg-400: #eef5fc;
+
+  --font-title: var(--font-sans);
+  --font-body: var(--font-sans);
+  --weight-normal: var(--fw-normal);
+  --weight-medium: var(--fw-medium);
+  --weight-semibold: var(--fw-semibold);
+  --weight-bold: var(--fw-bold);
+  --leading-tight: var(--lh-tight);
+  --leading-snug: var(--lh-snug);
+  --leading-normal: var(--lh-normal);
+  --leading-relaxed: var(--lh-relaxed);
+  --tracking-tight: var(--ls-tight);
+  --tracking-snug: var(--ls-snug);
+  --tracking-normal: var(--ls-normal);
+  --tracking-wide: var(--ls-wide);
+  --duration-fast: var(--dur-fast);
+  --duration-normal: var(--dur-normal);
+  --duration-slow: var(--dur-slow);
+  --duration-slower: var(--dur-slower);
+
+  /* Component tokens */
+  --btn-height-sm: 34px;
+  --btn-height-md: 42px;
+  --btn-height-lg: 50px;
+  --btn-font-size: var(--text-sm);
+  --btn-radius: var(--rad-md);
+  --btn-pad-x: var(--sp-4);
+  --btn-pad-y: var(--sp-2);
+  --btn-gap: var(--sp-2);
+
+  --card-pad: var(--sp-6);
+  --card-radius: var(--rad-xl);
+  --card-bg: #ffffff;
+  --card-border: 1px solid var(--color-border);
+  --card-shadow: var(--shadow-card);
+
+  --input-height: 42px;
+  --input-pad-x: var(--sp-3);
+  --input-pad-y: var(--sp-2);
+  --input-radius: var(--rad-md);
+  --input-font-size: var(--text-sm);
+  --input-bg: #ffffff;
+  --input-border: #cfe0f1;
+  --input-text: #0f172a;
+  --input-placeholder: #94a3b8;
+
+  --badge-pad-x: 10px;
+  --badge-pad-y: 3px;
+  --badge-font-size: var(--text-xs);
+  --badge-radius: var(--rad-full);
+
+  --table-header-size: var(--text-xs);
+  --table-cell-size: var(--text-sm);
+  --table-row-height: 48px;
+  --table-row-height-compact: 40px;
+
+  --kpi-value-size: var(--text-3xl);
+  --kpi-label-size: var(--text-xs);
+  --kpi-pad: var(--sp-5);
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --container-pad: var(--sp-6);
+    --section-gap: var(--sp-20);
+  }
+}

@@ -1,0 +1,196 @@
+{% extends "admin/base.html" %}
+
+{% block title %}兑换码管理 - 申论帮管理后台{% endblock %}
+{% block page_title %}兑换码管理{% endblock %}
+
+{% block admin_content %}
+
+<!-- 生成兑换码 -->
+<div class="admin-card" style="margin-bottom:20px;">
+  <h3 style="margin:0 0 18px;font-size:16px;font-weight:650;color:#111827;">生成兑换码</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:14px;align-items:end;">
+    <div>
+      <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em;">每个批改次数</label>
+      <input id="gen-credits" class="admin-form-input" type="number" value="10" min="1" max="999" style="width:100%;">
+    </div>
+    <div>
+      <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em;">生成数量</label>
+      <input id="gen-count" class="admin-form-input" type="number" value="5" min="1" max="100" style="width:100%;">
+    </div>
+    <div>
+      <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em;">有效天数 (0=永久)</label>
+      <input id="gen-expires" class="admin-form-input" type="number" value="365" min="0" max="3650" style="width:100%;">
+    </div>
+    <button id="generate-btn" class="btn btn-primary" onclick="doGenerate()" style="height:39px;white-space:nowrap;">
+      <i data-lucide="plus" style="width:15px;height:15px;"></i> 生成
+    </button>
+  </div>
+</div>
+
+<!-- 生成结果 -->
+<div id="generate-result" class="admin-card" style="display:none;margin-bottom:20px;background:#f0fdf4;border:1.5px solid #86efac;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <h3 style="margin:0;font-size:15px;font-weight:650;color:#166534;">生成成功</h3>
+    <button class="btn btn-sm btn-secondary" onclick="copyAllCodes()" style="font-size:12px;">
+      <i data-lucide="copy" style="width:13px;height:13px;"></i> 复制全部
+    </button>
+  </div>
+  <div id="generate-codes-list" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-family:'SF Mono','Consolas',monospace;font-size:14px;font-weight:600;color:#059669;max-height:260px;overflow-y:auto;"></div>
+</div>
+
+<!-- 兑换码列表 -->
+<div class="admin-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+    <h3 style="margin:0;font-size:16px;font-weight:650;color:#111827;">兑换码列表</h3>
+    <button class="btn btn-sm btn-secondary" onclick="loadCodes()">
+      <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> 刷新
+    </button>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="admin-table" style="min-width:700px;">
+      <thead>
+        <tr>
+          <th>兑换码</th><th>次数</th><th>已用/上限</th><th>状态</th>
+          <th>过期时间</th><th>创建时间</th><th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="codes-table">
+        <tr><td colspan="7" style="text-align:center;padding:32px;color:#9ca3af;font-size:14px;">
+          <i data-lucide="loader-2" style="width:16px;height:16px;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle;margin-right:6px;"></i>
+          加载中...
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;">
+    <span id="codes-pagination-info" style="font-size:13px;color:#9ca3af;">共 0 条</span>
+    <div id="codes-pagination-buttons" style="display:flex;gap:4px;"></div>
+  </div>
+</div>
+
+<style>
+  @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let codesPage = 1;
+  let allGeneratedCodes = [];
+
+  async function doGenerate() {
+    const btn = document.getElementById('generate-btn');
+    const credits = parseFloat(document.getElementById('gen-credits').value) || 10;
+    const count = parseInt(document.getElementById('gen-count').value) || 5;
+    const expiresDays = parseInt(document.getElementById('gen-expires').value) || 365;
+    
+    if (credits <= 0) { showToast('批改次数必须大于 0', 'error'); return; }
+    if (count < 1 || count > 100) { showToast('数量范围 1-100', 'error'); return; }
+
+    btn.disabled = true;
+    btn.textContent = '生成中...';
+    try {
+      const res = await adminFetch('/codes', {
+        method: 'POST',
+        body: JSON.stringify({ credits, count, expires_days: expiresDays })
+      });
+      const data = res.data || {};
+      allGeneratedCodes = data.codes || [];
+      const listEl = document.getElementById('generate-codes-list');
+      listEl.innerHTML = allGeneratedCodes.map(c => '<span style=\"padding:3px 0;\">' + c + '</span>').join('');
+      document.getElementById('generate-result').style.display = 'block';
+      showToast('已生成 ' + allGeneratedCodes.length + ' 个兑换码');
+      loadCodes();
+      lucide.createIcons();
+    } catch (e) {
+      showToast('生成失败: ' + (e.message || '未知错误'), 'error');
+      console.error('Generate error:', e);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide=\"plus\" style=\"width:15px;height:15px;\"></i> 生成';
+      lucide.createIcons();
+    }
+  }
+
+  function copyAllCodes() {
+    if (!allGeneratedCodes.length) return;
+    navigator.clipboard.writeText(allGeneratedCodes.join('\n')).then(
+      () => showToast('已复制 ' + allGeneratedCodes.length + ' 个兑换码'),
+      () => showToast('复制失败', 'error')
+    );
+  }
+
+  async function loadCodes(page) {
+    page = page || 1;
+    codesPage = page;
+    const tbody = document.getElementById('codes-table');
+    tbody.innerHTML = '<tr><td colspan=\"7\" style=\"text-align:center;padding:24px;color:#9ca3af;\">加载中...</td></tr>';
+    
+    try {
+      const res = await adminFetch('/codes?page=' + page + '&limit=20');
+      const data = res.data || {};
+      if (!data.codes || !data.codes.length) {
+        tbody.innerHTML = '<tr><td colspan=\"7\" style=\"text-align:center;padding:32px;color:#9ca3af;font-size:14px;\">暂无兑换码</td></tr>';
+        document.getElementById('codes-pagination-info').textContent = '共 0 条';
+        document.getElementById('codes-pagination-buttons').innerHTML = '';
+        return;
+      }
+      renderTable(data);
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan=\"7\" style=\"text-align:center;padding:24px;color:#ef4444;font-size:14px;\">加载失败: ' + (e.message || '网络错误') + '</td></tr>';
+      console.error('Load codes error:', e);
+    }
+  }
+
+  function renderTable(data) {
+    const tbody = document.getElementById('codes-table');
+    const labels = { active: '可用', used: '已用完', expired: '已过期', disabled: '已禁用' };
+    const colors = { active: '#10b981', used: '#6b7280', expired: '#ef4444', disabled: '#9ca3af' };
+
+    tbody.innerHTML = data.codes.map(function(c) {
+      var color = colors[c.status] || '#6b7280';
+      var maxUses = (c.max_uses === 0 || c.max_uses === -1) ? '无限' : c.max_uses;
+      var expiry = c.expires_at ? c.expires_at.substr(0, 10) : '永久';
+      var created = (c.created_at || '').substr(0, 10);
+      var disableBtn = c.status === 'active'
+        ? '<button class=\"action-btn action-btn-delete\" onclick=\"disableCode(\x27' + c.code + '\x27)\">禁用</button>'
+        : '--';
+      return '<tr>' +
+        '<td style=\"font-family:monospace;font-weight:600;font-size:13px;\">' + c.code + '</td>' +
+        '<td style=\"font-weight:550;\">' + c.credits + '</td>' +
+        '<td>' + c.used_count + ' / ' + maxUses + '</td>' +
+        '<td><span style=\"display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:550;background:' + color + '15;color:' + color + ';\">' + (labels[c.status] || c.status) + '</span></td>' +
+        '<td style=\"font-size:13px;color:#6b7280;\">' + expiry + '</td>' +
+        '<td style=\"font-size:13px;color:#6b7280;\">' + created + '</td>' +
+        '<td>' + disableBtn + '</td>' +
+        '</tr>';
+    }).join('');
+
+    document.getElementById('codes-pagination-info').textContent = '共 ' + (data.total || 0) + ' 条';
+    
+    var pages = data.pages || 1;
+    var box = document.getElementById('codes-pagination-buttons');
+    if (pages <= 1) { box.innerHTML = ''; return; }
+    var html = '';
+    for (var i = 1; i <= pages; i++) {
+      var activeClass = i === (data.page || 1) ? ' active' : '';
+      html += '<button class=\"pagination-btn' + activeClass + '\" onclick=\"loadCodes(' + i + ')\">' + i + '</button>';
+    }
+    box.innerHTML = html;
+  }
+
+  async function disableCode(code) {
+    if (!confirm('确定禁用兑换码 ' + code + ' 吗？')) return;
+    try {
+      await adminFetch('/codes/' + code, { method: 'DELETE' });
+      showToast('已禁用');
+      loadCodes(codesPage);
+    } catch (e) {
+      showToast('操作失败: ' + (e.message || ''), 'error');
+    }
+  }
+
+  loadCodes();
+  lucide.createIcons();
+</script>
+{% endblock %}

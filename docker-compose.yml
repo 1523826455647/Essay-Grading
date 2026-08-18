@@ -1,0 +1,34 @@
+name: shenlun-ai-v2
+
+services:
+  web:
+    container_name: shenlun-ai
+    build: .
+    ports:
+      - "18004:8790"
+    volumes:
+      - ./data:/app/data
+      - ./backups:/app/backups
+    env_file:
+      - .env
+    environment:
+      - FLASK_ENV=production
+      - ENV=production
+      - GRADING_BACKEND=${GRADING_BACKEND:-internal}
+      - MULTI_MODEL_ENABLED=${MULTI_MODEL_ENABLED:-true}
+      - MAX_MODELS_PER_SUBMISSION=${MAX_MODELS_PER_SUBMISSION:-4}
+      - MAX_PARALLEL_MODELS=${MAX_PARALLEL_MODELS:-4}
+    restart: unless-stopped
+    mem_limit: 768m
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8790/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

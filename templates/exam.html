@@ -1,0 +1,708 @@
+{% extends "base.html" %}
+{% block title %}作答 - 申论帮{% endblock %}
+
+{% block extra_css %}
+<style>
+  .ex-page { padding: 0 0 40px; }
+  .ex-topbar {
+    position: sticky; top: var(--navbar-height, 64px); z-index: 40;
+    background: rgba(255,255,255,.96);
+    border-bottom: 1px solid #d7e6f5;
+    box-shadow: 0 4px 14px rgba(12,142,231,.05);
+    backdrop-filter: blur(10px);
+  }
+  .ex-topbar-inner {
+    width: min(1280px, calc(100% - 28px));
+    margin: 0 auto;
+    min-height: 58px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .ex-top-left { display:flex; align-items:center; gap: 12px; min-width: 0; }
+  .ex-back {
+    display:inline-flex; align-items:center; gap:6px;
+    color:#64748b; text-decoration:none; font-size:13.5px; font-weight:650;
+    padding: 8px 10px; border-radius: 10px; white-space: nowrap;
+  }
+  .ex-back:hover { background:#eef6ff; color:#0b4f8a; transform:none !important; }
+  .ex-divider { width:1px; height:20px; background:#d7e6f5; flex:0 0 1px; }
+  .ex-paper-title {
+    margin:0; font-size:15px; font-weight:750; color:#0f172a;
+    line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .ex-meta {
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;
+  }
+  .ex-chip {
+    display:inline-flex; align-items:center; height:28px; padding:0 10px;
+    border-radius:999px; font-size:12px; font-weight:700;
+    background:#e8f4fe; color:#0b4f8a; border:1px solid rgba(12,142,231,.16);
+  }
+  .ex-chip.soft { background:#f1f5f9; color:#475569; border-color:#e2e8f0; }
+
+  .ex-qnav-wrap {
+    width: min(1280px, calc(100% - 28px));
+    margin: 0 auto;
+    padding: 10px 0;
+  }
+  .ex-qnav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ex-qnav-label {
+    font-size: 12.5px; color: #64748b; font-weight: 650;
+    align-self: center; margin-right: 2px;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .ex-qnav-item {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 999px;
+    border: 1px solid #d7e6f5; background: #fff;
+    font-size: 13px; color: #475569; text-decoration: none;
+    transition: all .15s ease;
+  }
+  .ex-qnav-item:hover { border-color: #0c8ee7; color: #0b4f8a; background: #e8f4fe; transform:none !important; }
+  .ex-qnav-item.active { background: #0c8ee7; border-color: #0c8ee7; color: #fff; }
+  .ex-qnav-num { font-weight: 750; }
+  .ex-qnav-type { font-size: 12px; opacity: .82; }
+
+  .ex-body {
+    width: min(1280px, calc(100% - 28px));
+    margin: 16px auto 0;
+    display:grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 16px;
+    align-items: start;
+  }
+  .ex-card {
+    background:#fff; border:1px solid #d7e6f5; border-radius:16px;
+    box-shadow: 0 4px 16px rgba(12,142,231,.06);
+  }
+  .ex-card:hover { transform:none !important; }
+  .ex-material {
+    position: sticky; top: calc(var(--navbar-height, 64px) + 74px);
+    max-height: calc(100vh - 120px); overflow:auto;
+    padding: 18px 18px 20px;
+  }
+  .ex-section-head {
+    display:flex; align-items:center; gap:8px;
+    margin: 0 0 14px; padding-bottom: 12px; border-bottom:1px solid #eaf2fa;
+  }
+  .ex-section-head h3 {
+    margin:0; font-size:15px; font-weight:750; color:#0f172a;
+  }
+  .ex-scope-badge {
+    margin-left:auto; font-size:12px; font-weight:600; color:#0c8ee7;
+    background:#e8f4fe; padding:3px 10px; border-radius:999px; white-space:nowrap;
+  }
+  .ex-material-text {
+    font-size:14px; line-height:1.9; color:#334155; white-space:pre-wrap; word-break:break-word;
+  }
+
+  .ex-right { display:grid; gap: 14px; }
+  .ex-qcard { padding: 18px; }
+  .ex-qtop { display:flex; align-items:flex-start; gap:12px; }
+  .ex-qicon {
+    width:38px; height:38px; border-radius:12px; flex:0 0 38px;
+    display:grid; place-items:center;
+    background:#e8f4fe; color:#0c8ee7;
+  }
+  .ex-qbadges { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+  .ex-stem {
+    margin:0; font-size:14.5px; line-height:1.75; color:#0f172a; font-weight:600;
+  }
+  .ex-wordreq {
+    margin-top:10px; font-size:12.5px; color:#64748b;
+  }
+
+  .ex-ocr {
+    padding: 16px; border-style:dashed !important; border-color:#b7d7f3 !important;
+    background:#f7fbff !important;
+  }
+  .ex-ocr-inner { text-align:center; cursor:pointer; padding: 8px; }
+  .ex-ocr-inner p { margin: 0; }
+  .ex-ocr-title { font-size:14px; font-weight:700; color:#0b4f8a; margin-top:8px !important; }
+  .ex-ocr-desc { font-size:12.5px; color:#64748b; margin-top:6px !important; }
+
+  .ex-hint {
+    padding: 14px 16px !important;
+    background:#fffbeb !important; border-color:#fde68a !important;
+    display:none;
+  }
+  .ex-hint-row {
+    display:flex; align-items:flex-start; gap:10px;
+    font-size:13.5px; color:#92400e; line-height:1.55;
+  }
+
+  .ex-models { padding: 18px; display:none; }
+  .ex-models-head {
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    margin-bottom: 14px;
+  }
+  .ex-models-head h3 { margin:0; font-size:15px; font-weight:750; color:#0f172a; display:flex; align-items:center; gap:8px; }
+  .ex-mode-grid {
+    display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;
+  }
+  .ex-mode {
+    display:flex; gap:10px; align-items:flex-start;
+    padding: 12px 14px; border:1px solid #d7e6f5; border-radius:12px;
+    background:#fff; cursor:pointer;
+  }
+  .ex-mode strong { display:block; font-size:13.5px; color:#0f172a; margin-bottom:4px; }
+  .ex-mode span { display:block; font-size:12px; color:#64748b; line-height:1.45; }
+  #model-list { display:grid; gap:10px; min-height:40px; }
+  #model-list label {
+    display:flex !important; align-items:center !important; gap:10px !important;
+    padding:12px 14px !important; border:1px solid #d7e6f5 !important;
+    border-radius:12px !important; background:#fff !important; cursor:pointer;
+  }
+  #model-list label:hover { border-color:rgba(12,142,231,.35) !important; transform:none !important; }
+  #model-selection-hint { margin-top:12px; font-size:12.5px; color:#64748b; line-height:1.5; }
+
+  .ex-answer { padding: 18px; }
+  .ex-answer-head {
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    margin-bottom: 12px;
+  }
+  .ex-answer-head label { margin:0; font-size:14px; font-weight:750; color:#0f172a; }
+  .ex-count { font-size:12.5px; color:#64748b; }
+  .ex-count strong { color:#0c8ee7; font-weight:800; }
+  #user-answer {
+    min-height: 300px !important; resize: vertical; line-height: 1.85 !important;
+    font-size: 14.5px !important;
+  }
+  .ex-actions {
+    display:flex; gap:12px; margin-top: 14px;
+  }
+  .ex-actions .btn { min-height: 46px; }
+  .ex-actions .btn-primary { flex: 1; }
+
+  @media (max-width: 980px) {
+    .ex-body { grid-template-columns: 1fr; }
+    .ex-material { position: relative; top: auto; max-height: none; }
+    .ex-mode-grid { grid-template-columns: 1fr; }
+    .ex-paper-title { white-space: normal; }
+    .ex-topbar-inner { align-items: flex-start; padding: 10px 0; flex-direction: column; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ex-page">
+  <div class="ex-topbar">
+    <div class="ex-topbar-inner">
+      <div class="ex-top-left">
+        <a class="ex-back" href="/papers">
+          <i data-lucide="arrow-left"></i>
+          返回卷库
+        </a>
+        <div class="ex-divider"></div>
+        <h1 class="ex-paper-title" id="paper-title">加载中...</h1>
+      </div>
+      <div class="ex-meta" id="question-info"></div>
+    </div>
+    <div class="ex-qnav-wrap" id="question-nav-wrap" style="display:none;">
+      <div class="ex-qnav" id="question-nav"></div>
+    </div>
+  </div>
+
+  <div class="ex-body">
+    <!-- 左侧材料 -->
+    <section class="ex-card ex-material">
+      <div class="ex-section-head">
+        <i data-lucide="file-text" style="width:18px;height:18px;color:#0c8ee7;"></i>
+        <h3>给定材料</h3>
+        <span id="material-scope" class="ex-scope-badge">全部材料</span>
+      </div>
+      <div id="material-content" class="ex-material-text">
+        <div class="skeleton skeleton-text"></div>
+        <div class="skeleton skeleton-text"></div>
+        <div class="skeleton skeleton-text" style="width:60%;"></div>
+      </div>
+    </section>
+
+    <!-- 右侧作答 -->
+    <div class="ex-right">
+      <section class="ex-card ex-qcard">
+        <div class="ex-qtop">
+          <div class="ex-qicon"><i data-lucide="edit-3" style="width:18px;height:18px;"></i></div>
+          <div style="flex:1;min-width:0;">
+            <div class="ex-qbadges">
+              <span id="question-type" class="badge badge-info">题型</span>
+              <span id="question-score" class="badge badge-accent">满分</span>
+            </div>
+            <p id="question-stem" class="ex-stem">加载中...</p>
+            <div class="ex-wordreq">字数要求：<span id="word-limit">加载中...</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="ex-card ex-ocr">
+        <input type="file" id="ocr-input" accept="image/*" capture="camera" style="display:none;" onchange="handleOCRUpload(this)">
+        <div id="ocr-dropzone" class="ex-ocr-inner" onclick="document.getElementById('ocr-input').click()">
+          <i data-lucide="camera" style="width:28px;height:28px;color:#0c8ee7;"></i>
+          <p class="ex-ocr-title">拍照 / 上传识别文字</p>
+          <p class="ex-ocr-desc">支持手写或印刷图片，识别后可再编辑</p>
+        </div>
+        <div id="ocr-progress" style="display:none; text-align:center; padding:12px;">
+          <div class="grading-status" style="justify-content:center;">
+            <div class="grading-status-spinner"></div>
+            <span class="grading-status-text">正在识别文字...</span>
+          </div>
+        </div>
+      </section>
+
+      <div id="login-hint" class="ex-card ex-hint">
+        <div class="ex-hint-row">
+          <i data-lucide="alert-circle" style="width:18px;height:18px;flex:0 0 18px;"></i>
+          <span>你尚未登录，答案不会保存。<a href="/login" style="color:#0c8ee7;font-weight:700;">登录</a> 后可获得 AI 批改并保存记录。</span>
+        </div>
+      </div>
+
+      <section id="grading-model-panel" class="ex-card ex-models">
+        <div class="ex-models-head">
+          <h3><i data-lucide="network" style="width:18px;height:18px;color:#0c8ee7;"></i>批改模型</h3>
+          <span id="model-selection-count" class="badge badge-info">0/4</span>
+        </div>
+        <div role="radiogroup" aria-label="批改模式" class="ex-mode-grid">
+          <label class="ex-mode">
+            <input type="radio" name="grading-mode" value="fallback" checked style="margin-top:3px;" onchange="updateGradingMode()">
+            <span>
+              <strong>主备切换</strong>
+              <span>按优先级依次调用模型</span>
+            </span>
+          </label>
+          <label class="ex-mode">
+            <input type="radio" name="grading-mode" value="ensemble" style="margin-top:3px;" onchange="updateGradingMode()">
+            <span>
+              <strong>多模型评审</strong>
+              <span>并行评分并汇总综合成绩</span>
+            </span>
+          </label>
+        </div>
+        <div id="model-list">
+          <div style="font-size:13.5px;color:#64748b;">正在加载可用模型...</div>
+        </div>
+        <div id="model-selection-hint">主备切换可选择多个模型，实际调用顺序以管理员配置的优先级为准。</div>
+      </section>
+
+      <section class="ex-card ex-answer">
+        <form id="answer-form" onsubmit="handleSubmit(event)">
+          <input type="hidden" name="pid" value="{{ pid }}">
+          <input type="hidden" name="qid" value="{{ qid }}">
+          <div class="ex-answer-head">
+            <label for="user-answer">你的答案</label>
+            <div class="ex-count">
+              字数：<strong id="word-count">0</strong>
+              <span id="word-count-hint" style="margin-left:8px;"></span>
+            </div>
+          </div>
+          <textarea
+            id="user-answer"
+            name="user_answer"
+            class="input-field"
+            placeholder="请在此输入你的答案...
+
+提示：
+1. 分点作答，条理清晰
+2. 使用序号标注要点
+3. 注意字数要求"
+            required
+          ></textarea>
+          <div class="ex-actions">
+            <button type="submit" class="btn btn-primary">
+              <i data-lucide="send"></i>
+              提交批改
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="clearAnswer()">
+              <i data-lucide="trash-2"></i>
+              清空
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const pid = '{{ pid }}';
+  const qid = '{{ qid }}';
+  const MAX_MODELS_PER_SUBMISSION = 4;
+
+  let paperData = null;
+  let questionData = null;
+  let availableGradingModels = [];
+
+  function getStoredToken() {
+    return localStorage.getItem('slb_token') || localStorage.getItem('token');
+  }
+
+  function selectedGradingModelIds() {
+    return Array.from(document.querySelectorAll('input[name="model_ids"]:checked'))
+      .map(input => input.value);
+  }
+
+  function updateModelSelectionCount() {
+    const count = selectedGradingModelIds().length;
+    const countEl = document.getElementById('model-selection-count');
+    if (countEl) countEl.textContent = `${count}/${MAX_MODELS_PER_SUBMISSION}`;
+  }
+
+  function updateGradingMode() {
+    const mode = document.querySelector('input[name="grading-mode"]:checked')?.value || 'fallback';
+    const hint = document.getElementById('model-selection-hint');
+    if (!hint) return;
+    hint.textContent = mode === 'ensemble'
+      ? '多模型评审需选择 2 至 4 个模型，各模型会并行给出独立评分。'
+      : '主备切换可选择多个模型，实际调用顺序以管理员配置的优先级为准。';
+  }
+
+  function handleModelSelectionChange(input) {
+    const selectedModelIds = selectedGradingModelIds();
+    if (selectedModelIds.length > 4) {
+      input.checked = false;
+      if (typeof SLBToast !== 'undefined') SLBToast.warning('一次最多选择 4 个模型');
+    }
+    updateModelSelectionCount();
+  }
+
+  function renderGradingModels(models) {
+    const list = document.getElementById('model-list');
+    list.replaceChildren();
+
+    if (!models.length) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'font-size:13.5px;color:#64748b;';
+      empty.textContent = '暂无公开模型，将继续使用原有批改服务。';
+      list.appendChild(empty);
+      updateModelSelectionCount();
+      return;
+    }
+
+    models.forEach((model, index) => {
+      const label = document.createElement('label');
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.name = 'model_ids';
+      checkbox.value = model.model_id;
+      checkbox.checked = index < MAX_MODELS_PER_SUBMISSION;
+      checkbox.addEventListener('change', () => handleModelSelectionChange(checkbox));
+
+      const text = document.createElement('span');
+      text.style.cssText = 'display:flex;flex:1;align-items:center;justify-content:space-between;gap:8px;min-width:0;';
+
+      const name = document.createElement('strong');
+      name.style.cssText = 'font-size:13.5px;font-weight:700;color:#0f172a;overflow-wrap:anywhere;';
+      name.textContent = model.model_name || model.name || '未命名模型';
+
+      const protocol = document.createElement('span');
+      protocol.className = 'badge badge-info';
+      protocol.textContent = model.protocol === 'anthropic' ? 'Anthropic' : 'OpenAI';
+
+      text.append(name, protocol);
+      label.append(checkbox, text);
+      list.appendChild(label);
+    });
+    updateModelSelectionCount();
+  }
+
+  function hideGradingModelPanel() {
+    availableGradingModels = [];
+    const panel = document.getElementById('grading-model-panel');
+    const list = document.getElementById('model-list');
+    if (panel) panel.style.display = 'none';
+    if (list) list.replaceChildren();
+    updateModelSelectionCount();
+  }
+
+  async function loadGradingModels() {
+    const token = getStoredToken();
+    if (!token) {
+      hideGradingModelPanel();
+      return;
+    }
+
+    const panel = document.getElementById('grading-model-panel');
+    panel.style.display = 'block';
+    try {
+      const res = await fetch('/api/models', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!res.ok) throw new Error('model list unavailable');
+      const payload = await res.json();
+      if (getStoredToken() !== token) return;
+      availableGradingModels = Array.isArray(payload.data?.models) ? payload.data.models : [];
+      renderGradingModels(availableGradingModels);
+    } catch (error) {
+      console.error('Failed to load grading models:', error);
+      availableGradingModels = [];
+      renderGradingModels([]);
+    }
+    updateGradingMode();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+
+  function getGradingSelection() {
+    const gradingMode = document.querySelector('input[name="grading-mode"]:checked')?.value || 'fallback';
+    const selectedModelIds = selectedGradingModelIds();
+    if (!availableGradingModels.length) {
+      return { gradingMode, selectedModelIds, valid: true };
+    }
+    if (!selectedModelIds.length) {
+      if (typeof SLBToast !== 'undefined') SLBToast.warning('请至少选择一个批改模型');
+      return { gradingMode, selectedModelIds, valid: false };
+    }
+    if (selectedModelIds.length > 4) {
+      if (typeof SLBToast !== 'undefined') SLBToast.warning('一次最多选择 4 个模型');
+      return { gradingMode, selectedModelIds, valid: false };
+    }
+    if (gradingMode === 'ensemble' && selectedModelIds.length < 2) {
+      if (typeof SLBToast !== 'undefined') SLBToast.warning('多模型评审至少选择 2 个模型');
+      return { gradingMode, selectedModelIds, valid: false };
+    }
+    return { gradingMode, selectedModelIds, valid: true };
+  }
+
+  window.addEventListener('slb:auth-change', event => {
+    const authenticated = Boolean(event.detail?.authenticated);
+    const loginHint = document.getElementById('login-hint');
+    if (authenticated) {
+      if (loginHint) loginHint.style.display = 'none';
+      loadGradingModels();
+    } else {
+      hideGradingModelPanel();
+      if (loginHint) loginHint.style.display = 'block';
+    }
+  });
+
+  async function loadQuestion() {
+    try {
+      const paperRes = await fetch(`/api/papers/${pid}`);
+      const { data: paper } = await paperRes.json();
+      paperData = paper;
+
+      document.getElementById('paper-title').textContent = paper.title || '作答';
+      document.title = `${paper.title || '作答'} - 申论帮`;
+      renderQuestionNav();
+
+      const qRes = await fetch(`/api/papers/${pid}/question/${qid}`);
+      const { data: question } = await qRes.json();
+      questionData = question;
+
+      const material = question.material || [];
+      document.getElementById('material-content').textContent = material.join('\n\n');
+      document.getElementById('material-scope').textContent = question.material_scope || '全部材料';
+
+      document.getElementById('question-stem').textContent = question.stem || '';
+      document.getElementById('word-limit').textContent = question.word_limit || '未指定';
+      document.getElementById('question-type').textContent = question.type || '未知';
+      document.getElementById('question-score').textContent = `满分 ${question.score_max || 100} 分`;
+
+      // top meta chips
+      const info = document.getElementById('question-info');
+      info.innerHTML = `
+        <span class="ex-chip">${escapeHtml(question.type || '题目')}</span>
+        <span class="ex-chip soft">${escapeHtml(qid)}</span>
+        <span class="ex-chip soft">满分 ${escapeHtml(question.score_max || 100)}</span>
+      `;
+
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      if (!getStoredToken()) {
+        document.getElementById('login-hint').style.display = 'block';
+      }
+    } catch (e) {
+      console.error(e);
+      if (typeof SLBToast !== 'undefined') SLBToast.error('加载失败，请刷新页面重试');
+    }
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  function renderQuestionNav() {
+    const wrap = document.getElementById('question-nav-wrap');
+    const nav = document.getElementById('question-nav');
+    if (!wrap || !nav) return;
+    const questions = paperData?.questions || [];
+    if (!questions.length || questions.length <= 1) {
+      wrap.style.display = 'none';
+      return;
+    }
+    wrap.style.display = 'block';
+    nav.innerHTML = `<span class="ex-qnav-label"><i data-lucide="list-checks" style="width:14px;height:14px;"></i>本题卷题目</span>` +
+      questions.map((q, i) => {
+        const active = q.qid === qid ? 'active' : '';
+        return `<a class="ex-qnav-item ${active}" href="/exam/${encodeURIComponent(pid)}/${encodeURIComponent(q.qid)}">
+          <span class="ex-qnav-num">第${i + 1}题</span>
+          <span class="ex-qnav-type">${escapeHtml(q.type || '题目')}</span>
+        </a>`;
+      }).join('');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+
+  const answerTextarea = document.getElementById('user-answer');
+  if (answerTextarea) {
+    answerTextarea.addEventListener('input', function() {
+      const count = this.value.length;
+      document.getElementById('word-count').textContent = count;
+      const hint = document.getElementById('word-count-hint');
+      if (questionData && questionData.word_limit) {
+        const match = String(questionData.word_limit).match(/(\d+)-(\d+)/);
+        if (match) {
+          const min = parseInt(match[1], 10);
+          const max = parseInt(match[2], 10);
+          if (count < min) {
+            hint.textContent = `(还需 ${min - count} 字)`;
+            hint.style.color = '#d97706';
+          } else if (count > max) {
+            hint.textContent = `(超出 ${count - max} 字)`;
+            hint.style.color = '#dc2626';
+          } else {
+            hint.textContent = '(字数合适)';
+            hint.style.color = '#059669';
+          }
+        }
+      }
+    });
+  }
+
+  async function handleOCRUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      if (typeof SLBToast !== 'undefined') SLBToast.warning('图片大小不能超过 10MB');
+      return;
+    }
+    document.getElementById('ocr-dropzone').style.display = 'none';
+    document.getElementById('ocr-progress').style.display = 'block';
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const res = await fetch('/api/ocr', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + (getStoredToken() || '') },
+        body: formData
+      });
+      const data = await res.json();
+      if (res.ok && data.data && data.data.text) {
+        const textarea = document.getElementById('user-answer');
+        textarea.value = data.data.text;
+        textarea.dispatchEvent(new Event('input'));
+        if (typeof SLBToast !== 'undefined') SLBToast.success('文字识别完成，请检查并修改');
+      } else if (typeof SLBToast !== 'undefined') {
+        SLBToast.error(data.error || '识别失败');
+      }
+    } catch (e) {
+      console.error('OCR error:', e);
+      if (typeof SLBToast !== 'undefined') SLBToast.error('识别失败，请重试');
+    } finally {
+      document.getElementById('ocr-dropzone').style.display = 'block';
+      document.getElementById('ocr-progress').style.display = 'none';
+      input.value = '';
+    }
+  }
+
+  const dropzone = document.getElementById('ocr-dropzone');
+  if (dropzone) {
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.style.borderColor = '#0c8ee7';
+      dropzone.style.background = '#eaf4ff';
+    });
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.style.borderColor = '';
+      dropzone.style.background = '';
+    });
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.style.borderColor = '';
+      dropzone.style.background = '';
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        const input = document.getElementById('ocr-input');
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        handleOCRUpload(input);
+      }
+    });
+  }
+
+  function clearAnswer() {
+    if (confirm('确定要清空答案吗？')) {
+      document.getElementById('user-answer').value = '';
+      document.getElementById('user-answer').dispatchEvent(new Event('input'));
+    }
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    const form = e.target;
+    const answer = form.user_answer.value.trim();
+    if (!answer) {
+      if (typeof SLBToast !== 'undefined') SLBToast.warning('请输入答案');
+      return;
+    }
+    const token = getStoredToken();
+    if (!token) {
+      if (typeof SLBToast !== 'undefined') SLBToast.warning('请先登录');
+      if (typeof openAuthModal === 'function') openAuthModal('login');
+      else window.location.href = '/login';
+      return;
+    }
+    const { gradingMode, selectedModelIds, valid } = getGradingSelection();
+    if (!valid) return;
+
+    const btn = form.querySelector('button[type="submit"]');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<div class="grading-status-spinner" style="width:16px;height:16px;border-width:2px;margin:0;"></div> 提交中...';
+
+    try {
+      const res = await fetch('/api/submissions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({
+          pid: pid,
+          qid: qid,
+          user_answer: answer,
+          ...(selectedModelIds.length ? {
+            mode: gradingMode,
+            model_ids: selectedModelIds
+          } : {})
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (typeof SLBGradingProgress !== 'undefined') {
+          SLBGradingProgress.start();
+          SLBGradingProgress.nextStep(0);
+        }
+        if (typeof SLBToast !== 'undefined') SLBToast.success('提交成功，正在批改...');
+        setTimeout(() => {
+          window.location.href = `/result/${data.data.sid}`;
+        }, 500);
+      } else {
+        if (typeof SLBToast !== 'undefined') SLBToast.error(data.error || '提交失败');
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+      }
+    } catch (err) {
+      console.error('Submit error:', err);
+      if (typeof SLBToast !== 'undefined') SLBToast.error('提交失败，请稍后重试');
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+  }
+
+  loadQuestion();
+  loadGradingModels();
+</script>
+{% endblock %}

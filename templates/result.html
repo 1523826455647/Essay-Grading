@@ -1,0 +1,659 @@
+{% extends "base.html" %}
+{% block title %}批改结果 - 申论帮{% endblock %}
+
+{% block extra_css %}
+<style>
+  @media print {
+    .navbar, .footer, .rs-actions, .rs-back, #feedback-form, #regrade-btn { display: none !important; }
+    .rs-page { width: 100% !important; max-width: none !important; }
+    .rs-card { break-inside: avoid; box-shadow: none !important; border: 1px solid #ddd !important; }
+    body { background: white !important; }
+  }
+
+  /* 重新批改 - 模型选择弹窗 */
+  .regrade-modal {
+    position: fixed; inset: 0; z-index: 1200;
+    background: rgba(15, 23, 42, 0.45);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .regrade-modal.open { display: flex; }
+  .regrade-modal-content {
+    background: #fff; border-radius: 14px; max-width: 520px; width: 100%;
+    max-height: 82vh; display: flex; flex-direction: column;
+    box-shadow: 0 24px 60px rgba(0,0,0,.2);
+    overflow: hidden;
+  }
+  .regrade-modal-head {
+    padding: 16px 20px; border-bottom: 1px solid #eef2f7;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .regrade-modal-head h3 { margin: 0; font-size: 16px; font-weight: 750; color: #0f172a; }
+  .regrade-modal-close { border: none; background: none; font-size: 24px; line-height: 1; color: #94a3b8; cursor: pointer; padding: 0 4px; }
+  .regrade-modal-close:hover { color: #0f172a; }
+  .regrade-modal-body { padding: 16px 20px; overflow-y: auto; }
+  .regrade-modal-hint { font-size: 13px; color: #64748b; margin: 0 0 12px; line-height: 1.6; }
+  .regrade-model-list { display: grid; gap: 8px; }
+  .regrade-model-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px;
+    cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .regrade-model-item:hover { border-color: #0c8ee7; }
+  .regrade-model-item.checked { border-color: #0c8ee7; background: #f0f8ff; }
+  .regrade-model-item input { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
+  .regrade-model-name { font-size: 13.5px; font-weight: 600; color: #0f172a; flex: 1; overflow-wrap: anywhere; }
+  .regrade-modal-foot {
+    padding: 14px 20px; border-top: 1px solid #eef2f7;
+    display: flex; justify-content: flex-end; gap: 10px;
+  }
+  .regrade-model-empty { font-size: 13.5px; color: #64748b; padding: 6px 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div class="rs-page">
+    <a class="rs-back" href="/papers">
+      <i data-lucide="arrow-left"></i>
+      返回卷库
+    </a>
+
+    <div class="rs-head">
+      <h1 id="paper-info">批改结果</h1>
+      <p id="question-info"></p>
+    </div>
+
+    <div class="rs-score">
+      <div class="rs-score-label">综合得分</div>
+      <div class="rs-score-value" id="total-score">--</div>
+      <div class="rs-score-sub">满分 <span id="max-score">100</span> 分</div>
+    </div>
+
+    <div id="review-notice" class="rs-notice">
+      <i data-lucide="shield-alert" style="width:18px;height:18px;color:#d97706;flex:0 0 18px;"></i>
+      <div>
+        <strong id="review-notice-title" style="display:block;margin-bottom:4px;">本次结果建议复核</strong>
+        <span id="review-notice-text" style="font-size:13px;color:#64748b;line-height:1.55;">模型结果存在分歧，请结合逐模型明细判断。</span>
+      </div>
+    </div>
+
+    <div id="grading-summary-card" class="rs-card" style="display:none;">
+      <h3 class="rs-card-title"><i data-lucide="git-compare-arrows"></i>综合评审概览</h3>
+      <div class="rs-kpis">
+        <div class="rs-kpi"><span>批改模式</span><strong id="grading-mode">--</strong></div>
+        <div class="rs-kpi"><span>百分制成绩</span><strong id="aggregate-score-rate">--</strong></div>
+        <div class="rs-kpi"><span>一致率</span><strong id="agreement-rate">--</strong></div>
+        <div class="rs-kpi"><span>评分差</span><strong id="score-spread">--</strong></div>
+        <div class="rs-kpi"><span>有效模型</span><strong id="valid-judges">0</strong></div>
+        <div class="rs-kpi"><span>失败模型</span><strong id="failed-judges">0</strong></div>
+      </div>
+    </div>
+
+    <div class="rs-card">
+      <h3 class="rs-card-title"><i data-lucide="bar-chart-3"></i>维度分析</h3>
+      <div style="display:grid;grid-template-columns:1fr 280px;gap:24px;align-items:center;">
+        <div id="dimension-scores" class="rs-dim"></div>
+        <div style="display:flex;justify-content:center;">
+          <canvas id="radar-chart" width="260" height="260"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="rs-card">
+      <h3 class="rs-card-title"><i data-lucide="check-square"></i>参考要点对照</h3>
+      <div id="reference-points" style="display:grid;gap:8px;"></div>
+    </div>
+
+    <div class="rs-points">
+      <div class="rs-point-card hit">
+        <h4>命中要点</h4>
+        <ul id="hit-points"></ul>
+      </div>
+      <div class="rs-point-card miss">
+        <h4>遗漏要点</h4>
+        <ul id="missing-points"></ul>
+      </div>
+    </div>
+
+    <div id="disagreement-points-card" class="rs-card" style="display:none;">
+      <h3 class="rs-card-title"><i data-lucide="split"></i>模型分歧分析</h3>
+      <div id="disagreement-analysis" style="display:grid;gap:10px;"></div>
+      <ul id="disagreement-points" style="margin:0;padding-left:1.1rem;color:#64748b;line-height:1.75;font-size:13.5px;"></ul>
+    </div>
+
+    <div id="model-comparison-card" class="rs-card" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">
+        <h3 class="rs-card-title" style="margin:0;border:0;padding:0;"><i data-lucide="columns-3"></i>逐模型评审</h3>
+        <span id="judgment-count" class="badge badge-info">0 个模型</span>
+      </div>
+      <div id="model-judgments"></div>
+    </div>
+
+    <div class="rs-card">
+      <h3 class="rs-card-title"><i data-lucide="message-square"></i>AI 批改意见</h3>
+      <div id="ai-feedback" class="rs-text">加载中...</div>
+    </div>
+
+    <div class="rs-card">
+      <h3 class="rs-card-title"><i data-lucide="lightbulb"></i>改进建议</h3>
+      <div id="improving-suggestions" class="rs-text">加载中...</div>
+    </div>
+
+    <div id="reference-answer-card" class="rs-card" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;">
+        <h3 class="rs-card-title" style="margin:0;border:0;padding:0;"><i data-lucide="book-open-check"></i>参考答案</h3>
+      </div>
+      <div id="reference-answer" class="rs-text" style="white-space:pre-wrap;line-height:1.9;"></div>
+    </div>
+
+    <div class="rs-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;">
+        <h3 class="rs-card-title" style="margin:0;border:0;padding:0;"><i data-lucide="file-text"></i>你的答案</h3>
+        <span id="answer-word-count" style="font-size:12.5px;color:#94a3b8;"></span>
+      </div>
+      <div id="user-answer" class="rs-answer"></div>
+    </div>
+
+    <div class="rs-actions">
+      <button class="btn btn-secondary" type="button" onclick="window.print()"><i data-lucide="download" style="width:16px;height:16px;"></i> 导出报告</button>
+      <button class="btn btn-secondary" type="button" onclick="submitFeedback()">认为批改有误？</button>
+      <button class="btn btn-secondary" type="button" id="regrade-btn" onclick="regradeSubmission()">重新批改</button>
+      <a href="/custom-grade" class="btn btn-primary">继续批改</a>
+      <a href="/papers" class="btn btn-secondary">返回卷库</a>
+    </div>
+
+    <div id="feedback-form" class="rs-card" style="display:none;">
+      <h3 class="rs-card-title"><i data-lucide="alert-triangle"></i>提交纠错</h3>
+      <textarea id="feedback-text" class="input-field" style="min-height:110px;" placeholder="请说明你认为批改有误的原因..."></textarea>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;">
+        <button class="btn btn-secondary" type="button" onclick="document.getElementById('feedback-form').style.display='none'">取消</button>
+        <button class="btn btn-primary" type="button" onclick="sendFeedback()">提交反馈</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 重新批改 - 模型选择弹窗 -->
+<div id="regrade-modal" class="regrade-modal" role="dialog" aria-modal="true">
+  <div class="regrade-modal-content">
+    <div class="regrade-modal-head">
+      <h3><i data-lucide="refresh-cw" style="width:16px;height:16px;color:#0c8ee7;vertical-align:-2px;"></i> 重新批改 · 选择模型</h3>
+      <button class="regrade-modal-close" type="button" onclick="closeRegradeModal()" aria-label="关闭">&times;</button>
+    </div>
+    <div class="regrade-modal-body">
+      <p class="regrade-modal-hint">已默认勾选上一次批改使用的模型，可自由调整（最多 4 个）。若取消全部勾选，将沿用上一次的模型重新批改。</p>
+      <div id="regrade-model-list" class="regrade-model-list">
+        <div class="regrade-model-empty">正在加载可用模型...</div>
+      </div>
+    </div>
+    <div class="regrade-modal-foot">
+      <button class="btn btn-secondary" type="button" onclick="closeRegradeModal()">取消</button>
+      <button class="btn btn-primary" type="button" id="regrade-confirm-btn" onclick="confirmRegrade()">开始重新批改</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const sid = '{{ sid }}';
+
+  const MAX_REGARDE_MODELS = 4;
+  let availableRegradeModels = [];
+  let lastUsedModelIds = [];
+
+  const DIM_LABELS = {
+    point_coverage: '踩点命中', conciseness: '语言简洁', accuracy: '归纳准确', format: '条理清晰',
+    logic_chain: '逻辑链', depth: '分析深度', language: '语言规范',
+    problem_identification: '问题定位', targeting: '针对性', feasibility: '可行性', specificity: '具体性',
+    format_correctness: '格式正确', purpose_achievement: '目的达成', content_completeness: '内容完整',
+    language_appropriateness: '语言得体', word_count: '字数控制',
+    thesis_accuracy: '立意准确', argument_richness: '论据丰富', structure: '结构完整', innovation: '创新性'
+  };
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function hasStoredValue(value) { return value !== null && value !== undefined; }
+  function finiteNumber(value) {
+    if (!hasStoredValue(value)) return null;
+    if (typeof value === 'string' && !value.trim()) return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  function formatPercentage(value) {
+    const n = finiteNumber(value);
+    if (n === null) return '--';
+    const percent = n <= 1 ? n * 100 : n;
+    return `${Number.isInteger(percent) ? percent : percent.toFixed(1)}%`;
+  }
+  function formatScoreRate(value) {
+    const n = finiteNumber(value);
+    if (n === null) return '--';
+    return `${Number.isInteger(n) ? n : n.toFixed(1)} / 100`;
+  }
+  function formatPoint(point) {
+    if (typeof point === 'string') return point;
+    if (!point || typeof point !== 'object') return '';
+    let text = point.point || point.description || '';
+    if (point.score !== undefined && point.max_score !== undefined) text += `（${point.score}/${point.max_score}分）`;
+    if (point.evidence) text += `；依据：${point.evidence}`;
+    return text;
+  }
+  function formatSuggestions(suggestions) {
+    if (Array.isArray(suggestions)) return suggestions.join('\n');
+    if (suggestions && typeof suggestions === 'object') return Object.values(suggestions).join('\n');
+    return suggestions || '暂无建议';
+  }
+  function publicErrorLabel(errorCategory) {
+    const labels = {
+      authentication: '认证失败', rate_limited: '服务限流', upstream: '上游服务异常',
+      timeout: '请求超时', request: '请求被拒绝', response_format: '返回格式异常',
+      internal: '服务内部异常', persistence: '结果保存失败'
+    };
+    return labels[errorCategory] || '模型调用失败';
+  }
+  function dimMaxMap() {
+    return {
+      point_coverage: 70, conciseness: 15, accuracy: 10, format: 10,
+      logic_chain: 30, depth: 20, language: 20,
+      problem_identification: 20, targeting: 25, feasibility: 25, specificity: 20,
+      format_correctness: 20, purpose_achievement: 25, content_completeness: 30,
+      language_appropriateness: 15, word_count: 10,
+      thesis_accuracy: 25, argument_richness: 25, structure: 20, innovation: 10,
+      '踩点命中': 40, '逻辑结构': 25, '语言规范': 20, '字数控制': 10, '卷面整洁': 5
+    };
+  }
+
+  async function loadResult() {
+    const token = localStorage.getItem('slb_token') || localStorage.getItem('token');
+    if (!token) {
+      if (typeof SLBToast !== 'undefined') SLBToast.warning('请先登录');
+      window.location.href = '/login';
+      return;
+    }
+    try {
+      const res = await fetch(`/api/submissions/${sid}`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!res.ok) {
+        if (typeof SLBToast !== 'undefined') SLBToast.error('加载失败');
+        return;
+      }
+      const { data } = await res.json();
+      renderResult(data || {});
+    } catch (e) {
+      console.error(e);
+      if (typeof SLBToast !== 'undefined') SLBToast.error('加载失败，请刷新重试');
+    }
+  }
+
+  function regradeSubmission() {
+    // 打开模型选择弹窗（可自由选择重新批改使用的模型）
+    if (typeof SLBToast !== 'undefined') SLBToast.info('请选择重新批改使用的模型');
+    openRegradeModal();
+  }
+
+  function openRegradeModal() {
+    const modal = document.getElementById('regrade-modal');
+    modal.classList.add('open');
+    loadRegradeModels();
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function closeRegradeModal() {
+    document.getElementById('regrade-modal').classList.remove('open');
+  }
+
+  async function loadRegradeModels() {
+    const token = localStorage.getItem('slb_token') || localStorage.getItem('token');
+    const list = document.getElementById('regrade-model-list');
+    list.innerHTML = '<div class="regrade-model-empty">正在加载可用模型...</div>';
+    if (!token) { availableRegradeModels = []; renderRegradeModels(); return; }
+    try {
+      const res = await fetch('/api/models', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (!res.ok) throw new Error('model list unavailable');
+      const payload = await res.json();
+      availableRegradeModels = Array.isArray(payload.data?.models) ? payload.data.models : [];
+    } catch (e) {
+      console.error('Failed to load regrade models:', e);
+      availableRegradeModels = [];
+    }
+    renderRegradeModels();
+  }
+
+  function renderRegradeModels() {
+    const list = document.getElementById('regrade-model-list');
+    list.replaceChildren();
+    if (!availableRegradeModels.length) {
+      const empty = document.createElement('div');
+      empty.className = 'regrade-model-empty';
+      empty.textContent = '暂无可用模型，将沿用上一次批改使用的模型。';
+      list.appendChild(empty);
+      return;
+    }
+    availableRegradeModels.forEach(model => {
+      const label = document.createElement('label');
+      label.className = 'regrade-model-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = model.model_id;
+      cb.checked = lastUsedModelIds.includes(model.model_id);
+      cb.addEventListener('change', () => {
+        const checked = list.querySelectorAll('input:checked');
+        if (checked.length > MAX_REGARDE_MODELS) {
+          cb.checked = false;
+          if (typeof SLBToast !== 'undefined') SLBToast.warning('一次最多选择 4 个模型');
+          return;
+        }
+        label.classList.toggle('checked', cb.checked);
+      });
+      if (cb.checked) label.classList.add('checked');
+      const name = document.createElement('span');
+      name.className = 'regrade-model-name';
+      name.textContent = model.model_name || model.name || '未命名模型';
+      label.append(cb, name);
+      list.appendChild(label);
+    });
+  }
+
+  function confirmRegrade() {
+    const checked = Array.from(document.querySelectorAll('#regrade-model-list input:checked'))
+      .map(i => i.value);
+    if (checked.length > MAX_REGARDE_MODELS) {
+      if (typeof SLBToast !== 'undefined') SLBToast.warning('一次最多选择 4 个模型');
+      return;
+    }
+    closeRegradeModal();
+    doRegrade(checked);
+  }
+
+  async function doRegrade(modelIds) {
+    const btn = document.getElementById('regrade-btn');
+    const token = localStorage.getItem('slb_token') || localStorage.getItem('token');
+    if (!token) {
+      if (typeof SLBToast !== 'undefined') SLBToast.warning('请先登录');
+      window.location.href = '/login';
+      return;
+    }
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '重新批改中…约1-3分钟';
+    if (typeof SLBToast !== 'undefined') SLBToast.info('已提交重新批改，请耐心等待…');
+    try {
+      const res = await fetch(`/api/submissions/${sid}/regrade`, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify(modelIds.length ? { model_ids: modelIds } : {})
+      });
+      if (res.ok) {
+        if (typeof SLBToast !== 'undefined') SLBToast.success('重新批改完成');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        if (typeof SLBToast !== 'undefined') SLBToast.error('重新批改可能未完成：' + (err.error || res.status) + '，正在刷新结果…');
+      }
+    } catch (e) {
+      console.error(e);
+      if (typeof SLBToast !== 'undefined') SLBToast.error('请求超时或网络异常，正在刷新结果…');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = origText;
+      await loadResult();
+    }
+  }
+
+  function renderDimensions(dimensions) {
+    const box = document.getElementById('dimension-scores');
+    const maxMap = dimMaxMap();
+    if (!dimensions || typeof dimensions !== 'object' || !Object.keys(dimensions).length) {
+      box.innerHTML = '<div style="color:#94a3b8;font-size:13.5px;">暂无维度分</div>';
+      return;
+    }
+    box.innerHTML = Object.entries(dimensions).map(([key, value]) => {
+      const max = maxMap[key] || 100;
+      const num = finiteNumber(value) || 0;
+      const pct = Math.max(0, Math.min(100, (num / max) * 100));
+      return `
+        <div class="rs-dim-row">
+          <div class="rs-dim-label">${escapeHtml(DIM_LABELS[key] || key)}</div>
+          <div class="rs-dim-bar"><div class="rs-dim-fill" style="width:${pct}%"></div></div>
+          <div class="rs-dim-val">${escapeHtml(num)}/${escapeHtml(max)}</div>
+        </div>`;
+    }).join('');
+    renderRadarChart(dimensions, maxMap);
+  }
+
+  function renderRadarChart(dimensions, maxMap) {
+    const canvas = document.getElementById('radar-chart');
+    if (!canvas || !window.Chart) return;
+    const ctx = canvas.getContext('2d');
+    if (window._radarInstance) window._radarInstance.destroy();
+    const entries = Object.entries(dimensions);
+    if (!entries.length) return;
+    const labels = entries.map(([k]) => DIM_LABELS[k] || k);
+    const data = entries.map(([k, v]) => {
+      const max = maxMap[k] || 100;
+      return Math.round((finiteNumber(v) || 0) / max * 100);
+    });
+    const maxData = entries.map(() => 100);
+    window._radarInstance = new Chart(ctx, {
+      type: 'radar',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: '满分', data: maxData, borderColor: 'rgba(148,163,184,0.3)', backgroundColor: 'rgba(148,163,184,0.05)', borderWidth: 1, pointRadius: 0 },
+          { label: '得分', data: data, borderColor: 'rgba(12,142,231,0.8)', backgroundColor: 'rgba(12,142,231,0.15)', borderWidth: 2, pointRadius: 3, pointBackgroundColor: 'rgba(12,142,231,1)' }
+        ]
+      },
+      options: {
+        responsive: false, maintainAspectRatio: true,
+        plugins: { legend: { display: false } },
+        scales: { r: { beginAtZero: true, max: 100, ticks: { display: false, stepSize: 25 }, grid: { color: 'rgba(148,163,184,0.2)' }, pointLabels: { font: { size: 11 }, color: '#64748b' } } }
+      }
+    });
+  }
+
+  function renderReferencePoints(hitPoints, missingPoints) {
+    const box = document.getElementById('reference-points');
+    const hits = Array.isArray(hitPoints) ? hitPoints : [];
+    const misses = Array.isArray(missingPoints) ? missingPoints : [];
+    const all = [
+      ...hits.map(p => ({ ...p, _hit: true })),
+      ...misses.map(p => ({ ...p, _hit: false }))
+    ];
+    if (!all.length) {
+      box.innerHTML = '<div style="color:#94a3b8;font-size:13.5px;">暂无参考要点</div>';
+      return;
+    }
+    box.innerHTML = all.map((p, i) => {
+      const label = p.point || p.description || '';
+      const hit = p._hit;
+      const score = finiteNumber(p.score);
+      const maxScore = finiteNumber(p.max_score);
+      const verdict = p.verdict || (hit ? 'full' : 'none');
+      const verdictLabel = { full: '命中', partial: '部分命中', none: '未命中' }[verdict] || verdict;
+      const bgColor = hit ? '#f0fdf4' : '#fef2f2';
+      const borderColor = hit ? '#86efac' : '#fca5a5';
+      const textColor = hit ? '#166534' : '#991b1b';
+      const icon = hit ? 'check' : 'x';
+      return `
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 14px;background:${bgColor};border:1px solid ${borderColor};border-radius:8px;">
+          <i data-lucide="${icon}" style="width:16px;height:16px;color:${textColor};flex:0 0 16px;margin-top:2px;"></i>
+          <div style="flex:1;">
+            <div style="font-size:13.5px;color:#1e293b;line-height:1.5;">${escapeHtml(label)}</div>
+            <div style="display:flex;gap:12px;margin-top:4px;font-size:12px;color:${textColor};">
+              <span>${verdictLabel}</span>
+              ${score !== null && maxScore !== null ? `<span>${score}/${maxScore}分</span>` : ''}
+              ${p.evidence ? `<span style="color:#64748b;">依据：${escapeHtml(p.evidence)}</span>` : ''}
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function renderPointList(id, points) {
+    const el = document.getElementById(id);
+    const arr = Array.isArray(points) ? points : [];
+    el.innerHTML = arr.length
+      ? arr.map(p => `<li>${escapeHtml(formatPoint(p))}</li>`).join('')
+      : '<li>无</li>';
+  }
+
+  function renderModelJudgments(data, maxScore) {
+    const judgments = Array.isArray(data.judgments) ? data.judgments : [];
+    const card = document.getElementById('model-comparison-card');
+    card.style.display = judgments.length ? 'block' : 'none';
+    if (!judgments.length) return;
+    document.getElementById('judgment-count').textContent = `${judgments.length} 个模型`;
+    document.getElementById('model-judgments').innerHTML = judgments.map(j => {
+      const scoreRate = finiteNumber(j.score_rate);
+      const modelScore = scoreRate === null ? finiteNumber(j.score) : Number((scoreRate * maxScore / 100).toFixed(1));
+      const ok = j.status === 'completed' && modelScore !== null;
+      const label = j.model_name || j.name || j.model_id || '未命名模型';
+      return `
+        <div class="rs-judge">
+          <div class="rs-judge-head">
+            <div>
+              <div class="rs-judge-name">${escapeHtml(label)}</div>
+              <div class="rs-judge-meta">${escapeHtml(j.protocol || '')} · ${ok ? '已完成' : publicErrorLabel(j.error_code || j.error_category || 'internal')}</div>
+            </div>
+            <div class="rs-judge-score">${ok ? `${escapeHtml(modelScore)}/${escapeHtml(maxScore)}` : '--'}</div>
+          </div>
+          ${ok ? `<div class="rs-text" style="margin-top:8px;">${escapeHtml(j.ai_feedback || '暂无评语')}</div>` : ''}
+        </div>`;
+    }).join('');
+  }
+
+  function renderResult(data) {
+    const scoreMax = finiteNumber(data.score_max) || 100;
+    const score = finiteNumber(data.score);
+    document.getElementById('paper-info').textContent = data.paper_title || '批改结果';
+    document.getElementById('question-info').textContent = [
+      data.qid ? `题目 ${data.qid}` : '',
+      data.question_type || '',
+      data.grading_mode ? `模式：${data.grading_mode}` : ''
+    ].filter(Boolean).join(' · ');
+    document.getElementById('total-score').textContent = score === null ? '--' : score;
+    document.getElementById('max-score').textContent = scoreMax;
+
+    const isPending = data.status === 'pending_review' || (data.needs_review && score === null);
+    const notice = document.getElementById('review-notice');
+    if (isPending || data.needs_review) {
+      notice.style.display = 'flex';
+      if (isPending) {
+        document.getElementById('review-notice-title').textContent = '批改已转入待复核';
+        document.getElementById('review-notice-text').textContent = data.ai_feedback || '当前没有可用的有效模型成绩，系统未生成综合分数。';
+      }
+    } else {
+      notice.style.display = 'none';
+    }
+
+    const aggregate = (data.aggregate && typeof data.aggregate === 'object') ? data.aggregate : data;
+    const summaryCard = document.getElementById('grading-summary-card');
+    const hasSummary = Boolean(data.grading_mode || (data.judgments || []).length || data.aggregate);
+    summaryCard.style.display = hasSummary ? 'block' : 'none';
+    if (hasSummary) {
+      const modeLabels = { fallback: '主备切换', ensemble: '多模型评审', single: '单模型批改' };
+      document.getElementById('grading-mode').textContent = modeLabels[data.grading_mode] || data.grading_mode || '单模型批改';
+      document.getElementById('aggregate-score-rate').textContent = formatScoreRate(aggregate.score_rate ?? data.score_rate);
+      document.getElementById('agreement-rate').textContent = formatPercentage(aggregate.agreement_rate ?? data.agreement_rate);
+      document.getElementById('score-spread').textContent = aggregate.score_spread ?? data.score_spread ?? '--';
+      document.getElementById('valid-judges').textContent = aggregate.valid_judges ?? data.valid_judges ?? 0;
+      document.getElementById('failed-judges').textContent = aggregate.failed_judges ?? data.failed_judges ?? 0;
+    }
+
+    renderDimensions(data.dimension_scores || aggregate.dimension_scores || {});
+    renderPointList('hit-points', data.hit_points || []);
+    renderPointList('missing-points', data.missing_points || []);
+    renderReferencePoints(data.hit_points || [], data.missing_points || []);
+
+    // disagreement analysis from summary LLM
+    const dcard = document.getElementById('disagreement-points-card');
+    const da = Array.isArray(aggregate.disagreement_analysis) ? aggregate.disagreement_analysis : [];
+    // Legacy point-level disagreement
+    const allPoints = [
+      ...(Array.isArray(aggregate.hit_points) ? aggregate.hit_points : []),
+      ...(Array.isArray(aggregate.missing_points) ? aggregate.missing_points : [])
+    ];
+    const disagreement = allPoints.filter(p => p && p.disagreement === true);
+    const hasLegacyDisagree = disagreement.length > 0;
+
+    dcard.style.display = (da.length > 0 || hasLegacyDisagree || (data.hit_points || []).length + (data.missing_points || []).length === 0) ? 'block' : 'none';
+
+    if (da.length > 0) {
+      document.getElementById('disagreement-analysis').innerHTML = da.map(d => {
+        const modelsHit = Array.isArray(d.models_hit) ? d.models_hit.join(', ') : '';
+        const modelsMiss = Array.isArray(d.models_miss) ? d.models_miss.join(', ') : '';
+        return '<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;">' +
+          '<div style="font-size:13.5px;color:#92400e;font-weight:500;margin-bottom:4px;">' + escapeHtml(d.point || '') + '</div>' +
+          '<div style="font-size:12px;color:#b45309;display:flex;gap:12px;flex-wrap:wrap;">' +
+          '<span>命中: ' + escapeHtml(modelsHit || '--') + '</span>' +
+          '<span>遗漏: ' + escapeHtml(modelsMiss || '--') + '</span>' +
+          '<span style="color:#64748b;">' + escapeHtml(d.resolution || '') + '</span>' +
+          '</div></div>';
+      }).join('');
+    } else {
+      document.getElementById('disagreement-analysis').innerHTML = '';
+    }
+    document.getElementById('disagreement-points').innerHTML = disagreement.map(p => '<li>' + escapeHtml(formatPoint(p)) + '</li>').join('');
+
+    renderModelJudgments(data, scoreMax);
+
+    // 记录上一次批改使用的模型，用于重新批改弹窗预选
+    const priorJudgments = Array.isArray(data.judgments) ? data.judgments : [];
+    lastUsedModelIds = priorJudgments
+      .map(j => j.model_id)
+      .filter(id => typeof id === 'string' && id);
+
+    document.getElementById('ai-feedback').textContent = data.ai_feedback || '暂无批改意见';
+    document.getElementById('improving-suggestions').textContent = formatSuggestions(data.improving_suggestions);
+
+    const refAnswer = data.reference_answer || '';
+    const refCard = document.getElementById('reference-answer-card');
+    if (refAnswer) {
+      refCard.style.display = 'block';
+      document.getElementById('reference-answer').textContent = refAnswer;
+    } else {
+      refCard.style.display = 'none';
+    }
+
+    document.getElementById('user-answer').textContent = data.user_answer || '';
+    const wc = (data.user_answer || '').replace(/\s/g, '').length;
+    document.getElementById('answer-word-count').textContent = wc ? `${wc} 字` : '';
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function submitFeedback() {
+    document.getElementById('feedback-form').style.display = 'block';
+    document.getElementById('feedback-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  async function sendFeedback() {
+    const text = document.getElementById('feedback-text').value.trim();
+    if (!text) { if (typeof SLBToast !== 'undefined') SLBToast.warning('请输入反馈内容'); return; }
+    const token = localStorage.getItem('slb_token') || localStorage.getItem('token');
+    try {
+      const res = await fetch(`/api/submissions/${sid}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ text })
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || '提交失败');
+      if (typeof SLBToast !== 'undefined') SLBToast.success('感谢反馈');
+      document.getElementById('feedback-form').style.display = 'none';
+      document.getElementById('feedback-text').value = '';
+    } catch (e) {
+      if (typeof SLBToast !== 'undefined') SLBToast.error(e.message || '提交失败');
+    }
+  }
+
+  loadResult();
+
+  // 点击遮罩层关闭重新批改弹窗
+  document.getElementById('regrade-modal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeRegradeModal();
+  });
+</script>
+{% endblock %}
