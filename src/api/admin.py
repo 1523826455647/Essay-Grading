@@ -11,7 +11,7 @@ from src.api.utils import (
     clamp_per_page,
     _extract_user_from_token,
 )
-from src.services import paper_service, phrase_service
+from src.services import paper_service, phrase_service, submission_service
 from src.services.auth import get_user_profile, is_vip_user, login_user, logout_user
 from src.services.grader.provider_adapters import adapter_for_protocol
 from src.services.grader.types import ProviderError
@@ -898,26 +898,37 @@ def get_submission_detail(sid):
     return api_success(result)
 
 
-@admin_bp.route('/submissions/<sid>/review', methods=['POST'])
+@admin_bp.route('/submissions/<sid>/review', methods=['POST', 'PUT'])
 @admin_required('submissions.review')
 def review_submission(sid):
     data = request.get_json()
     if not data:
         return api_error("请提供复核结果", 400)
 
+    action = data.get('action', 'approve')
+    score = data.get('score')
+    feedback = data.get('feedback', '')
+
     db = get_db()
-    db.execute(
-        """UPDATE submissions SET
-           score = ?, dimension_scores = ?, ai_feedback = ?,
-           is_reviewed = 1, needs_review = 0
-           WHERE sid = ?""",
-        (
-            data.get('score'),
-            json.dumps(data.get('dimension_scores', {})),
-            data.get('feedback'),
-            sid
+
+    if action == 'approve':
+        db.execute(
+            """UPDATE submissions SET
+               score = ?, ai_feedback = COALESCE(NULLIF(?, ''), ai_feedback),
+               is_reviewed = 1, needs_review = 0
+               WHERE sid = ?""",
+            (score, feedback, sid)
         )
-    )
+    elif action == 'reject':
+        db.execute(
+            """UPDATE submissions SET
+               is_reviewed = 1, needs_review = 0
+               WHERE sid = ?""",
+            (sid,)
+        )
+    else:
+        return api_error("无效操作", 400)
+
     db.commit()
 
     return api_success(message="复核已完成")

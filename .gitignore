@@ -42,3 +42,7 @@ scripts/
 .vscode/
 .idea/
 deepseek_v4
+gen_training.py
+shenlun-zuowen-train.jsonl
+gen_training.py
+shenlun-zuowen-train.jsonl
