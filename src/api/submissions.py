@@ -162,10 +162,24 @@ def _record_grading_side_effects(
 
 
 def _deduct_grading_credits(current_user: dict, judgments: list, model_configs: list = None) -> None:
-    """批改成功后扣减积分，只扣成功模型的消耗"""
+    """批改成功后扣减积分，优先扣套餐次数，再扣通用积分"""
     if current_user.get('role') in ('admin', 'super_admin'):
         return
-    # Only charge for models that actually completed successfully
+
+    from src.services import package_service
+
+    uid = current_user['uid']
+
+    # 1. 优先尝试从套餐扣减
+    try:
+        pkg_ok, pkg_msg = package_service.deduct_package_credit(uid)
+        if pkg_ok:
+            logger.info("Package deduction: %s", pkg_msg)
+            return
+    except Exception as e:
+        logger.warning("Package deduction check failed: %s", e)
+
+    # 2. 套餐扣减失败，回退到通用积分扣减
     success_ids = set()
     if judgments:
         for j in judgments:
@@ -179,7 +193,7 @@ def _deduct_grading_credits(current_user: dict, judgments: list, model_configs: 
     else:
         cost = 1.0
     try:
-        exchange_code_service.deduct_credits(current_user['uid'], cost)
+        exchange_code_service.deduct_credits(uid, cost)
     except Exception as e:
         logger.warning("Credit deduction failed: %s", e)
 
@@ -201,16 +215,19 @@ def create_submission(current_user):
     if not pid or not qid or not user_answer:
         return api_error("缺少必要参数", 400)
 
-    # 检查批改次数（管理员跳过）
+    # 检查批改次数（管理员跳过；有生效套餐的按套餐规则放行）
     if current_user.get('role') not in ('admin', 'super_admin'):
-        model_ids = requested_model_ids or []
-        credit_cost = exchange_code_service.calculate_credit_cost(model_ids) if model_ids else 1.0
-        balance = exchange_code_service.get_user_credits(current_user['uid'])
-        if balance < credit_cost:
-            return api_error(
-                f"批改次数不足！本次需要 {credit_cost} 次（剩余 {balance} 次），请使用兑换码充值",
-                402
-            )
+        from src.services import package_service
+        pkg = package_service.get_user_active_package(current_user['uid'])
+        if not pkg:
+            model_ids = requested_model_ids or []
+            credit_cost = exchange_code_service.calculate_credit_cost(model_ids) if model_ids else 1.0
+            balance = exchange_code_service.get_user_credits(current_user['uid'])
+            if balance < credit_cost:
+                return api_error(
+                    f"批改次数不足！本次需要 {credit_cost} 次（剩余 {balance} 次），请使用兑换码充值",
+                    402
+                )
 
     # Get question info
     question = paper_service.get_question_by_qid(pid, qid, include_scoring=True)

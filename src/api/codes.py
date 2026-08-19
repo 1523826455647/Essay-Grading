@@ -29,8 +29,10 @@ def redeem_code(current_user):
 @codes_bp.route('/user/credits', methods=['GET'])
 @token_required
 def get_credits(current_user):
+    from src.services import package_service
     balance = exchange_code_service.get_user_credits(current_user['uid'])
-    return api_success({"credits": balance})
+    pkg_info = package_service.get_user_package_balance(current_user['uid'])
+    return api_success({"credits": balance, "package": pkg_info})
 
 
 # ==================== 管理员端：兑换码管理 ====================
@@ -56,10 +58,13 @@ def create_codes(current_user):
     max_uses = int(data.get('max_uses', 1))
     prefix = data.get('prefix', 'SLB')
     expires_days = int(data.get('expires_days', 365))
+    package_id = data.get('package_id')
 
     if count > 100:
         return api_error("单次最多生成 100 个兑换码", 400)
-    if credits <= 0:
+
+    # 如果关联套餐，credits 可以为 0（套餐自带次数）
+    if not package_id and credits <= 0:
         return api_error("批改次数必须大于 0", 400)
 
     codes = exchange_code_service.batch_generate(
@@ -69,6 +74,7 @@ def create_codes(current_user):
         prefix=prefix,
         created_by=current_user.get('uid', ''),
         expires_days=expires_days,
+        package_id=package_id,
     )
 
     return api_success({

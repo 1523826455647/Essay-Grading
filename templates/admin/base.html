@@ -58,6 +58,10 @@
           批改复核
         </a>
         <div class="admin-nav-divider"></div>
+        <a href="/admin/packages" class="admin-nav-item {% if '/admin/packages' in request.path %}active{% endif %}">
+          <i data-lucide="package"></i>
+          套餐管理
+        </a>
         <a href="/admin/codes" class="admin-nav-item {% if '/admin/codes' in request.path %}active{% endif %}">
           <i data-lucide="ticket"></i>
           兑换码管理

@@ -593,6 +593,11 @@ def get_user(uid):
     user['avg_score'] = round(avg_score, 1) if avg_score else None
     user['is_vip'] = is_vip_user(user)
 
+    # 套餐信息：当前生效套餐 + 历史套餐记录
+    from src.services import package_service
+    user['package'] = package_service.get_user_package_balance(uid)
+    user['package_history'] = package_service.get_user_packages(uid)
+
     return api_success(user)
 
 
@@ -932,6 +937,71 @@ def review_submission(sid):
     db.commit()
 
     return api_success(message="复核已完成")
+
+
+# ============ Packages (套餐管理) ============
+
+@admin_bp.route('/packages', methods=['GET'])
+@admin_required('*')
+def list_packages(current_user):
+    """获取所有套餐列表"""
+    from src.services import package_service
+    packages = package_service.list_packages()
+    return api_success({"packages": packages})
+
+
+@admin_bp.route('/packages', methods=['POST'])
+@admin_required('*')
+def create_package(current_user):
+    """创建套餐"""
+    data = request.get_json()
+    if not data or not data.get('name'):
+        return api_error("套餐名称不能为空", 400)
+    if not data.get('package_type') or data['package_type'] not in ('usage', 'time'):
+        return api_error("套餐类型必须为 usage 或 time", 400)
+
+    from src.services import package_service
+    pkg_id = package_service.create_package(data)
+    return api_success({"id": pkg_id, "message": "套餐创建成功"})
+
+
+@admin_bp.route('/packages/<int:package_id>', methods=['PUT'])
+@admin_required('*')
+def update_package(current_user, package_id):
+    """更新套餐"""
+    data = request.get_json()
+    if not data:
+        return api_error("请提供参数", 400)
+
+    from src.services import package_service
+    pkg = package_service.get_package(package_id)
+    if not pkg:
+        return api_error("套餐不存在", 404)
+
+    package_service.update_package(package_id, data)
+    return api_success({"message": "套餐更新成功"})
+
+
+@admin_bp.route('/packages/<int:package_id>', methods=['DELETE'])
+@admin_required('*')
+def delete_package(current_user, package_id):
+    """删除套餐（软删除）"""
+    from src.services import package_service
+    pkg = package_service.get_package(package_id)
+    if not pkg:
+        return api_error("套餐不存在", 404)
+
+    package_service.delete_package(package_id)
+    return api_success({"message": "套餐已禁用"})
+
+
+@admin_bp.route('/packages/active', methods=['GET'])
+@admin_required('*')
+def list_active_packages(current_user):
+    """获取启用的套餐列表（用于兑换码生成下拉）"""
+    from src.services import package_service
+    packages = package_service.list_packages(active_only=True)
+    return api_success({"packages": packages})
 
 
 # ============ Logs ============

@@ -185,6 +185,7 @@
     // 全局状态
     const state = {
       user: null,
+      package: null,
       token: localStorage.getItem('slb_token') || localStorage.getItem('token')
     };
 
@@ -198,6 +199,7 @@
     document.addEventListener('DOMContentLoaded', function() {
       if (state.token) {
         fetchUserInfo();
+        fetchUserPackage();
       }
       lucide.createIcons();
     });
@@ -220,6 +222,21 @@
       }
     }
 
+    // 获取用户套餐标识
+    async function fetchUserPackage() {
+      if (!state.token) return;
+      try {
+        const res = await fetch('/api/user/credits', {
+          headers: { 'Authorization': 'Bearer ' + state.token }
+        });
+        if (res.ok) {
+          const { data } = await res.json();
+          state.package = (data && data.package && data.package.has_package) ? data.package : null;
+          if (state.user) updateUserUI();
+        }
+      } catch (e) { /* 静默失败 */ }
+    }
+
     // 更新用户UI
     function updateUserUI() {
       const userInfo = document.getElementById('user-info');
@@ -229,17 +246,22 @@
 
       if (state.user) {
         const vipBadge = state.user.is_vip ? '<span class="badge badge-accent">VIP</span>' : '';
+        let pkgBadge = '';
+        if (state.package && state.package.badge_name) {
+          const color = state.package.badge_color || '#f59e0b';
+          pkgBadge = '<span style="display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:700;background:' + color + '15;color:' + color + ';border:1px solid ' + color + ';margin-left:4px;vertical-align:middle;">' + escapeHtml(state.package.badge_name) + '</span>';
+        }
 
         // 桌面端
         userInfo.innerHTML = `
-          <a href="/profile" class="btn btn-ghost btn-sm" style="margin-right: 4px;">${state.user.nickname} ${vipBadge}</a>
+          <a href="/profile" class="btn btn-ghost btn-sm" style="margin-right: 4px;">${state.user.nickname} ${vipBadge}${pkgBadge}</a>
           <a href="#" onclick="logout()" class="btn btn-ghost btn-sm" style="opacity:0.7">退出</a>
         `;
 
         // 移动端
         if (userInfoMobile) {
           userInfoMobile.innerHTML = `
-            <a href="/profile" class="btn btn-ghost" style="width: 100%; justify-content: center;">${state.user.nickname} ${vipBadge}</a>
+            <a href="/profile" class="btn btn-ghost" style="width: 100%; justify-content: center;">${state.user.nickname} ${vipBadge}${pkgBadge}</a>
             <a href="#" onclick="logout()" class="btn btn-ghost" style="width: 100%; justify-content: center; opacity:0.7; margin-top: 8px;">退出</a>
           `;
         }
@@ -318,6 +340,7 @@
           localStorage.setItem('slb_token', state.token);
           closeAuthModal();
           updateUserUI();
+          fetchUserPackage();
           notifyAuthChange(true);
           showToast('登录成功', 'success');
         } else {
@@ -354,6 +377,7 @@
           localStorage.setItem('slb_token', state.token);
           closeAuthModal();
           updateUserUI();
+          fetchUserPackage();
           notifyAuthChange(true);
           showToast('注册成功', 'success');
         } else {
@@ -370,6 +394,7 @@
     function logout() {
       state.user = null;
       state.token = null;
+      state.package = null;
       localStorage.removeItem('slb_token');
       localStorage.removeItem('token');
       updateUserUI();

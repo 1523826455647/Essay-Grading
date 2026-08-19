@@ -8,8 +8,14 @@
 <!-- 生成兑换码 -->
 <div class="admin-card" style="margin-bottom:20px;">
   <h3 style="margin:0 0 18px;font-size:16px;font-weight:650;color:#111827;">生成兑换码</h3>
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:14px;align-items:end;">
+  <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr auto;gap:14px;align-items:end;">
     <div>
+      <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em;">关联套餐</label>
+      <select id="gen-package" class="admin-form-input" onchange="onPackageChange()" style="width:100%;">
+        <option value="">不关联（通用积分码）</option>
+      </select>
+    </div>
+    <div id="gen-credits-group">
       <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em;">每个批改次数</label>
       <input id="gen-credits" class="admin-form-input" type="number" value="10" min="1" max="999" style="width:100%;">
     </div>
@@ -25,6 +31,7 @@
       <i data-lucide="plus" style="width:15px;height:15px;"></i> 生成
     </button>
   </div>
+  <p id="package-hint" style="display:none;margin:12px 0 0;font-size:13px;color:#0c8ee7;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;line-height:1.5;"></p>
 </div>
 
 <!-- 生成结果 -->
@@ -47,15 +54,15 @@
     </button>
   </div>
   <div style="overflow-x:auto;">
-    <table class="admin-table" style="min-width:700px;">
+    <table class="admin-table" style="min-width:860px;">
       <thead>
         <tr>
-          <th>兑换码</th><th>次数</th><th>已用/上限</th><th>状态</th>
-          <th>过期时间</th><th>创建时间</th><th>操作</th>
+          <th>兑换码</th><th>类型</th><th>关联套餐</th><th>次数</th><th>已用/上限</th>
+          <th>状态</th><th>过期时间</th><th>创建时间</th><th>操作</th>
         </tr>
       </thead>
       <tbody id="codes-table">
-        <tr><td colspan="7" style="text-align:center;padding:32px;color:#9ca3af;font-size:14px;">
+        <tr><td colspan="9" style="text-align:center;padding:32px;color:#9ca3af;font-size:14px;">
           <i data-lucide="loader-2" style="width:16px;height:16px;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle;margin-right:6px;"></i>
           加载中...
         </td></tr>
@@ -77,27 +84,71 @@
 <script>
   let codesPage = 1;
   let allGeneratedCodes = [];
+  let activePackages = [];
+
+  async function loadPackages() {
+    try {
+      const res = await adminFetch('/packages');
+      const data = res.data || {};
+      activePackages = (data.packages || []).filter(p => p.is_active);
+      const sel = document.getElementById('gen-package');
+      const options = ['<option value="">不关联（通用积分码）</option>'];
+      activePackages.forEach(function(p) {
+        const quota = p.package_type === 'time' ? p.duration_days + '天不限次' : p.credits + '次';
+        options.push('<option value="' + p.id + '">' + p.name + '（' + quota + '）</option>');
+      });
+      sel.innerHTML = options.join('');
+    } catch (e) {
+      console.error('Load packages error:', e);
+    }
+  }
+
+  function onPackageChange() {
+    const pkgId = document.getElementById('gen-package').value;
+    const creditsGroup = document.getElementById('gen-credits-group');
+    const hint = document.getElementById('package-hint');
+
+    if (pkgId) {
+      const pkg = activePackages.find(p => String(p.id) === String(pkgId));
+      creditsGroup.style.display = 'none';
+      if (pkg) {
+        const typeText = pkg.package_type === 'time'
+          ? '按天套餐：兑换后 <b>' + pkg.duration_days + ' 天</b>内不限次批改'
+          : '按次套餐：兑换后获得 <b>' + pkg.credits + ' 次</b>批改';
+        const badgeText = pkg.badge_name ? '，获得「<b>' + pkg.badge_name + '</b>」标识' : '';
+        hint.innerHTML = '📦 已关联套餐「' + pkg.name + '」 · ' + typeText + badgeText + '。兑换时「批改次数」由套餐决定，无需填写。';
+        hint.style.display = 'block';
+      }
+    } else {
+      creditsGroup.style.display = '';
+      hint.style.display = 'none';
+    }
+  }
 
   async function doGenerate() {
     const btn = document.getElementById('generate-btn');
-    const credits = parseFloat(document.getElementById('gen-credits').value) || 10;
+    const pkgId = document.getElementById('gen-package').value;
+    const credits = pkgId ? 0 : (parseFloat(document.getElementById('gen-credits').value) || 10);
     const count = parseInt(document.getElementById('gen-count').value) || 5;
     const expiresDays = parseInt(document.getElementById('gen-expires').value) || 365;
-    
-    if (credits <= 0) { showToast('批改次数必须大于 0', 'error'); return; }
+
+    if (!pkgId && credits <= 0) { showToast('批改次数必须大于 0', 'error'); return; }
     if (count < 1 || count > 100) { showToast('数量范围 1-100', 'error'); return; }
 
     btn.disabled = true;
     btn.textContent = '生成中...';
     try {
+      const payload = { credits, count, expires_days: expiresDays };
+      if (pkgId) payload.package_id = parseInt(pkgId);
+
       const res = await adminFetch('/codes', {
         method: 'POST',
-        body: JSON.stringify({ credits, count, expires_days: expiresDays })
+        body: JSON.stringify(payload)
       });
       const data = res.data || {};
       allGeneratedCodes = data.codes || [];
       const listEl = document.getElementById('generate-codes-list');
-      listEl.innerHTML = allGeneratedCodes.map(c => '<span style=\"padding:3px 0;\">' + c + '</span>').join('');
+      listEl.innerHTML = allGeneratedCodes.map(c => '<span style="padding:3px 0;">' + c + '</span>').join('');
       document.getElementById('generate-result').style.display = 'block';
       showToast('已生成 ' + allGeneratedCodes.length + ' 个兑换码');
       loadCodes();
@@ -107,7 +158,7 @@
       console.error('Generate error:', e);
     } finally {
       btn.disabled = false;
-      btn.innerHTML = '<i data-lucide=\"plus\" style=\"width:15px;height:15px;\"></i> 生成';
+      btn.innerHTML = '<i data-lucide="plus" style="width:15px;height:15px;"></i> 生成';
       lucide.createIcons();
     }
   }
@@ -124,20 +175,20 @@
     page = page || 1;
     codesPage = page;
     const tbody = document.getElementById('codes-table');
-    tbody.innerHTML = '<tr><td colspan=\"7\" style=\"text-align:center;padding:24px;color:#9ca3af;\">加载中...</td></tr>';
-    
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#9ca3af;">加载中...</td></tr>';
+
     try {
       const res = await adminFetch('/codes?page=' + page + '&limit=20');
       const data = res.data || {};
       if (!data.codes || !data.codes.length) {
-        tbody.innerHTML = '<tr><td colspan=\"7\" style=\"text-align:center;padding:32px;color:#9ca3af;font-size:14px;\">暂无兑换码</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:32px;color:#9ca3af;font-size:14px;">暂无兑换码</td></tr>';
         document.getElementById('codes-pagination-info').textContent = '共 0 条';
         document.getElementById('codes-pagination-buttons').innerHTML = '';
         return;
       }
       renderTable(data);
     } catch (e) {
-      tbody.innerHTML = '<tr><td colspan=\"7\" style=\"text-align:center;padding:24px;color:#ef4444;font-size:14px;\">加载失败: ' + (e.message || '网络错误') + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#ef4444;font-size:14px;">加载失败: ' + (e.message || '网络错误') + '</td></tr>';
       console.error('Load codes error:', e);
     }
   }
@@ -153,28 +204,43 @@
       var expiry = c.expires_at ? c.expires_at.substr(0, 10) : '永久';
       var created = (c.created_at || '').substr(0, 10);
       var disableBtn = c.status === 'active'
-        ? '<button class=\"action-btn action-btn-delete\" onclick=\"disableCode(\x27' + c.code + '\x27)\">禁用</button>'
+        ? '<button class="action-btn action-btn-delete" onclick="disableCode(\x27' + c.code + '\x27)">禁用</button>'
         : '--';
+
+      var typeCell, creditsCell;
+      if (c.package_id && c.package_name) {
+        typeCell = '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:550;background:#8b5cf615;color:#8b5cf6;">套餐码</span>';
+        creditsCell = '<span style="color:#9ca3af;font-size:13px;">-</span>';
+      } else {
+        typeCell = '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:550;background:#0c8ee715;color:#0c8ee7;">积分码</span>';
+        creditsCell = '<span style="font-weight:550;">' + c.credits + '</span>';
+      }
+      var pkgCell = c.package_name
+        ? '<span style="font-weight:550;color:#111827;">' + c.package_name + '</span>'
+        : '<span style="color:#9ca3af;font-size:13px;">-</span>';
+
       return '<tr>' +
-        '<td style=\"font-family:monospace;font-weight:600;font-size:13px;\">' + c.code + '</td>' +
-        '<td style=\"font-weight:550;\">' + c.credits + '</td>' +
+        '<td style="font-family:monospace;font-weight:600;font-size:13px;">' + c.code + '</td>' +
+        '<td>' + typeCell + '</td>' +
+        '<td>' + pkgCell + '</td>' +
+        '<td>' + creditsCell + '</td>' +
         '<td>' + c.used_count + ' / ' + maxUses + '</td>' +
-        '<td><span style=\"display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:550;background:' + color + '15;color:' + color + ';\">' + (labels[c.status] || c.status) + '</span></td>' +
-        '<td style=\"font-size:13px;color:#6b7280;\">' + expiry + '</td>' +
-        '<td style=\"font-size:13px;color:#6b7280;\">' + created + '</td>' +
+        '<td><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:550;background:' + color + '15;color:' + color + ';">' + (labels[c.status] || c.status) + '</span></td>' +
+        '<td style="font-size:13px;color:#6b7280;">' + expiry + '</td>' +
+        '<td style="font-size:13px;color:#6b7280;">' + created + '</td>' +
         '<td>' + disableBtn + '</td>' +
         '</tr>';
     }).join('');
 
     document.getElementById('codes-pagination-info').textContent = '共 ' + (data.total || 0) + ' 条';
-    
+
     var pages = data.pages || 1;
     var box = document.getElementById('codes-pagination-buttons');
     if (pages <= 1) { box.innerHTML = ''; return; }
     var html = '';
     for (var i = 1; i <= pages; i++) {
       var activeClass = i === (data.page || 1) ? ' active' : '';
-      html += '<button class=\"pagination-btn' + activeClass + '\" onclick=\"loadCodes(' + i + ')\">' + i + '</button>';
+      html += '<button class="pagination-btn' + activeClass + '" onclick="loadCodes(' + i + ')">' + i + '</button>';
     }
     box.innerHTML = html;
   }
@@ -190,6 +256,7 @@
     }
   }
 
+  loadPackages();
   loadCodes();
   lucide.createIcons();
 </script>

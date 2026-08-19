@@ -32,6 +32,12 @@ SCHEMA_COLUMN_MIGRATIONS = {
     'token_usage_logs': {
         'sid': 'TEXT',
     },
+    'exchange_codes': {
+        'package_id': 'INTEGER',
+    },
+    'code_redemptions': {
+        'package_id': 'INTEGER',
+    },
 }
 
 NEW_TABLES = {
@@ -81,6 +87,46 @@ NEW_TABLES = {
             detail      TEXT DEFAULT '',
             created_at  DATETIME DEFAULT (datetime('now'))
         )
+    """,
+    'packages': """
+        CREATE TABLE IF NOT EXISTS packages (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            name            TEXT NOT NULL,
+            description     TEXT DEFAULT '',
+            package_type    TEXT NOT NULL DEFAULT 'usage',
+            credits         INTEGER NOT NULL DEFAULT 0,
+            duration_days   INTEGER NOT NULL DEFAULT 0,
+            price           REAL NOT NULL DEFAULT 0,
+            badge_name      TEXT DEFAULT '',
+            badge_color     TEXT DEFAULT '#0c8ee7',
+            sort_order      INTEGER DEFAULT 0,
+            is_active       INTEGER DEFAULT 1,
+            created_at      DATETIME DEFAULT (datetime('now')),
+            updated_at      DATETIME DEFAULT (datetime('now'))
+        )
+    """,
+    'user_packages': """
+        CREATE TABLE IF NOT EXISTS user_packages (
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            uid                 TEXT NOT NULL,
+            package_id          INTEGER NOT NULL,
+            code                TEXT DEFAULT '',
+            package_name        TEXT NOT NULL,
+            package_type        TEXT NOT NULL,
+            total_credits       INTEGER NOT NULL DEFAULT 0,
+            remaining_credits   INTEGER NOT NULL DEFAULT 0,
+            total_days          INTEGER NOT NULL DEFAULT 0,
+            badge_name          TEXT DEFAULT '',
+            badge_color         TEXT DEFAULT '',
+            is_active           INTEGER DEFAULT 1,
+            expires_at          DATETIME,
+            redeemed_at         DATETIME DEFAULT (datetime('now')),
+            created_at          DATETIME DEFAULT (datetime('now')),
+            FOREIGN KEY (uid) REFERENCES users(uid),
+            FOREIGN KEY (package_id) REFERENCES packages(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_user_pkg_uid ON user_packages(uid);
+        CREATE INDEX IF NOT EXISTS idx_user_pkg_active ON user_packages(uid, is_active);
     """,
 }
 

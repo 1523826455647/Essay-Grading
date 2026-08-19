@@ -234,6 +234,10 @@ def create_app():
     def admin_codes():
         return _admin_page('admin/codes.html')
 
+    @app.route('/admin/packages')
+    def admin_packages():
+        return _admin_page('admin/packages.html')
+
     @app.after_request
     def add_security_headers(response):
         response.headers['X-Content-Type-Options'] = 'nosniff'

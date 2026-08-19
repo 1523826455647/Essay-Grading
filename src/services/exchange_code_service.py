@@ -92,22 +92,23 @@ def deduct_credits(uid: str, amount: float) -> float:
 
 
 def generate_code(credits: float, max_uses: int = 1, prefix: str = "SLB",
-                  created_by: str = "", expires_days: int = 365) -> str:
-    """生成一个兑换码"""
+                  created_by: str = "", expires_days: int = 365,
+                  package_id: int = None) -> str:
+    """生成一个兑换码（可关联套餐）"""
     db = get_db()
     random_part = secrets.token_hex(4).upper()
     code = f"{prefix}-{random_part[:4]}-{random_part[4:]}"
 
-    expires_at = datetime.now().isoformat() if expires_days <= 0 else None
+    expires_at = None
     if expires_days > 0:
         from datetime import timedelta
         expires_at = (datetime.now() + timedelta(days=expires_days)).isoformat()
 
     db.execute(
         """INSERT INTO exchange_codes
-           (code, credits, max_uses, used_count, created_by, expires_at, status)
-           VALUES (?, ?, ?, 0, ?, ?, 'active')""",
-        (code, credits, max_uses, created_by, expires_at)
+           (code, credits, max_uses, used_count, created_by, expires_at, status, package_id)
+           VALUES (?, ?, ?, 0, ?, ?, 'active', ?)""",
+        (code, credits, max_uses, created_by, expires_at, package_id)
     )
     db.commit()
     return code
@@ -115,17 +116,19 @@ def generate_code(credits: float, max_uses: int = 1, prefix: str = "SLB",
 
 def batch_generate(credits: float, count: int, max_uses: int = 1,
                    prefix: str = "SLB", created_by: str = "",
-                   expires_days: int = 365) -> list[str]:
+                   expires_days: int = 365, package_id: int = None) -> list[str]:
     """批量生成兑换码"""
     codes = []
     for _ in range(count):
-        code = generate_code(credits, max_uses, prefix, created_by, expires_days)
+        code = generate_code(credits, max_uses, prefix, created_by, expires_days, package_id)
         codes.append(code)
     return codes
 
 
 def redeem_code(uid: str, code: str) -> dict:
-    """用户兑换一个兑换码"""
+    """用户兑换一个兑换码（支持套餐兑换）"""
+    from src.services import package_service
+
     db = get_db()
     code_row = db.execute(
         """SELECT * FROM exchange_codes WHERE code=? AND status='active'""",
@@ -147,9 +150,54 @@ def redeem_code(uid: str, code: str) -> dict:
             db.commit()
             return {"success": False, "message": "兑换码已过期"}
 
+    package_id = code_row["package_id"] if "package_id" in code_row.keys() else None
     credits = float(code_row["credits"])
 
-    # 记录兑换
+    # 检查是否关联套餐
+    if package_id:
+        package = package_service.get_package(package_id)
+        if not package or not package.get("is_active"):
+            return {"success": False, "message": "关联套餐已下架"}
+
+        # 记录兑换
+        db.execute(
+            """INSERT INTO code_redemptions (code, uid, credits_granted, package_id, redeemed_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (code, uid, credits, package_id, datetime.now().isoformat())
+        )
+
+        # 创建用户套餐记录
+        result = package_service.redeem_package(uid, package, code)
+
+        # 更新兑换码使用次数
+        new_used = code_row["used_count"] + 1
+        new_status = "used" if code_row["max_uses"] > 0 and new_used >= code_row["max_uses"] else "active"
+        db.execute(
+            "UPDATE exchange_codes SET used_count=?, status=? WHERE code=?",
+            (new_used, new_status, code)
+        )
+
+        # 记录交易日志
+        _log_transaction(uid, "recharge", 0, 0,
+                         f"兑换套餐「{package['name']}」({code})")
+
+        db.commit()
+
+        msg = f"兑换成功！获得套餐「{package['name']}」"
+        if package["package_type"] == "usage":
+            msg += f"（{package['credits']} 次批改）"
+        elif package["package_type"] == "time":
+            msg += f"（{package['duration_days']} 天有效期）"
+
+        return {
+            "success": True,
+            "message": msg,
+            "credits_granted": 0,
+            "balance": get_user_credits(uid),
+            "package": result,
+        }
+
+    # 原有积分兑换流程
     db.execute(
         """INSERT INTO code_redemptions (code, uid, credits_granted, redeemed_at)
            VALUES (?, ?, ?, ?)""",
@@ -198,8 +246,10 @@ def list_codes(page: int = 1, per_page: int = 20):
     ).fetchone()["cnt"]
 
     rows = db.execute(
-        """SELECT * FROM exchange_codes
-           ORDER BY created_at DESC LIMIT ? OFFSET ?""",
+        """SELECT e.*, p.name as package_name
+           FROM exchange_codes e
+           LEFT JOIN packages p ON e.package_id = p.id
+           ORDER BY e.created_at DESC LIMIT ? OFFSET ?""",
         (per_page, offset)
     ).fetchall()
 

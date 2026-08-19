@@ -14,6 +14,7 @@
           <div class="pf-name-row">
             <h1 class="pf-name" id="profile-name">加载中...</h1>
             <span class="pf-role-pill" id="profile-role">普通用户</span>
+            <span class="pf-role-pill" id="profile-package-badge" style="display:none;"></span>
           </div>
           <p class="pf-sub">学习数据 · 批改记录 · 薄弱点追踪</p>
         </div>
@@ -21,7 +22,7 @@
       <div class="pf-hero-metrics">
         <div class="pf-metric">
           <div class="pf-metric-val" id="stat-credits" style="color:var(--color-primary);">0</div>
-          <div class="pf-metric-lab">剩余批改次数</div>
+          <div class="pf-metric-lab" id="stat-credits-lab">剩余批改次数</div>
         </div>
         <div class="pf-metric">
           <div class="pf-metric-val" id="stat-submissions">0</div>
@@ -130,8 +131,8 @@
         <div class="pf-module" style="background:linear-gradient(135deg,#eef4ff,#f0fdf4);border:1px solid #d4e4f7;border-radius:12px;padding:20px;margin-bottom:24px;">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
             <div>
-              <h3 class="pf-module-title" style="margin:0 0 4px;">兑换批改次数</h3>
-              <p class="pf-module-sub" style="margin:0;">输入兑换码获取更多批改机会，管理员可在后台生成兑换码</p>
+              <h3 class="pf-module-title" style="margin:0 0 4px;">兑换套餐 / 批改次数</h3>
+              <p class="pf-module-sub" style="margin:0;">输入兑换码开通套餐或获取更多批改机会</p>
             </div>
             <div style="display:flex;gap:8px;">
               <input id="redeem-code-input" class="input-field" style="width:180px;" placeholder="输入兑换码" autocomplete="off">
@@ -965,7 +966,43 @@ async function loadCredits() {
     const { data } = await res.json();
     if (data) {
       const c = data.credits;
-      document.getElementById('stat-credits').textContent = c === null || c >= 9999 ? '无限' : (Number.isInteger(c) ? c : c.toFixed(1));
+      const pkg = data.package;
+
+      // 套餐标识徽章
+      const badge = document.getElementById('profile-package-badge');
+      if (badge) {
+        if (pkg && pkg.has_package && pkg.badge_name) {
+          const color = pkg.badge_color || '#f59e0b';
+          badge.textContent = pkg.badge_name;
+          badge.style.display = 'inline-flex';
+          badge.style.background = 'rgba(255,255,255,.95)';
+          badge.style.color = color;
+          badge.style.borderColor = color;
+          badge.style.fontWeight = '700';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+
+      // 余额展示：优先套餐，其次通用积分
+      const valEl = document.getElementById('stat-credits');
+      const labEl = document.getElementById('stat-credits-lab');
+      if (pkg && pkg.has_package) {
+        if (pkg.package_type === 'time') {
+          const days = pkg.remaining_days;
+          valEl.textContent = days === -1 ? '不限' : days + ' 天';
+          labEl.textContent = '套餐「' + pkg.package_name + '」';
+          valEl.title = pkg.expires_at ? '到期时间: ' + pkg.expires_at.substr(0, 10) : '永久有效';
+        } else {
+          valEl.textContent = pkg.remaining_credits;
+          labEl.textContent = '套餐「' + pkg.package_name + '」';
+          valEl.title = '套餐剩余 ' + pkg.remaining_credits + '/' + (pkg.total_credits || '?') + ' 次';
+        }
+      } else {
+        valEl.textContent = c === null || c >= 9999 ? '无限' : (Number.isInteger(c) ? c : c.toFixed(1));
+        labEl.textContent = '剩余批改次数';
+        valEl.title = '';
+      }
     }
   } catch (e) { console.error('loadCredits', e); }
 }
@@ -987,6 +1024,7 @@ async function redeemCode() {
       alert(result.data.message || '兑换成功！');
       input.value = '';
       loadCredits();
+      loadTransactions();
     } else {
       alert((result.error || '兑换失败'));
     }

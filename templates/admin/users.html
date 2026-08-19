@@ -145,6 +145,53 @@
     container.innerHTML = html;
   }
 
+  function renderPkgBadge(pkg) {
+    if (!pkg || !pkg.has_package || !pkg.badge_name) return '';
+    const color = pkg.badge_color || '#f59e0b';
+    return `<span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:700;background:${color}15;color:${color};border:1px solid ${color};margin-left:8px;vertical-align:middle;">${pkg.badge_name}</span>`;
+  }
+
+  function renderPkgStatus(pkg) {
+    if (!pkg || !pkg.has_package) return '<p style="color:#9ca3af;">无生效套餐</p>';
+    let balance = '';
+    if (pkg.package_type === 'time') {
+      balance = pkg.remaining_days === -1 ? '不限次（永久）' : `剩余 ${pkg.remaining_days} 天`;
+    } else {
+      balance = `剩余 ${pkg.remaining_credits} / ${pkg.total_credits || '?'} 次`;
+    }
+    const expiry = pkg.expires_at ? `（至 ${pkg.expires_at.substring(0, 10)}）` : '';
+    return `<p style="font-weight:600;color:#111827;">${pkg.package_name}${renderPkgBadge(pkg)}</p>
+            <p style="font-size:13px;color:#6b7280;margin-top:4px;">${balance}${expiry}</p>`;
+  }
+
+  function renderPkgHistory(history) {
+    if (!history || !history.length) return '';
+    const rows = history.slice(0, 5).map(h => {
+      const typeLabel = h.package_type === 'time' ? '按天' : '按次';
+      const statusLabel = h.is_active ? '<span style="color:#10b981;font-weight:600;">生效中</span>' : '<span style="color:#9ca3af;">已结束</span>';
+      const detail = h.package_type === 'time'
+        ? `${h.total_days} 天`
+        : `${h.remaining_credits}/${h.total_credits} 次`;
+      const expiry = h.expires_at ? h.expires_at.substring(0, 10) : '-';
+      return `<tr>
+        <td style="font-weight:550;">${h.package_name}</td>
+        <td>${typeLabel}</td>
+        <td>${detail}</td>
+        <td style="font-size:12px;color:#6b7280;">${expiry}</td>
+        <td style="font-size:12px;color:#6b7280;">${(h.redeemed_at || '').substring(0, 10)}</td>
+        <td>${statusLabel}</td>
+      </tr>`;
+    }).join('');
+    return `
+      <div class="admin-form-group" style="margin-top:12px;">
+        <label class="admin-form-label">套餐记录</label>
+        <table class="admin-table" style="min-width:520px;margin-top:6px;">
+          <thead><tr><th>套餐</th><th>类型</th><th>用量</th><th>到期</th><th>兑换日</th><th>状态</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
   async function viewUser(uid) {
     try {
       const data = await adminFetch(`/users/${uid}`);
@@ -176,6 +223,16 @@
         </div>
         <div class="admin-form-row">
           <div class="admin-form-group">
+            <label class="admin-form-label">当前套餐</label>
+            ${renderPkgStatus(user.package)}
+          </div>
+          <div class="admin-form-group">
+            <label class="admin-form-label">通用批改次数</label>
+            <p>${user.grading_credits !== null && user.grading_credits !== undefined ? (user.grading_credits >= 9999 ? '无限' : user.grading_credits) : '0'}</p>
+          </div>
+        </div>
+        <div class="admin-form-row">
+          <div class="admin-form-group">
             <label class="admin-form-label">提交次数</label>
             <p>${user.submissions_count || 0}</p>
           </div>
@@ -194,6 +251,7 @@
             <p>${formatDate(user.last_login)}</p>
           </div>
         </div>
+        ${renderPkgHistory(user.package_history)}
       `);
     } catch (e) {
       showToast('加载失败', 'error');

@@ -1,0 +1,311 @@
+{% extends "admin/base.html" %}
+
+{% block title %}套餐管理 - 申论帮管理后台{% endblock %}
+{% block page_title %}套餐管理{% endblock %}
+
+{% block admin_content %}
+
+<!-- 套餐列表 -->
+<div class="admin-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+    <div>
+      <h3 style="margin:0;font-size:16px;font-weight:650;color:#111827;">套餐列表</h3>
+      <p style="margin:6px 0 0;font-size:13px;color:#6b7280;">定义套餐类型（按次/按天）、价格与用户标识，供兑换码关联使用</p>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-sm btn-secondary" onclick="loadPackages()">
+        <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> 刷新
+      </button>
+      <button class="btn btn-primary" onclick="openCreateModal()" style="white-space:nowrap;">
+        <i data-lucide="plus" style="width:15px;height:15px;"></i> 新建套餐
+      </button>
+    </div>
+  </div>
+
+  <div style="overflow-x:auto;">
+    <table class="admin-table" style="min-width:900px;">
+      <thead>
+        <tr>
+          <th>套餐名称</th><th>类型</th><th>次数/天数</th><th>价格</th>
+          <th>用户标识</th><th>兑换数</th><th>状态</th><th>排序</th><th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="packages-table">
+        <tr><td colspan="9" style="text-align:center;padding:32px;color:#9ca3af;font-size:14px;">
+          <i data-lucide="loader-2" style="width:16px;height:16px;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle;margin-right:6px;"></i>
+          加载中...
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 套餐编辑弹窗 -->
+<div id="package-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(15,23,42,.45);backdrop-filter:blur(2px);align-items:center;justify-content:center;padding:24px;">
+  <div style="background:#fff;border-radius:16px;max-width:560px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 24px 64px rgba(15,23,42,.24);">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:1px solid #e5e7eb;">
+      <h3 id="package-modal-title" style="margin:0;font-size:16px;font-weight:650;color:#111827;">新建套餐</h3>
+      <button onclick="closeModal()" style="background:none;border:none;cursor:pointer;color:#6b7280;padding:4px;">
+        <i data-lucide="x" style="width:18px;height:18px;"></i>
+      </button>
+    </div>
+    <form id="package-form" onsubmit="savePackage(event)" style="padding:24px;display:grid;gap:16px;">
+      <input type="hidden" id="pkg-id" value="">
+      <div>
+        <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;">套餐名称 *</label>
+        <input id="pkg-name" class="admin-form-input" type="text" placeholder="如：月度会员、体验套餐" required style="width:100%;">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;">套餐描述</label>
+        <input id="pkg-description" class="admin-form-input" type="text" placeholder="简要描述套餐内容" style="width:100%;">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div>
+          <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;">套餐类型 *</label>
+          <select id="pkg-type" class="admin-form-input" onchange="onTypeChange()" style="width:100%;">
+            <option value="usage">按次（兑换后获得 N 次批改）</option>
+            <option value="time">按天（兑换后 N 天内不限次）</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;">价格（元）</label>
+          <input id="pkg-price" class="admin-form-input" type="number" value="0" min="0" step="0.1" style="width:100%;">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div id="pkg-credits-group">
+          <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;">批改次数（按次类型）</label>
+          <input id="pkg-credits" class="admin-form-input" type="number" value="10" min="0" style="width:100%;">
+        </div>
+        <div id="pkg-days-group" style="display:none;">
+          <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;">有效天数（按天类型）</label>
+          <input id="pkg-days" class="admin-form-input" type="number" value="30" min="1" style="width:100%;">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;">排序（越小越靠前）</label>
+          <input id="pkg-sort" class="admin-form-input" type="number" value="0" style="width:100%;">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div>
+          <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;">用户标识名称</label>
+          <input id="pkg-badge-name" class="admin-form-input" type="text" placeholder="如：VIP、月卡会员" style="width:100%;">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;">标识颜色</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input id="pkg-badge-color" class="admin-form-input" type="color" value="#0c8ee7" style="width:56px;height:38px;padding:2px;cursor:pointer;">
+            <span id="pkg-badge-preview" style="display:inline-flex;align-items:center;height:28px;padding:0 12px;border-radius:999px;font-size:12px;font-weight:600;background:#0c8ee715;color:#0c8ee7;border:1px solid #0c8ee7;">标识预览</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#374151;cursor:pointer;">
+          <input type="checkbox" id="pkg-active" checked style="width:16px;height:16px;">
+          启用该套餐（禁用后不可再生成关联兑换码）
+        </label>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:8px;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+        <button type="submit" class="btn btn-primary" id="pkg-save-btn">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let allPackages = [];
+
+  async function loadPackages() {
+    const tbody = document.getElementById('packages-table');
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#9ca3af;">加载中...</td></tr>';
+
+    try {
+      const res = await adminFetch('/packages');
+      const data = res.data || {};
+      allPackages = data.packages || [];
+      renderTable();
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#ef4444;font-size:14px;">加载失败: ' + (e.message || '网络错误') + '</td></tr>';
+      console.error('Load packages error:', e);
+    }
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('packages-table');
+    if (!allPackages.length) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:32px;color:#9ca3af;font-size:14px;">暂无套餐，点击右上角「新建套餐」创建</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = allPackages.map(function(p) {
+      const typeLabel = p.package_type === 'time' ? '按天' : '按次';
+      const typeColor = p.package_type === 'time' ? '#8b5cf6' : '#0c8ee7';
+      const quota = p.package_type === 'time' ? p.duration_days + ' 天' : p.credits + ' 次';
+      const badge = p.badge_name
+        ? '<span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:' + (p.badge_color || '#0c8ee7') + '15;color:' + (p.badge_color || '#0c8ee7') + ';border:1px solid ' + (p.badge_color || '#0c8ee7') + ';">' + esc(p.badge_name) + '</span>'
+        : '<span style="color:#9ca3af;font-size:13px;">-</span>';
+      const activeLabel = p.is_active ? '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:550;background:#10b98115;color:#10b981;">启用</span>' : '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:550;background:#9ca3af15;color:#9ca3af;">禁用</span>';
+
+      return '<tr>' +
+        '<td style="font-weight:600;color:#111827;">' + esc(p.name) +
+          (p.description ? '<div style="font-size:12px;color:#9ca3af;margin-top:2px;">' + esc(p.description) + '</div>' : '') + '</td>' +
+        '<td><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:550;background:' + typeColor + '15;color:' + typeColor + ';">' + typeLabel + '</span></td>' +
+        '<td style="font-weight:550;">' + quota + '</td>' +
+        '<td>¥' + (Number(p.price) || 0).toFixed(1) + '</td>' +
+        '<td>' + badge + '</td>' +
+        '<td style="font-size:13px;color:#6b7280;">' + (p.redemption_count ?? 0) + '</td>' +
+        '<td>' + activeLabel + '</td>' +
+        '<td style="font-size:13px;color:#6b7280;">' + (p.sort_order || 0) + '</td>' +
+        '<td>' +
+          '<button class="action-btn action-btn-edit" onclick="openEditModal(' + p.id + ')">编辑</button>' +
+          (p.is_active
+            ? '<button class="action-btn action-btn-delete" onclick="togglePackage(' + p.id + ', 0)">禁用</button>'
+            : '<button class="action-btn action-btn-edit" onclick="togglePackage(' + p.id + ', 1)">启用</button>') +
+        '</td>' +
+        '</tr>';
+    }).join('');
+
+    lucide.createIcons();
+  }
+
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    })[c]);
+  }
+
+  function onTypeChange() {
+    const type = document.getElementById('pkg-type').value;
+    document.getElementById('pkg-credits-group').style.display = type === 'usage' ? '' : 'none';
+    document.getElementById('pkg-days-group').style.display = type === 'time' ? '' : 'none';
+  }
+
+  function openCreateModal() {
+    document.getElementById('package-modal-title').textContent = '新建套餐';
+    document.getElementById('pkg-id').value = '';
+    document.getElementById('pkg-name').value = '';
+    document.getElementById('pkg-description').value = '';
+    document.getElementById('pkg-type').value = 'usage';
+    document.getElementById('pkg-price').value = '0';
+    document.getElementById('pkg-credits').value = '10';
+    document.getElementById('pkg-days').value = '30';
+    document.getElementById('pkg-sort').value = '0';
+    document.getElementById('pkg-badge-name').value = '';
+    document.getElementById('pkg-badge-color').value = '#0c8ee7';
+    document.getElementById('pkg-active').checked = true;
+    onTypeChange();
+    updateBadgePreview();
+    document.getElementById('package-modal').style.display = 'flex';
+    lucide.createIcons();
+  }
+
+  function openEditModal(id) {
+    const p = allPackages.find(x => x.id === id);
+    if (!p) { showToast('数据错误', 'error'); return; }
+
+    document.getElementById('package-modal-title').textContent = '编辑套餐';
+    document.getElementById('pkg-id').value = p.id;
+    document.getElementById('pkg-name').value = p.name || '';
+    document.getElementById('pkg-description').value = p.description || '';
+    document.getElementById('pkg-type').value = p.package_type || 'usage';
+    document.getElementById('pkg-price').value = p.price ?? 0;
+    document.getElementById('pkg-credits').value = p.credits ?? 0;
+    document.getElementById('pkg-days').value = p.duration_days ?? 30;
+    document.getElementById('pkg-sort').value = p.sort_order ?? 0;
+    document.getElementById('pkg-badge-name').value = p.badge_name || '';
+    document.getElementById('pkg-badge-color').value = p.badge_color || '#0c8ee7';
+    document.getElementById('pkg-active').checked = !!p.is_active;
+    onTypeChange();
+    updateBadgePreview();
+    document.getElementById('package-modal').style.display = 'flex';
+    lucide.createIcons();
+  }
+
+  function updateBadgePreview() {
+    const name = document.getElementById('pkg-badge-name').value || '标识预览';
+    const color = document.getElementById('pkg-badge-color').value || '#0c8ee7';
+    const preview = document.getElementById('pkg-badge-preview');
+    preview.textContent = name;
+    preview.style.background = color + '15';
+    preview.style.color = color;
+    preview.style.borderColor = color;
+  }
+
+  document.getElementById('pkg-badge-name').addEventListener('input', updateBadgePreview);
+  document.getElementById('pkg-badge-color').addEventListener('input', updateBadgePreview);
+
+  function closeModal() {
+    document.getElementById('package-modal').style.display = 'none';
+  }
+
+  async function savePackage(e) {
+    e.preventDefault();
+    const btn = document.getElementById('pkg-save-btn');
+    const id = document.getElementById('pkg-id').value;
+
+    const payload = {
+      name: document.getElementById('pkg-name').value.trim(),
+      description: document.getElementById('pkg-description').value.trim(),
+      package_type: document.getElementById('pkg-type').value,
+      price: parseFloat(document.getElementById('pkg-price').value) || 0,
+      credits: parseInt(document.getElementById('pkg-credits').value) || 0,
+      duration_days: parseInt(document.getElementById('pkg-days').value) || 0,
+      sort_order: parseInt(document.getElementById('pkg-sort').value) || 0,
+      badge_name: document.getElementById('pkg-badge-name').value.trim(),
+      badge_color: document.getElementById('pkg-badge-color').value,
+      is_active: document.getElementById('pkg-active').checked ? 1 : 0,
+    };
+
+    if (!payload.name) { showToast('套餐名称不能为空', 'error'); return; }
+    if (payload.package_type === 'usage' && payload.credits <= 0) { showToast('按次套餐的批改次数必须大于 0', 'error'); return; }
+    if (payload.package_type === 'time' && payload.duration_days <= 0) { showToast('按天套餐的有效天数必须大于 0', 'error'); return; }
+
+    btn.disabled = true;
+    btn.textContent = '保存中...';
+    try {
+      if (id) {
+        await adminFetch('/packages/' + id, { method: 'PUT', body: JSON.stringify(payload) });
+        showToast('套餐已更新');
+      } else {
+        await adminFetch('/packages', { method: 'POST', body: JSON.stringify(payload) });
+        showToast('套餐创建成功');
+      }
+      closeModal();
+      loadPackages();
+    } catch (e) {
+      showToast('保存失败: ' + (e.message || ''), 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '保存';
+    }
+  }
+
+  async function togglePackage(id, active) {
+    const p = allPackages.find(x => x.id === id);
+    if (!p) return;
+    const action = active ? '启用' : '禁用';
+    if (!confirm('确定' + action + '套餐「' + p.name + '」吗？')) return;
+
+    try {
+      await adminFetch('/packages/' + id, {
+        method: 'PUT',
+        body: JSON.stringify({ ...p, is_active: active })
+      });
+      showToast('已' + action);
+      loadPackages();
+    } catch (e) {
+      showToast('操作失败: ' + (e.message || ''), 'error');
+    }
+  }
+
+  loadPackages();
+  lucide.createIcons();
+</script>
+{% endblock %}
