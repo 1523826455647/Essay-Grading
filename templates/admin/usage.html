@@ -1,0 +1,176 @@
+{% extends "admin/base.html" %}
+
+{% block title %}批改消耗统计 - 申论帮管理后台{% endblock %}
+{% block page_title %}批改消耗统计{% endblock %}
+
+{% block admin_content %}
+<!-- 筛选栏 -->
+<div class="filter-bar">
+  <div class="filter-item">
+    <label>用户名</label>
+    <input type="text" id="filter-username" placeholder="搜索用户" onkeyup="if(event.key==='Enter')loadUsage()">
+  </div>
+  <div class="filter-item">
+    <label>试卷标题</label>
+    <input type="text" id="filter-paper" placeholder="搜索试卷" onkeyup="if(event.key==='Enter')loadUsage()">
+  </div>
+  <div class="filter-item">
+    <label>开始日期</label>
+    <input type="date" id="filter-date-from" onchange="loadUsage()">
+  </div>
+  <div class="filter-item">
+    <label>结束日期</label>
+    <input type="date" id="filter-date-to" onchange="loadUsage()">
+  </div>
+  <button class="btn btn-primary" onclick="loadUsage()">
+    <i data-lucide="search"></i> 搜索
+  </button>
+  <button class="btn btn-ghost" onclick="resetFilters()">重置</button>
+</div>
+
+<!-- 汇总卡片 -->
+<div class="stats-grid" style="margin-bottom: 16px;">
+  <div class="stat-card">
+    <div class="stat-card-label">批改总次数</div>
+    <div class="stat-card-value" id="stat-total">-</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-label">总 Token 消耗</div>
+    <div class="stat-card-value" id="stat-tokens">-</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-label">总费用</div>
+    <div class="stat-card-value" id="stat-cost">-</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-label">使用模型数</div>
+    <div class="stat-card-value" id="stat-models">-</div>
+  </div>
+</div>
+
+<!-- 数据表 -->
+<div class="admin-table-container">
+  <div class="admin-table-header">
+    <h3 class="admin-table-title">批改消耗明细</h3>
+    <span id="usage-count" style="font-size:13px;color:#9ca3af;"></span>
+  </div>
+  <div style="overflow-x: auto;">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>时间</th>
+          <th>用户</th>
+          <th>试卷</th>
+          <th>分数</th>
+          <th>使用模型</th>
+          <th>输入 Token</th>
+          <th>输出 Token</th>
+          <th>总 Token</th>
+          <th>费用（元）</th>
+        </tr>
+      </thead>
+      <tbody id="usage-table">
+        <tr><td colspan="9" style="text-align: center;">加载中...</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="admin-pagination">
+    <div class="pagination-info" id="pagination-info">共 0 条</div>
+    <div class="pagination-buttons" id="pagination-buttons"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let currentPage = 1;
+
+  function resetFilters() {
+    document.getElementById('filter-username').value = '';
+    document.getElementById('filter-paper').value = '';
+    document.getElementById('filter-date-from').value = '';
+    document.getElementById('filter-date-to').value = '';
+    currentPage = 1;
+    loadUsage();
+  }
+
+  async function loadUsage(page = 1) {
+    currentPage = page;
+    const params = new URLSearchParams({ page, per_page: 20 });
+    const username = document.getElementById('filter-username').value.trim();
+    const paper = document.getElementById('filter-paper').value.trim();
+    const dateFrom = document.getElementById('filter-date-from').value;
+    const dateTo = document.getElementById('filter-date-to').value;
+    if (username) params.append('username', username);
+    if (paper) params.append('paper_title', paper);
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+
+    try {
+      const data = await adminFetch(`/usage?${params}`);
+      renderUsage(data.data);
+    } catch (e) {
+      document.getElementById('usage-table').innerHTML =
+        '<tr><td colspan="9" style="text-align: center;">加载失败</td></tr>';
+    }
+  }
+
+  function renderUsage(d) {
+    const records = d.records || [];
+    const tbody = document.getElementById('usage-table');
+
+    // 汇总卡片
+    document.getElementById('stat-total').textContent = (d.total || 0).toLocaleString();
+    document.getElementById('stat-tokens').textContent = fmtBigNum(d.total_tokens || 0);
+    document.getElementById('stat-cost').textContent = '¥' + (d.total_cost || 0).toFixed(4);
+    document.getElementById('stat-models').textContent = d.unique_models || 0;
+    document.getElementById('usage-count').textContent = `共 ${d.total || 0} 条`;
+
+    if (!records.length) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#9ca3af;padding:32px;">暂无批改记录</td></tr>';
+      document.getElementById('pagination-info').textContent = '共 0 条';
+      document.getElementById('pagination-buttons').innerHTML = '';
+      return;
+    }
+
+    tbody.innerHTML = records.map(r => {
+      const time = r.created_at
+        ? new Date(r.created_at.replace(' ', 'T') + 'Z').toLocaleString('zh-CN')
+        : '-';
+      const sidShort = (r.sid || '').slice(-8);
+      const models = (r.models || []).map(m => escapeHtml(m)).join(', ');
+      return `<tr>
+        <td style="white-space:nowrap;">${escapeHtml(time)}</td>
+        <td>${escapeHtml(r.nickname || r.username || '-')}</td>
+        <td><a href="/result/${escapeHtml(r.sid)}" target="_blank" title="${escapeHtml(r.paper_title || '')}">${escapeHtml(r.paper_title || '-').slice(0, 30)}</a></td>
+        <td style="font-weight:600;">${r.score != null ? escapeHtml(r.score) : '--'}</td>
+        <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(models)}">${escapeHtml(models)}</td>
+        <td>${fmtNum(r.prompt_tokens)}</td>
+        <td>${fmtNum(r.completion_tokens)}</td>
+        <td>${fmtNum(r.total_tokens)}</td>
+        <td style="font-weight:600;color:var(--admin-accent);">${fmtCost(r.cost)}</td>
+      </tr>`;
+    }).join('');
+
+    // 分页
+    const pages = d.pages || 0;
+    const info = document.getElementById('pagination-info');
+    const btns = document.getElementById('pagination-buttons');
+    info.textContent = `共 ${d.total} 条 · 第 ${d.page}/${pages} 页`;
+    if (pages > 1) {
+      btns.innerHTML = `
+        <button class="action-btn action-btn-view" ${d.page <= 1 ? 'disabled style="opacity:.4;cursor:not-allowed;"' : ''} onclick="loadUsage(${d.page - 1})">上一页</button>
+        <button class="action-btn action-btn-view" ${d.page >= pages ? 'disabled style="opacity:.4;cursor:not-allowed;"' : ''} onclick="loadUsage(${d.page + 1})">下一页</button>`;
+    } else {
+      btns.innerHTML = '';
+    }
+  }
+
+  function fmtNum(n) { return (n || 0).toLocaleString(); }
+  function fmtBigNum(n) { return n >= 1000000 ? (n / 1000000).toFixed(1) + 'M' : n >= 1000 ? (n / 1000).toFixed(1) + 'K' : String(n); }
+  function fmtCost(c) { return '¥' + (c || 0).toFixed(4); }
+
+  // 初始加载
+  loadUsage();
+</script>
+{% endblock %}

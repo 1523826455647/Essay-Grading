@@ -118,6 +118,7 @@
     <thead>
       <tr>
         <th>时间</th>
+        <th>批改记录</th>
         <th>模型</th>
         <th>来源</th>
         <th>输入 Token</th>
@@ -127,7 +128,7 @@
       </tr>
     </thead>
     <tbody id="token-records">
-      <tr><td colspan="7" style="text-align: center;">加载中...</td></tr>
+      <tr><td colspan="8" style="text-align: center;">加载中...</td></tr>
     </tbody>
   </table>
   <div id="token-records-pagination" style="display:flex; justify-content: space-between; align-items: center; padding-top: 14px;"></div>
@@ -256,14 +257,16 @@
     const tbody = document.getElementById('token-records');
     const records = d.records || [];
     if (!records.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">暂无明细（开始批改后自动记录）</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">暂无明细（开始批改后自动记录）</td></tr>';
     } else {
       tbody.innerHTML = records.map(r => {
         const time = r.created_at
           ? new Date(r.created_at.replace(' ', 'T') + 'Z').toLocaleString('zh-CN')
           : '-';
+        const sidShort = r.sid ? r.sid.slice(-8) : '-';
         return `<tr>
           <td style="white-space:nowrap;">${escapeHtml(time)}</td>
+          <td>${r.sid ? `<a href="/result/${escapeHtml(r.sid)}" target="_blank" title="${escapeHtml(r.sid)}" style="color:#6366f1;font-family:monospace;">${escapeHtml(sidShort)}</a>` : '-'}</td>
           <td>${escapeHtml(r.model_name)}</td>
           <td><span class="status-badge status-draft">${escapeHtml(SOURCE_LABELS[r.source] || r.source)}</span></td>
           <td>${fmtNum(r.prompt_tokens)}</td>

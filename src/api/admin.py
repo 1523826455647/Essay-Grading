@@ -419,6 +419,120 @@ def token_usage_records():
     return api_success(result)
 
 
+@admin_bp.route('/usage', methods=['GET'])
+@admin_required('stats.view')
+def submissions_usage():
+    """用户批改消耗统计：每次批改的模型、Token、费用（分页+搜索）"""
+    from src.services import token_usage_service
+    page = request.args.get('page', 1, type=int)
+    per_page = clamp_per_page(request.args.get('per_page', 20, type=int), max_val=200)
+    username = request.args.get('username', '').strip()
+    paper_title = request.args.get('paper_title', '').strip()
+    date_from = request.args.get('date_from', '').strip()
+    date_to = request.args.get('date_to', '').strip()
+
+    db = get_db()
+    where = []
+    params = []
+
+    if username:
+        where.append("(u.username LIKE ? OR u.nickname LIKE ?)")
+        params.extend([f'%{username}%', f'%{username}%'])
+    if paper_title:
+        where.append("p.title LIKE ?")
+        params.append(f'%{paper_title}%')
+    if date_from:
+        where.append("s.created_at >= ?")
+        params.append(date_from)
+    if date_to:
+        where.append("s.created_at <= ?")
+        params.append(date_to + ' 23:59:59')
+
+    where_sql = (' WHERE ' + ' AND '.join(where)) if where else ''
+
+    # 总数
+    total = db.execute(
+        f"SELECT COUNT(*) FROM submissions s LEFT JOIN users u ON s.uid = u.uid LEFT JOIN papers p ON s.pid = p.pid{where_sql}",
+        params,
+    ).fetchone()[0]
+
+    page = max(1, int(page))
+    offset = (page - 1) * per_page
+
+    rows = db.execute(
+        f"""SELECT s.sid, s.score, s.created_at, u.username, u.nickname,
+                   p.title AS paper_title
+            FROM submissions s
+            LEFT JOIN users u ON s.uid = u.uid
+            LEFT JOIN papers p ON s.pid = p.pid
+            {where_sql}
+            ORDER BY s.created_at DESC
+            LIMIT ? OFFSET ?""",
+        params + [per_page, offset],
+    ).fetchall()
+
+    records = []
+    total_tokens_all = 0
+    total_cost_all = 0.0
+    unique_models = set()
+
+    for row in rows:
+        r = dict(row)
+        sid = r['sid']
+
+        # 从 token_usage_logs 获取模型列表和 token 消耗（按 sid 关联）
+        t_rows = db.execute(
+            """SELECT model_name, SUM(prompt_tokens) AS prompt_tokens,
+                      SUM(completion_tokens) AS completion_tokens,
+                      SUM(total_tokens) AS total_tokens, SUM(cost) AS cost
+               FROM token_usage_logs WHERE sid = ?
+               GROUP BY model_name ORDER BY cost DESC""",
+            (sid,),
+        ).fetchall()
+
+        models = []
+        prompt_tokens = 0
+        completion_tokens = 0
+        cost = 0.0
+
+        for tr in t_rows:
+            models.append(tr['model_name'] or '未知')
+            prompt_tokens += int(tr['prompt_tokens'] or 0)
+            completion_tokens += int(tr['completion_tokens'] or 0)
+            cost += float(tr['cost'] or 0)
+
+        total_tokens = prompt_tokens + completion_tokens
+        total_tokens_all += total_tokens
+        total_cost_all += cost
+        for m in models:
+            unique_models.add(m)
+
+        records.append({
+            'sid': sid,
+            'username': r['username'] or '',
+            'nickname': r['nickname'] or '',
+            'paper_title': r['paper_title'] or '',
+            'score': r['score'],
+            'created_at': r['created_at'],
+            'models': models,
+            'prompt_tokens': prompt_tokens,
+            'completion_tokens': completion_tokens,
+            'total_tokens': total_tokens,
+            'cost': round(cost, 6),
+        })
+
+    return api_success({
+        'records': records,
+        'total': int(total),
+        'page': page,
+        'per_page': per_page,
+        'pages': (int(total) + per_page - 1) // per_page if total else 0,
+        'total_tokens': total_tokens_all,
+        'total_cost': round(total_cost_all, 6),
+        'unique_models': len(unique_models),
+    })
+
+
 # ============ User Management ============
 
 @admin_bp.route('/users', methods=['GET'])
@@ -737,6 +851,51 @@ def pending_reviews():
     return api_success({
         'submissions': [dict(s) for s in submissions]
     })
+
+
+@admin_bp.route('/submissions/<sid>', methods=['GET'])
+@admin_required('submissions.review')
+def get_submission_detail(sid):
+    """获取单条批改记录详情（用于复核弹窗）"""
+    db = get_db()
+    row = db.execute(
+        """SELECT s.*, u.username, u.nickname, p.title AS paper_title,
+                  p.questions
+           FROM submissions s
+           LEFT JOIN users u ON s.uid = u.uid
+           LEFT JOIN papers p ON s.pid = p.pid
+           WHERE s.sid = ?""",
+        (sid,),
+    ).fetchone()
+    if not row:
+        return api_error("批改记录不存在", 404)
+
+    result = dict(row)
+    # 解析题目信息
+    questions = result.get('questions')
+    if isinstance(questions, str):
+        try:
+            questions = json.loads(questions)
+        except (json.JSONDecodeError, TypeError):
+            questions = []
+    if isinstance(questions, list):
+        for q in questions:
+            if q.get('qid') == result.get('qid'):
+                result['question_stem'] = q.get('stem', '')
+                result['question_type'] = q.get('type', '')
+                result['score_max'] = q.get('score_max', 100)
+                result['reference_answer'] = q.get('reference_answer', '')
+                break
+    # 解析维度分数
+    dims = result.get('dimension_scores')
+    if isinstance(dims, str):
+        try:
+            result['dimension_scores'] = json.loads(dims)
+        except (json.JSONDecodeError, TypeError):
+            result['dimension_scores'] = {}
+    # 附加判断
+    result['judgments'] = submission_service.get_submission_judgments(sid)
+    return api_success(result)
 
 
 @admin_bp.route('/submissions/<sid>/review', methods=['POST'])

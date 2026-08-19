@@ -23,6 +23,8 @@ def build_chat_completions_endpoint(base_url: str) -> str:
         return base
     if base.endswith("/v1"):
         return f"{base}/chat/completions"
+    if base.endswith("/v3"):
+        return f"{base}/chat/completions"
     return f"{base}/v1/chat/completions"
 
 

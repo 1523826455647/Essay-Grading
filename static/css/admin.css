@@ -521,30 +521,37 @@ span.badge {
 /* ----------- Forms ----------- */
 .admin-form-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
-  align-items: start;
-}
-
-.admin-form-group {
   margin-bottom: 16px;
 }
 
+.admin-form-row-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.admin-form-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.admin-form-group.full-width {
+  grid-column: 1 / -1;
+}
+
 .admin-form-label {
-  display: block;
-  margin-bottom: 6px;
   font-weight: 550;
   font-size: 13px;
   color: var(--admin-text-primary);
-  min-height: 20px;
+  margin-bottom: 6px;
   line-height: 1.4;
 }
 
-.admin-form-group > span {
+.admin-form-group > .admin-form-hint {
   font-size: 11px;
   color: #9ca3af;
   margin-top: 4px;
-  display: block;
   line-height: 1.4;
 }
 
@@ -563,6 +570,7 @@ span.badge {
   background: #fff !important;
   transition: border-color 150ms ease, box-shadow 150ms ease;
   font-family: inherit;
+  box-sizing: border-box;
 }
 
 .admin-form-input:focus,
@@ -588,6 +596,9 @@ span.badge {
   background-repeat: no-repeat !important;
   background-position: right 12px center !important;
   padding-right: 32px !important;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .admin-content select option {
@@ -798,7 +809,8 @@ span.badge {
   }
 
   .stats-grid { grid-template-columns: 1fr; }
-  .admin-form-row { grid-template-columns: 1fr; }
+  .admin-form-row,
+  .admin-form-row-3 { grid-template-columns: 1fr; }
   .filter-bar { flex-direction: column; }
 }
 

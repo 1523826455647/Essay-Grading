@@ -226,6 +226,10 @@ def create_app():
     def admin_settings():
         return _admin_page('admin/settings.html')
 
+    @app.route('/admin/usage')
+    def admin_usage():
+        return _admin_page('admin/usage.html')
+
     @app.route('/admin/codes')
     def admin_codes():
         return _admin_page('admin/codes.html')

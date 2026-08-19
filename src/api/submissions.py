@@ -253,7 +253,7 @@ def create_submission(current_user):
     if uses_model_registry:
         if grading_backend.name == 'internal':
             judge_fn = lambda config: grade_with_model(
-                config, question, user_answer, material
+                config, question, user_answer, material, sid=sid
             )
         else:
             judge_fn = lambda config: grade_with_backend(
@@ -606,7 +606,7 @@ def regrade_submission(current_user, sid):
                 )
             else:
                 judge_fn = lambda config: grade_with_model(
-                    config, question, user_answer, material
+                    config, question, user_answer, material, sid=sid
                 )
 
             if grading_mode == 'ensemble':

@@ -29,6 +29,9 @@ SCHEMA_COLUMN_MIGRATIONS = {
     'users': {
         'grading_credits': 'REAL DEFAULT 1.0',
     },
+    'token_usage_logs': {
+        'sid': 'TEXT',
+    },
 }
 
 NEW_TABLES = {

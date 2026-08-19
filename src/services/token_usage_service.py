@@ -5,13 +5,22 @@
 
 import json
 import logging
+import sqlite3
+import os
 
-from src.api.utils import get_db
+from src.config import Config
 
 logger = logging.getLogger(__name__)
 
 
-def record_usage(model_id, model_name, prompt_tokens, completion_tokens, source='grading'):
+def _get_db():
+    """直接打开数据库连接（不依赖 Flask g，线程安全）。"""
+    db = sqlite3.connect(Config.DATABASE_PATH)
+    db.row_factory = sqlite3.Row
+    return db
+
+
+def record_usage(model_id, model_name, prompt_tokens, completion_tokens, source='grading', sid=None):
     """记录一次 LLM 调用的 token 消耗并计算成本
 
     Args:
@@ -20,13 +29,14 @@ def record_usage(model_id, model_name, prompt_tokens, completion_tokens, source=
         prompt_tokens: 输入 token 数
         completion_tokens: 输出 token 数
         source: 来源（grading 批改 / analyze 素材分析 / other）
+        sid: 关联的批改记录 ID（可选）
     """
     prompt_tokens = int(prompt_tokens or 0)
     completion_tokens = int(completion_tokens or 0)
     if prompt_tokens == 0 and completion_tokens == 0:
         return
 
-    db = get_db()
+    db = _get_db()
     input_price = 0.0
     output_price = 0.0
     if model_id:
@@ -45,12 +55,50 @@ def record_usage(model_id, model_name, prompt_tokens, completion_tokens, source=
     db.execute(
         """INSERT INTO token_usage_logs
            (model_id, model_name, prompt_tokens, completion_tokens, total_tokens,
-            input_price, output_price, cost, source, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+            input_price, output_price, cost, source, sid, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
         (model_id, model_name, prompt_tokens, completion_tokens, total_tokens,
-         input_price, output_price, round(cost, 6), source),
+         input_price, output_price, round(cost, 6), source, sid),
     )
     db.commit()
+
+
+def get_submission_usage(sid):
+    """获取某次批改的 token 消耗汇总（按模型分组）。
+
+    Returns:
+        dict: {
+            models: [{model_name, prompt_tokens, completion_tokens, total_tokens, cost}],
+            total_tokens: int,
+            total_cost: float,
+        }
+    """
+    db = _get_db()
+    rows = db.execute(
+        """SELECT model_name, SUM(prompt_tokens) AS prompt_tokens,
+                  SUM(completion_tokens) AS completion_tokens,
+                  SUM(total_tokens) AS total_tokens, SUM(cost) AS cost
+           FROM token_usage_logs WHERE sid = ?
+           GROUP BY model_name ORDER BY cost DESC""",
+        (sid,),
+    ).fetchall()
+
+    models = [
+        {
+            'model_name': r['model_name'] or '未知模型',
+            'prompt_tokens': int(r['prompt_tokens'] or 0),
+            'completion_tokens': int(r['completion_tokens'] or 0),
+            'total_tokens': int(r['total_tokens'] or 0),
+            'cost': round(float(r['cost'] or 0), 6),
+        }
+        for r in rows
+    ]
+
+    return {
+        'models': models,
+        'total_tokens': sum(m['total_tokens'] for m in models),
+        'total_cost': round(sum(m['cost'] for m in models), 6),
+    }
 
 
 def get_usage_summary(days=7):
@@ -59,7 +107,7 @@ def get_usage_summary(days=7):
     Returns:
         dict: {total_tokens, total_cost, daily: [...], by_model: [...]}
     """
-    db = get_db()
+    db = _get_db()
     window = f'-{int(days)} days'
 
     total_row = db.execute(
@@ -115,7 +163,7 @@ def get_usage_records(page=1, per_page=20, source=None, model_name=None):
     Returns:
         dict: {records: [...], total, page, per_page, pages}
     """
-    db = get_db()
+    db = _get_db()
     where = []
     params = []
     if source:
@@ -136,7 +184,7 @@ def get_usage_records(page=1, per_page=20, source=None, model_name=None):
 
     rows = db.execute(
         f"""SELECT id, model_name, prompt_tokens, completion_tokens, total_tokens,
-                   cost, source, created_at
+                   cost, source, sid, created_at
             FROM token_usage_logs{where_sql}
             ORDER BY id DESC LIMIT ? OFFSET ?""",
         params + [per_page, offset],
@@ -147,6 +195,7 @@ def get_usage_records(page=1, per_page=20, source=None, model_name=None):
             'id': r['id'],
             'model_name': r['model_name'] or '未知模型',
             'source': r['source'] or 'other',
+            'sid': r['sid'] or '',
             'prompt_tokens': int(r['prompt_tokens'] or 0),
             'completion_tokens': int(r['completion_tokens'] or 0),
             'total_tokens': int(r['total_tokens'] or 0),

@@ -20,6 +20,9 @@ def _endpoint(base_url: str, suffix: str) -> str:
         return base
     if base.endswith("/v1"):
         return f"{base}/{suffix.lstrip('/')}"
+    # 火山引擎等厂商使用 /v3 路径
+    if base.endswith("/v3"):
+        return f"{base}/{suffix.lstrip('/')}"
     return f"{base}/v1/{suffix.lstrip('/')}"
 
 

@@ -85,9 +85,11 @@
         </select>
       </div>
     </div>
-    <div class="admin-form-group">
-      <label class="admin-form-label" for="model-base-url">API URL</label>
-      <input id="model-base-url" class="admin-form-input" name="base_url" type="url" required>
+    <div class="admin-form-row">
+      <div class="admin-form-group full-width">
+        <label class="admin-form-label" for="model-base-url">API URL</label>
+        <input id="model-base-url" class="admin-form-input" name="base_url" type="url" required>
+      </div>
     </div>
     <div class="admin-form-row">
       <div class="admin-form-group">
@@ -96,53 +98,45 @@
       </div>
       <div class="admin-form-group">
         <label class="admin-form-label" for="model-api-key">API Key</label>
-        <input id="model-api-key" class="admin-form-input" name="api_key"
-               type="password" autocomplete="new-password">
+        <input id="model-api-key" class="admin-form-input" name="api_key" type="password" autocomplete="new-password">
       </div>
     </div>
     <div class="admin-form-row">
       <div class="admin-form-group">
         <label class="admin-form-label" for="model-weight">权重</label>
-        <input id="model-weight" class="admin-form-input" name="weight" type="number"
-               min="0.01" step="0.01" value="1" required>
+        <input id="model-weight" class="admin-form-input" name="weight" type="number" min="0.01" step="0.01" value="1" required>
       </div>
       <div class="admin-form-group">
         <label class="admin-form-label" for="model-credit-cost">批改消耗（次）</label>
-        <input id="model-credit-cost" class="admin-form-input" name="credit_cost" type="number"
-               min="0" step="0.5" value="1">
-        <span>0=免费，0.5半价，1=标准，2=高价</span>
+        <input id="model-credit-cost" class="admin-form-input" name="credit_cost" type="number" min="0" step="0.5" value="1">
+        <span class="admin-form-hint">0=免费，0.5半价，1=标准，2=高价</span>
       </div>
     </div>
     <div class="admin-form-row">
       <div class="admin-form-group">
         <label class="admin-form-label" for="model-input-price">输入价格（元/百万Token）</label>
-        <input id="model-input-price" class="admin-form-input" name="input_price_per_mtok" type="number"
-               min="0" step="0.1" value="0">
+        <input id="model-input-price" class="admin-form-input" name="input_price_per_mtok" type="number" min="0" step="0.1" value="0">
       </div>
       <div class="admin-form-group">
         <label class="admin-form-label" for="model-output-price">输出价格（元/百万Token）</label>
-        <input id="model-output-price" class="admin-form-input" name="output_price_per_mtok" type="number"
-               min="0" step="0.1" value="0">
-        <span>用于计算 Token 消耗成本</span>
+        <input id="model-output-price" class="admin-form-input" name="output_price_per_mtok" type="number" min="0" step="0.1" value="0">
+        <span class="admin-form-hint">用于计算 Token 消耗成本</span>
       </div>
     </div>
-<div class="admin-form-row">
-	      <div class="admin-form-group">
-	        <label class="admin-form-label" for="model-priority">优先级</label>
-	        <input id="model-priority" class="admin-form-input" name="priority" type="number"
-	               min="0" step="1" value="100" required>
-	      </div>
-	      <div class="admin-form-group">
-	        <label class="admin-form-label" for="model-timeout">超时（秒）</label>
-	        <input id="model-timeout" class="admin-form-input" name="timeout_seconds" type="number"
-	               min="5" max="300" step="5" value="120" required>
-	      </div>
-	      <div class="admin-form-group">
-	        <label class="admin-form-label" for="model-max-tokens">最大 Tokens（0=不限制）</label>
-	        <input id="model-max-tokens" class="admin-form-input" name="max_tokens" type="number"
-	               min="0" max="200000" step="1" value="0" required>
-	      </div>
-	    </div>
+    <div class="admin-form-row admin-form-row-3">
+      <div class="admin-form-group">
+        <label class="admin-form-label" for="model-priority">优先级</label>
+        <input id="model-priority" class="admin-form-input" name="priority" type="number" min="0" step="1" value="100" required>
+      </div>
+      <div class="admin-form-group">
+        <label class="admin-form-label" for="model-timeout">超时（秒）</label>
+        <input id="model-timeout" class="admin-form-input" name="timeout_seconds" type="number" min="5" max="300" step="5" value="120" required>
+      </div>
+      <div class="admin-form-group">
+        <label class="admin-form-label" for="model-max-tokens">最大 Tokens（0=不限制）</label>
+        <input id="model-max-tokens" class="admin-form-input" name="max_tokens" type="number" min="0" max="200000" step="1" value="0" required>
+      </div>
+    </div>
     <div class="model-form-flags">
       <label class="model-form-flag"><input name="enabled" type="checkbox" checked>启用</label>
       <label class="model-form-flag"><input name="public_visible" type="checkbox">对用户开放</label>

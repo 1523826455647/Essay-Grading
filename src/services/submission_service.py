@@ -101,6 +101,7 @@ def _safe_judgment_result(judgment: JudgeResult) -> dict:
         'improving_suggestions': judgment.improving_suggestions,
         'error_code': judgment.error_code,
         'latency_ms': judgment.latency_ms,
+        'raw_metadata': dict(judgment.raw_metadata or {}),
     }
 
 
@@ -151,7 +152,8 @@ def get_submission_judgments(sid: str) -> list[dict]:
         """SELECT j.judgment_id, j.model_id, j.status, j.score,
                   j.dimension_scores, j.result_json, j.error_code,
                   j.latency_ms, j.created_at, m.name AS model_name,
-                  m.protocol
+                  m.protocol,
+                  m.input_price_per_mtok, m.output_price_per_mtok
            FROM submission_judgments j
            JOIN llm_models m ON m.model_id = j.model_id
            WHERE j.sid = ?
@@ -176,6 +178,26 @@ def get_submission_judgments(sid: str) -> list[dict]:
                 item['dimension_scores'] = {}
         elif not isinstance(raw_dimensions, dict):
             item['dimension_scores'] = {}
+
+        # 提取 token 消耗和费用
+        meta = item.get('raw_metadata', {}) or {}
+        prompt_tokens = int(meta.get('prompt_tokens') or 0)
+        completion_tokens = int(meta.get('completion_tokens') or 0)
+        total_tokens = prompt_tokens + completion_tokens
+        input_price = float(row['input_price_per_mtok'] or 0)
+        output_price = float(row['output_price_per_mtok'] or 0)
+        cost = (prompt_tokens * input_price + completion_tokens * output_price) / 1_000_000.0
+
+        item['token_usage'] = {
+            'prompt_tokens': prompt_tokens,
+            'completion_tokens': completion_tokens,
+            'total_tokens': total_tokens,
+            'cost': round(cost, 6),
+        }
+        # 清理不需要返回的字段
+        item.pop('raw_metadata', None)
+        item.pop('input_price_per_mtok', None)
+        item.pop('output_price_per_mtok', None)
         judgments.append(item)
     return judgments
 

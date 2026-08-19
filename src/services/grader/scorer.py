@@ -314,6 +314,7 @@ def grade_with_model(
     question: dict,
     user_answer: str,
     material: list | None,
+    sid: str | None = None,
 ) -> JudgeResult:
     """Grade one answer through a registered provider model."""
     messages = build_grading_prompt(question, user_answer, material)
@@ -352,6 +353,7 @@ def grade_with_model(
                     prompt_tokens=int(meta.get('prompt_tokens') or 0),
                     completion_tokens=int(meta.get('completion_tokens') or 0),
                     source='grading',
+                    sid=sid,
                 )
             except Exception:
                 logger.warning("记录 token 消耗失败", exc_info=True)
