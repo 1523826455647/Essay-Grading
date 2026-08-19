@@ -155,7 +155,14 @@
     if (!pkg || !pkg.has_package) return '<p style="color:#9ca3af;">无生效套餐</p>';
     let balance = '';
     if (pkg.package_type === 'time') {
-      balance = pkg.remaining_days === -1 ? '不限次（永久）' : `剩余 ${pkg.remaining_days} 天`;
+      const days = pkg.remaining_days;
+      const dayText = days === -1 ? '永久有效' : `剩余 ${days} 天`;
+      if (pkg.daily_limit > 0) {
+        const rt = pkg.remaining_today;
+        balance = `今日剩 ${rt} / 每日${pkg.daily_limit}次 · ${dayText}`;
+      } else {
+        balance = `不限次 · ${dayText}`;
+      }
     } else {
       balance = `剩余 ${pkg.remaining_credits} / ${pkg.total_credits || '?'} 次`;
     }
@@ -166,12 +173,21 @@
 
   function renderPkgHistory(history) {
     if (!history || !history.length) return '';
+    const today = new Date().toISOString().substring(0, 10);
     const rows = history.slice(0, 5).map(h => {
       const typeLabel = h.package_type === 'time' ? '按天' : '按次';
       const statusLabel = h.is_active ? '<span style="color:#10b981;font-weight:600;">生效中</span>' : '<span style="color:#9ca3af;">已结束</span>';
-      const detail = h.package_type === 'time'
-        ? `${h.total_days} 天`
-        : `${h.remaining_credits}/${h.total_credits} 次`;
+      let detail;
+      if (h.package_type === 'time') {
+        if (h.daily_limit > 0) {
+          const used = (h.daily_date === today) ? (h.daily_used || 0) : 0;
+          detail = `每日${h.daily_limit}次 · 今日已用${used}`;
+        } else {
+          detail = '不限次';
+        }
+      } else {
+        detail = `${h.remaining_credits}/${h.total_credits} 次`;
+      }
       const expiry = h.expires_at ? h.expires_at.substring(0, 10) : '-';
       return `<tr>
         <td style="font-weight:550;">${h.package_name}</td>

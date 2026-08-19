@@ -72,7 +72,7 @@
           <input id="pkg-price" class="admin-form-input" type="number" value="0" min="0" step="0.1" style="width:100%;">
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
         <div id="pkg-credits-group">
           <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;">批改次数（按次类型）</label>
           <input id="pkg-credits" class="admin-form-input" type="number" value="10" min="0" style="width:100%;">
@@ -80,6 +80,11 @@
         <div id="pkg-days-group" style="display:none;">
           <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;">有效天数（按天类型）</label>
           <input id="pkg-days" class="admin-form-input" type="number" value="30" min="1" style="width:100%;">
+        </div>
+        <div id="pkg-daily-group" style="display:none;">
+          <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;">每日批改限额（0=不限次）</label>
+          <input id="pkg-daily" class="admin-form-input" type="number" value="0" min="0" max="999" style="width:100%;">
+          <span style="display:block;margin-top:4px;font-size:11px;color:#9ca3af;">按天套餐每天最多批改次数，0 表示不限次</span>
         </div>
         <div>
           <label style="display:block;font-size:12px;font-weight:550;color:#6b7280;margin-bottom:6px;">排序（越小越靠前）</label>
@@ -147,7 +152,13 @@
     tbody.innerHTML = allPackages.map(function(p) {
       const typeLabel = p.package_type === 'time' ? '按天' : '按次';
       const typeColor = p.package_type === 'time' ? '#8b5cf6' : '#0c8ee7';
-      const quota = p.package_type === 'time' ? p.duration_days + ' 天' : p.credits + ' 次';
+      let quota;
+      if (p.package_type === 'time') {
+        const daily = p.daily_limit > 0 ? ' · 每日' + p.daily_limit + '次' : ' · 不限次';
+        quota = p.duration_days + ' 天' + daily;
+      } else {
+        quota = p.credits + ' 次';
+      }
       const badge = p.badge_name
         ? '<span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:' + (p.badge_color || '#0c8ee7') + '15;color:' + (p.badge_color || '#0c8ee7') + ';border:1px solid ' + (p.badge_color || '#0c8ee7') + ';">' + esc(p.badge_name) + '</span>'
         : '<span style="color:#9ca3af;font-size:13px;">-</span>';
@@ -185,6 +196,7 @@
     const type = document.getElementById('pkg-type').value;
     document.getElementById('pkg-credits-group').style.display = type === 'usage' ? '' : 'none';
     document.getElementById('pkg-days-group').style.display = type === 'time' ? '' : 'none';
+    document.getElementById('pkg-daily-group').style.display = type === 'time' ? '' : 'none';
   }
 
   function openCreateModal() {
@@ -196,6 +208,7 @@
     document.getElementById('pkg-price').value = '0';
     document.getElementById('pkg-credits').value = '10';
     document.getElementById('pkg-days').value = '30';
+    document.getElementById('pkg-daily').value = '0';
     document.getElementById('pkg-sort').value = '0';
     document.getElementById('pkg-badge-name').value = '';
     document.getElementById('pkg-badge-color').value = '#0c8ee7';
@@ -218,6 +231,7 @@
     document.getElementById('pkg-price').value = p.price ?? 0;
     document.getElementById('pkg-credits').value = p.credits ?? 0;
     document.getElementById('pkg-days').value = p.duration_days ?? 30;
+    document.getElementById('pkg-daily').value = p.daily_limit ?? 0;
     document.getElementById('pkg-sort').value = p.sort_order ?? 0;
     document.getElementById('pkg-badge-name').value = p.badge_name || '';
     document.getElementById('pkg-badge-color').value = p.badge_color || '#0c8ee7';
@@ -257,6 +271,7 @@
       price: parseFloat(document.getElementById('pkg-price').value) || 0,
       credits: parseInt(document.getElementById('pkg-credits').value) || 0,
       duration_days: parseInt(document.getElementById('pkg-days').value) || 0,
+      daily_limit: parseInt(document.getElementById('pkg-daily').value) || 0,
       sort_order: parseInt(document.getElementById('pkg-sort').value) || 0,
       badge_name: document.getElementById('pkg-badge-name').value.trim(),
       badge_color: document.getElementById('pkg-badge-color').value,

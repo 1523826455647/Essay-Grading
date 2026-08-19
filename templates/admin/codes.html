@@ -94,7 +94,12 @@
       const sel = document.getElementById('gen-package');
       const options = ['<option value="">不关联（通用积分码）</option>'];
       activePackages.forEach(function(p) {
-        const quota = p.package_type === 'time' ? p.duration_days + '天不限次' : p.credits + '次';
+        let quota;
+        if (p.package_type === 'time') {
+          quota = p.duration_days + '天' + (p.daily_limit > 0 ? '每日' + p.daily_limit + '次' : '不限次');
+        } else {
+          quota = p.credits + '次';
+        }
         options.push('<option value="' + p.id + '">' + p.name + '（' + quota + '）</option>');
       });
       sel.innerHTML = options.join('');
@@ -112,9 +117,13 @@
       const pkg = activePackages.find(p => String(p.id) === String(pkgId));
       creditsGroup.style.display = 'none';
       if (pkg) {
-        const typeText = pkg.package_type === 'time'
-          ? '按天套餐：兑换后 <b>' + pkg.duration_days + ' 天</b>内不限次批改'
-          : '按次套餐：兑换后获得 <b>' + pkg.credits + ' 次</b>批改';
+        let typeText;
+        if (pkg.package_type === 'time') {
+          typeText = '按天套餐：兑换后 <b>' + pkg.duration_days + ' 天</b>内' +
+            (pkg.daily_limit > 0 ? '每日限批改 <b>' + pkg.daily_limit + ' 次</b>' : '<b>不限次</b>批改');
+        } else {
+          typeText = '按次套餐：兑换后获得 <b>' + pkg.credits + ' 次</b>批改';
+        }
         const badgeText = pkg.badge_name ? '，获得「<b>' + pkg.badge_name + '</b>」标识' : '';
         hint.innerHTML = '📦 已关联套餐「' + pkg.name + '」 · ' + typeText + badgeText + '。兑换时「批改次数」由套餐决定，无需填写。';
         hint.style.display = 'block';

@@ -990,9 +990,23 @@ async function loadCredits() {
       if (pkg && pkg.has_package) {
         if (pkg.package_type === 'time') {
           const days = pkg.remaining_days;
-          valEl.textContent = days === -1 ? '不限' : days + ' 天';
+          // 主数值显示今日剩余次数（限额套餐）或剩余天数（不限次套餐）
+          if (pkg.daily_limit > 0) {
+            valEl.textContent = pkg.remaining_today;
+            valEl.title = '每日限额 ' + pkg.daily_limit + ' 次，今日已用 ' + (pkg.daily_used || 0) + ' 次';
+          } else {
+            valEl.textContent = days === -1 ? '不限' : days + ' 天';
+            valEl.title = '套餐期内不限次批改' + (pkg.expires_at ? '，到期时间: ' + pkg.expires_at.substr(0, 10) : '');
+          }
           labEl.textContent = '套餐「' + pkg.package_name + '」';
-          valEl.title = pkg.expires_at ? '到期时间: ' + pkg.expires_at.substr(0, 10) : '永久有效';
+          // 副标题补充完整信息
+          let sub = '';
+          if (pkg.daily_limit > 0) {
+            sub = '今日剩余 / 每日' + pkg.daily_limit + '次';
+            if (days > 0) sub += ' · ' + days + '天后到期';
+            else if (days === -1) sub += ' · 永久有效';
+          }
+          if (sub) labEl.textContent = '套餐「' + pkg.package_name + '」' + sub;
         } else {
           valEl.textContent = pkg.remaining_credits;
           labEl.textContent = '套餐「' + pkg.package_name + '」';

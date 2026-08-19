@@ -215,11 +215,10 @@ def create_submission(current_user):
     if not pid or not qid or not user_answer:
         return api_error("缺少必要参数", 400)
 
-    # 检查批改次数（管理员跳过；有生效套餐的按套餐规则放行）
+    # 检查批改次数（管理员跳过；套餐今日还有额度则放行，否则检查通用积分）
     if current_user.get('role') not in ('admin', 'super_admin'):
         from src.services import package_service
-        pkg = package_service.get_user_active_package(current_user['uid'])
-        if not pkg:
+        if not package_service.has_available_grading(current_user['uid']):
             model_ids = requested_model_ids or []
             credit_cost = exchange_code_service.calculate_credit_cost(model_ids) if model_ids else 1.0
             balance = exchange_code_service.get_user_credits(current_user['uid'])

@@ -38,6 +38,14 @@ SCHEMA_COLUMN_MIGRATIONS = {
     'code_redemptions': {
         'package_id': 'INTEGER',
     },
+    'packages': {
+        'daily_limit': 'INTEGER NOT NULL DEFAULT 0',
+    },
+    'user_packages': {
+        'daily_limit': 'INTEGER NOT NULL DEFAULT 0',
+        'daily_used': 'INTEGER NOT NULL DEFAULT 0',
+        'daily_date': 'TEXT',
+    },
 }
 
 NEW_TABLES = {
@@ -96,6 +104,7 @@ NEW_TABLES = {
             package_type    TEXT NOT NULL DEFAULT 'usage',
             credits         INTEGER NOT NULL DEFAULT 0,
             duration_days   INTEGER NOT NULL DEFAULT 0,
+            daily_limit     INTEGER NOT NULL DEFAULT 0,
             price           REAL NOT NULL DEFAULT 0,
             badge_name      TEXT DEFAULT '',
             badge_color     TEXT DEFAULT '#0c8ee7',
@@ -116,6 +125,9 @@ NEW_TABLES = {
             total_credits       INTEGER NOT NULL DEFAULT 0,
             remaining_credits   INTEGER NOT NULL DEFAULT 0,
             total_days          INTEGER NOT NULL DEFAULT 0,
+            daily_limit         INTEGER NOT NULL DEFAULT 0,
+            daily_used          INTEGER NOT NULL DEFAULT 0,
+            daily_date          TEXT,
             badge_name          TEXT DEFAULT '',
             badge_color         TEXT DEFAULT '',
             is_active           INTEGER DEFAULT 1,
