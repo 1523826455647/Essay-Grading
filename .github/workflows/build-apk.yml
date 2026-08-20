@@ -22,19 +22,15 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
+      - name: Set up Gradle 8.5
         uses: gradle/actions/setup-gradle@v4
         with:
-          # 没有提交 wrapper 时，setup-gradle 会自动安装一个可用的 Gradle
           gradle-version: '8.5'
-
-      - name: Generate Gradle wrapper
-        working-directory: android
-        run: gradle wrapper --gradle-version 8.5 --distribution-type bin
 
       - name: Build release APK
         working-directory: android
-        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
+        # 直接用 setup-gradle 提供的 gradle 命令构建，无需 wrapper
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
