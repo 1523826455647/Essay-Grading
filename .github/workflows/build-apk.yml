@@ -4,7 +4,7 @@ on:
   workflow_dispatch:                # 手动触发
   push:
     tags: ['v*']                    # 推送 v* 标签时自动构建
-    branches: [main]
+    branches: [main, master]
 
 permissions:
   contents: write
