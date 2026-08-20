@@ -931,6 +931,11 @@
     })[c]);
   }
 
+  // 以下工具函数被页面里多个「全局函数」（loadPackages / renderPackageCard /
+  // loadProfileSettings 等）使用，必须挂到 window 才能被全局作用域访问。
+  window.authToken = authToken;
+  window.esc = esc;
+
   async function loadProfile() {
     try {
       const token = authToken();
@@ -1072,14 +1077,32 @@
     }
   }
 
-  loadProfile();
-  loadStats();
-  loadWeak();
-  loadCredits();
-  loadTransactions();
-  loadPackages();
-  loadProfileSettings();
-  loadHistory(1);
+  async function initProfile() {
+    // 登录态预检：token 失效（如 7 天过期）时自动清 token 并跳登录，
+    // 避免页面停留在「加载中 / 加载失败」的假死状态
+    const pre = authToken();
+    if (pre) {
+      try {
+        const r = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + pre } });
+        if (r.status === 401) {
+          localStorage.removeItem('slb_token');
+          localStorage.removeItem('token');
+          if (typeof showToast === 'function') showToast('登录已过期，请重新登录', 'error');
+          setTimeout(() => { location.href = '/login'; }, 1200);
+          return;
+        }
+      } catch (e) { /* 网络异常不阻塞，交给下方各模块各自容错 */ }
+    }
+    loadProfile();
+    loadStats();
+    loadWeak();
+    loadCredits();
+    loadTransactions();
+    loadPackages();
+    loadProfileSettings();
+    loadHistory(1);
+  }
+  initProfile();
 })();
 
 async function loadTransactions() {

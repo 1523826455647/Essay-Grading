@@ -238,7 +238,7 @@
         <div id="ocr-dropzone" class="ex-ocr-inner" onclick="document.getElementById('ocr-input').click()">
           <i data-lucide="camera" style="width:28px;height:28px;color:#0c8ee7;"></i>
           <p class="ex-ocr-title">拍照 / 上传识别文字</p>
-          <p class="ex-ocr-desc">支持手写或印刷图片，识别后可再编辑</p>
+          <p class="ex-ocr-desc">支持手写或印刷图片；多页请依次拍照，识别结果自动追加到答案末尾</p>
         </div>
         <div id="ocr-progress" style="display:none; text-align:center; padding:12px;">
           <div class="grading-status" style="justify-content:center;">
@@ -588,9 +588,20 @@
       const data = await res.json();
       if (res.ok && data.data && data.data.text) {
         const textarea = document.getElementById('user-answer');
-        textarea.value = data.data.text;
+        const recognized = (data.data.text || '').trim();
+        const hadPrev = textarea.value.trim().length > 0;
+        if (hadPrev) {
+          // 已有内容：追加到答案末尾，支持多页连续识别拼接
+          textarea.value = textarea.value.trim() + '\n' + recognized;
+        } else {
+          textarea.value = recognized;
+        }
         textarea.dispatchEvent(new Event('input'));
-        if (typeof SLBToast !== 'undefined') SLBToast.success('文字识别完成，请检查并修改');
+        if (typeof SLBToast !== 'undefined') {
+          SLBToast.success(hadPrev
+            ? '已追加到答案末尾（本次识别 ' + recognized.length + ' 字）'
+            : '文字识别完成，请检查并修改');
+        }
       } else if (typeof SLBToast !== 'undefined') {
         SLBToast.error(data.error || '识别失败');
       }
