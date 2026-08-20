@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import secrets
 import threading
 from dotenv import load_dotenv
 
@@ -8,25 +9,29 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Validate critical secrets at import time
-_PLACEHOLDER_SECRETS = {
-    'SECRET_KEY': 'dev-secret-key-change-in-production',
-    'JWT_SECRET': 'jwt-secret-change-in-production',
-}
+# Validate critical secrets at import time.
+# 安全语义：生产环境必须通过环境变量显式提供，否则拒绝启动。
+_REQUIRED_SECRET_ENV = ('SECRET_KEY', 'JWT_SECRET')
 
-for _env_key, _placeholder in _PLACEHOLDER_SECRETS.items():
-    _val = os.getenv(_env_key, '')
-    if not _val or _val == _placeholder:
-        if os.getenv('FLASK_ENV') == 'production' or os.getenv('ENV') == 'production':
-            logger.error(f"FATAL: {_env_key} is not set or uses default value. Refusing to start in production.")
+def _is_production_env() -> bool:
+    env = os.getenv('FLASK_ENV', '') or os.getenv('ENV', '')
+    return env.lower() in ('production', 'prod')
+
+for _env_key in _REQUIRED_SECRET_ENV:
+    _val = (os.getenv(_env_key) or '').strip()
+    if not _val:
+        if _is_production_env():
+            logger.error(f"FATAL: {_env_key} 未设置。生产环境无法以空密钥启动。")
             sys.exit(1)
         else:
-            logger.warning(f"WARNING: {_env_key} is using default value. Set it in .env for production.")
+            logger.warning(f"WARNING: {_env_key} 未设置。开发环境将使用生成的临时密钥。")
 
 
 class Config:
-    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
-    JWT_SECRET = os.getenv('JWT_SECRET', 'jwt-secret-change-in-production')
+    # 生产环境必须由 .env 显式提供；此处仅作开发/测试兜底，生成随机临时值，
+    # 避免硬编码默认密钥。config 顶部已校验：生产缺失即拒绝启动。
+    SECRET_KEY = os.getenv('SECRET_KEY', secrets.token_hex(32))
+    JWT_SECRET = os.getenv('JWT_SECRET', secrets.token_hex(32))
     LLM_CREDENTIALS_KEY = os.getenv('LLM_CREDENTIALS_KEY', '')
     JWT_ALGORITHM = 'HS256'
     JWT_EXPIRE_DAYS = int(os.getenv('JWT_EXPIRE_DAYS', 7))

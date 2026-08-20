@@ -255,4 +255,8 @@ def create_app():
 app = create_app()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8790, debug=True)
+    # 生产环境（gunicorn 导入 app，不执行此块）强制关闭 debug；
+    # 仅本地开发时由 FLASK_DEBUG/ENV 显式开启。
+    is_prod = os.getenv('ENV') == 'production' or os.getenv('FLASK_ENV') == 'production'
+    debug_enabled = (not is_prod) and (os.getenv('FLASK_DEBUG', '1') == '1')
+    app.run(host='0.0.0.0', port=8790, debug=debug_enabled)

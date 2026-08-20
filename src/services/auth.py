@@ -115,7 +115,7 @@ def is_token_blacklisted(jti: str) -> bool:
 def get_user_profile(uid: str):
     db = get_db()
     user = db.execute(
-        "SELECT uid, username, nickname, role, vip_expire, created_at, last_login, settings FROM users WHERE uid = ?",
+        "SELECT uid, username, nickname, email, phone, role, vip_expire, created_at, last_login, settings FROM users WHERE uid = ?",
         (uid,)
     ).fetchone()
     return dict(user) if user else None

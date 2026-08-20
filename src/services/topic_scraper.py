@@ -9,6 +9,8 @@ import re
 from datetime import datetime
 import requests
 
+from src.services.url_safety import safe_get
+
 # 强制 IPv4：容器/服务器环境 DNS 对部分国内站点只返回 IPv6，
 # 而 requests/urllib3 走 IPv6 会报 Network is unreachable。
 # 强制 getaddrinfo 只解析 IPv4 即可正常访问外网 HTTP。
@@ -80,7 +82,7 @@ def _is_noise(text: str) -> bool:
 def fetch_article_text(url):
     """抓取文章正文（过滤页脚版权/导航等噪声）"""
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+        resp = safe_get(url, headers=HEADERS, timeout=TIMEOUT)
         resp.raise_for_status()
         resp.encoding = resp.apparent_encoding or 'utf-8'
         html = resp.text
@@ -162,7 +164,7 @@ def fetch_shiping(limit=15):
     url = 'http://opinion.people.com.cn/'
     results = []
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+        resp = safe_get(url, headers=HEADERS, timeout=TIMEOUT)
         resp.raise_for_status()
         resp.encoding = 'utf-8'
         links = _extract_people_links(resp.text, 'http://opinion.people.com.cn')
@@ -187,7 +189,7 @@ def fetch_lilun(limit=15):
 
     # 求是网
     try:
-        resp = requests.get('http://www.qstheory.cn/', headers=HEADERS, timeout=TIMEOUT)
+        resp = safe_get('http://www.qstheory.cn/', headers=HEADERS, timeout=TIMEOUT)
         resp.raise_for_status()
         resp.encoding = 'utf-8'
         # 求是网链接格式多样，用 title 属性匹配
@@ -210,7 +212,7 @@ def fetch_lilun(limit=15):
     remaining = limit - len(results)
     if remaining > 0:
         try:
-            resp = requests.get('http://theory.people.com.cn/', headers=HEADERS, timeout=TIMEOUT)
+            resp = safe_get('http://theory.people.com.cn/', headers=HEADERS, timeout=TIMEOUT)
             resp.raise_for_status()
             resp.encoding = 'utf-8'
             links = _extract_people_links(resp.text, 'http://theory.people.com.cn')
@@ -243,7 +245,7 @@ def fetch_dangjian(limit=15):
     seen = set()
     for page_url in urls:
         try:
-            resp = requests.get(page_url, headers=HEADERS, timeout=TIMEOUT)
+            resp = safe_get(page_url, headers=HEADERS, timeout=TIMEOUT)
             resp.raise_for_status()
             resp.encoding = 'utf-8'
             links = _extract_people_links(resp.text, 'http://cpc.people.com.cn')

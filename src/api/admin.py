@@ -335,7 +335,7 @@ def get_dashboard_stats():
     ).fetchall()
     growth_map = {r['date']: r['count'] for r in rows}
     for i in range(6, -1, -1):
-        d = db.execute(f"SELECT date('now', '-{i} days') as d").fetchone()['d']
+        d = db.execute("SELECT date('now', ?) as d", (f'-{i} days',)).fetchone()['d']
         user_growth.append({'date': d, 'count': growth_map.get(d, 0)})
 
     # Score distribution
@@ -348,7 +348,7 @@ def get_dashboard_stats():
     # Daily stats (last 7 days)
     daily_stats = []
     for i in range(6, -1, -1):
-        d = db.execute(f"SELECT date('now', '-{i} days') as d").fetchone()['d']
+        d = db.execute("SELECT date('now', ?) as d", (f'-{i} days',)).fetchone()['d']
         new_u = db.execute("SELECT COUNT(*) FROM users WHERE date(created_at) = ?", (d,)).fetchone()[0]
         active_u = db.execute("SELECT COUNT(*) FROM users WHERE date(last_login) = ?", (d,)).fetchone()[0]
         new_s = db.execute("SELECT COUNT(*) FROM submissions WHERE date(created_at) = ?", (d,)).fetchone()[0]

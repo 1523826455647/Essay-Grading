@@ -66,10 +66,11 @@ var navigator = {{}};
 function get_password(password) {{return window.encrypt('{RSA_PUBLIC_KEY}', password)}}
 console.log(get_password('{self.password}'));
 """
-        # 写入临时 JS 文件
-        js_path = "/tmp/fenbi_encrypt.js"
-        with open(js_path, 'w') as f:
+        # 写入临时 JS 文件（用 tempfile 自动生成安全路径）
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False) as f:
             f.write(js_code)
+            js_path = f.name
 
         result = subprocess.run(["node", js_path], capture_output=True, text=True, timeout=10)
         if result.returncode != 0:

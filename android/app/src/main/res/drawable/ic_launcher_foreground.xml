@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 简洁的"答题纸"图标：白色文档页面 + 段落横线 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 答题纸外框 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,30 h40 a4,4 0 0 1 4,4 v40 a4,4 0 0 1 -4,4 h-40 a4,4 0 0 1 -4,-4 v-40 a4,4 0 0 1 4,-4 z" />
+
+    <!-- 标题横线 -->
+    <path
+        android:fillColor="#0C8EE7"
+        android:pathData="M38,38 h32 v3 h-32 z" />
+
+    <!-- 段落横线 1 -->
+    <path
+        android:fillColor="#0C8EE7"
+        android:pathData="M38,46 h24 v2.6 h-24 z" />
+
+    <!-- 段落横线 2 -->
+    <path
+        android:fillColor="#0C8EE7"
+        android:pathData="M38,52.6 h28 v2.6 h-28 z" />
+
+    <!-- 段落横线 3 -->
+    <path
+        android:fillColor="#0C8EE7"
+        android:pathData="M38,59.2 h20 v2.6 h-20 z" />
+
+    <!-- 评分角标（对勾）+ -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M60,60 l4,4 l8,-9 l3,3 l-11,13 l-7,-7 z" />
+</vector>

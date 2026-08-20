@@ -46,3 +46,6 @@ gen_training.py
 shenlun-zuowen-train.jsonl
 gen_training.py
 shenlun-zuowen-train.jsonl
+
+# 本仓库开发工具内部状态（安全扫描等）
+.mimosa/

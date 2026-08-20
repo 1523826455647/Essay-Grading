@@ -54,7 +54,22 @@ class _BaseAdapter:
                     json=body,
                     timeout=timeout,
                 )
-            except requests.RequestException:
+            except requests.Timeout:
+                elapsed = int((time.monotonic() - started) * 1000)
+                logger.warning(
+                    "Model request timed out after %dms (timeout=%ss, model=%s, attempt=%d/%d)",
+                    elapsed, timeout, config.get("model_name"), attempt + 1, attempts,
+                )
+                if attempt + 1 < attempts:
+                    continue
+                raise ProviderError(
+                    "network", f"模型服务响应超时（>{timeout}s），请稍后重试或更换模型"
+                ) from None
+            except requests.RequestException as exc:
+                logger.warning(
+                    "Model request network error: %s: %s (model=%s, attempt=%d/%d)",
+                    type(exc).__name__, exc, config.get("model_name"), attempt + 1, attempts,
+                )
                 if attempt + 1 < attempts:
                     continue
                 raise ProviderError("network", "模型服务连接失败，请稍后重试") from None

@@ -162,7 +162,7 @@ def _record_grading_side_effects(
 
 
 def _deduct_grading_credits(current_user: dict, judgments: list, model_configs: list = None) -> None:
-    """批改成功后扣减积分，优先扣套餐次数，再扣通用积分"""
+    """批改成功后扣减积分。优先级：按天套餐 → 按次套餐 → 通用积分，不重复扣费"""
     if current_user.get('role') in ('admin', 'super_admin'):
         return
 
@@ -170,16 +170,7 @@ def _deduct_grading_credits(current_user: dict, judgments: list, model_configs: 
 
     uid = current_user['uid']
 
-    # 1. 优先尝试从套餐扣减
-    try:
-        pkg_ok, pkg_msg = package_service.deduct_package_credit(uid)
-        if pkg_ok:
-            logger.info("Package deduction: %s", pkg_msg)
-            return
-    except Exception as e:
-        logger.warning("Package deduction check failed: %s", e)
-
-    # 2. 套餐扣减失败，回退到通用积分扣减
+    # 计算本次模型消耗（按次套餐和通用积分共用）
     success_ids = set()
     if judgments:
         for j in judgments:
@@ -192,6 +183,17 @@ def _deduct_grading_credits(current_user: dict, judgments: list, model_configs: 
         cost = exchange_code_service.calculate_credit_cost(list(success_ids))
     else:
         cost = 1.0
+
+    # 1. 优先尝试从套餐扣减（按天套餐不计 cost，按次套餐扣 cost）
+    try:
+        pkg_ok, pkg_msg = package_service.deduct_package_credit(uid, cost)
+        if pkg_ok:
+            logger.info("Package deduction: %s", pkg_msg)
+            return
+    except Exception as e:
+        logger.warning("Package deduction failed: %s", e)
+
+    # 2. 套餐扣减失败，回退到通用积分扣减
     try:
         exchange_code_service.deduct_credits(uid, cost)
     except Exception as e:

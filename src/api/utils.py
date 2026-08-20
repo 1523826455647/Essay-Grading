@@ -13,38 +13,40 @@ from flask import g, request, jsonify
 from src.config import Config, JWT_ALGORITHM, JWT_SECRET
 
 
+# 附加列迁移：每个值都是完整的常量 ALTER 语句（标识符已手工加引号），
+# 运行时直接执行，不做任何拼接/格式化，从根上杜绝 SQL 注入。
 SCHEMA_COLUMN_MIGRATIONS = {
     'submissions': {
-        'grading_mode': 'TEXT',
-        'agreement_rate': 'REAL',
-        'score_spread': 'REAL',
-        'valid_judges': 'INT DEFAULT 0',
-        'failed_judges': 'INT DEFAULT 0',
-        'aggregate_json': 'TEXT',
+        'grading_mode': 'ALTER TABLE submissions ADD COLUMN "grading_mode" TEXT',
+        'agreement_rate': 'ALTER TABLE submissions ADD COLUMN "agreement_rate" REAL',
+        'score_spread': 'ALTER TABLE submissions ADD COLUMN "score_spread" REAL',
+        'valid_judges': 'ALTER TABLE submissions ADD COLUMN "valid_judges" INT DEFAULT 0',
+        'failed_judges': 'ALTER TABLE submissions ADD COLUMN "failed_judges" INT DEFAULT 0',
+        'aggregate_json': 'ALTER TABLE submissions ADD COLUMN "aggregate_json" TEXT',
     },
     'llm_models': {
-        'deleted_at': 'DATETIME',
-        'credit_cost': 'REAL',
+        'deleted_at': 'ALTER TABLE llm_models ADD COLUMN "deleted_at" DATETIME',
+        'credit_cost': 'ALTER TABLE llm_models ADD COLUMN "credit_cost" REAL',
     },
     'users': {
-        'grading_credits': 'REAL DEFAULT 1.0',
+        'grading_credits': 'ALTER TABLE users ADD COLUMN "grading_credits" REAL DEFAULT 1.0',
     },
     'token_usage_logs': {
-        'sid': 'TEXT',
+        'sid': 'ALTER TABLE token_usage_logs ADD COLUMN "sid" TEXT',
     },
     'exchange_codes': {
-        'package_id': 'INTEGER',
+        'package_id': 'ALTER TABLE exchange_codes ADD COLUMN "package_id" INTEGER',
     },
     'code_redemptions': {
-        'package_id': 'INTEGER',
+        'package_id': 'ALTER TABLE code_redemptions ADD COLUMN "package_id" INTEGER',
     },
     'packages': {
-        'daily_limit': 'INTEGER NOT NULL DEFAULT 0',
+        'daily_limit': 'ALTER TABLE packages ADD COLUMN "daily_limit" INTEGER NOT NULL DEFAULT 0',
     },
     'user_packages': {
-        'daily_limit': 'INTEGER NOT NULL DEFAULT 0',
-        'daily_used': 'INTEGER NOT NULL DEFAULT 0',
-        'daily_date': 'TEXT',
+        'daily_limit': 'ALTER TABLE user_packages ADD COLUMN "daily_limit" INTEGER NOT NULL DEFAULT 0',
+        'daily_used': 'ALTER TABLE user_packages ADD COLUMN "daily_used" INTEGER NOT NULL DEFAULT 0',
+        'daily_date': 'ALTER TABLE user_packages ADD COLUMN "daily_date" TEXT',
     },
 }
 
@@ -159,23 +161,24 @@ def close_db(e=None):
 
 def ensure_schema_columns(db) -> None:
     """Apply additive SQLite column migrations without touching existing rows."""
-    for table_name, columns in SCHEMA_COLUMN_MIGRATIONS.items():
+    for table_name, migrations in SCHEMA_COLUMN_MIGRATIONS.items():
         table_exists = db.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
             (table_name,),
         ).fetchone()
         if not table_exists:
             continue
+        # 参数化读取表结构（SQLite 表值函数，无需拼接标识符）
         existing = {
-            row[1] for row in db.execute(f'PRAGMA table_info("{table_name}")')
+            row[0] for row in db.execute(
+                "SELECT name FROM pragma_table_info(?)", (table_name,)
+            )
         }
-        for column_name, definition in columns.items():
+        for column_name, migration_sql in migrations.items():
             if column_name in existing:
                 continue
-            db.execute(
-                f'ALTER TABLE "{table_name}" '
-                f'ADD COLUMN "{column_name}" {definition}'
-            )
+            # migration_sql 是上方字典中的完整常量语句，运行时零拼接
+            db.execute(migration_sql)
     _migrate_simulation_records_id(db)
 
 

@@ -1,0 +1,43 @@
+// 申论帮 Android 应用模块配置。
+// 纯 WebView 封装，不依赖 AndroidX，构建快、体积小。
+plugins {
+    id 'com.android.application'
+}
+
+// 服务端 Web 应用地址。修改这里即可把 APK 指向新的部署地址。
+def TARGET_URL = 'http://140.210.13.6:18004'
+
+android {
+    namespace 'com.shenlun.slb'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.shenlun.slb"
+        minSdk 26
+        targetSdk 34
+        versionCode 103
+        versionName "1.0.3"
+        buildConfigField "String", "TARGET_URL", "\"$TARGET_URL\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // 用 debug 证书签名，保证 release APK 可直接安装（无需管理生产密钥）
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // 无 AndroidX 依赖：仅使用平台 android.webkit / android.app
+}

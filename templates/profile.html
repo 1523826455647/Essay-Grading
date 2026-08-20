@@ -69,6 +69,12 @@
           </span>
           <span>我的收藏</span>
         </a>
+        <a href="#packages" class="pf-nav-item" data-panel="packages">
+          <span class="pf-nav-ico" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+          </span>
+          <span>套餐详情</span>
+        </a>
         <a href="#settings" class="pf-nav-item" data-panel="settings">
           <span class="pf-nav-ico" aria-hidden="true">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.32 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
@@ -203,6 +209,7 @@
         <div id="history-list" class="pf-list">
           <div class="pf-empty">登录后加载批改记录</div>
         </div>
+        <div class="history-pagination" id="history-pagination" style="display:none;"></div>
       </section>
 
       <!-- 薄弱点 -->
@@ -231,15 +238,78 @@
         </div>
       </section>
 
-      <!-- 设置 -->
+      <!-- 套餐详情 -->
+      <section class="pf-panel" id="panel-packages">
+        <div class="pf-panel-head">
+          <div>
+            <h2 class="pf-panel-title">套餐详情</h2>
+            <p class="pf-panel-desc">已开通套餐余额、剩余天数与每日限额</p>
+          </div>
+        </div>
+
+        <div id="packages-loading" style="padding:24px;color:#94a3b8;text-align:center;">加载中...</div>
+        <div id="packages-list" class="pf-list" style="display:none;"></div>
+        <div id="packages-empty" class="pf-empty" style="display:none;">
+          暂无套餐，去兑换开通你的第一个套餐吧！
+          <br><br>
+          <span style="font-size:13px;color:#94a3b8;">输入兑换码在顶部兑换框即可开通</span>
+        </div>
+      </section>
+
+      <!-- 账号设置 -->
       <section class="pf-panel" id="panel-settings">
         <div class="pf-panel-head">
           <div>
             <h2 class="pf-panel-title">账号设置</h2>
-            <p class="pf-panel-desc">修改登录密码</p>
+            <p class="pf-panel-desc">修改个人资料与登录密码</p>
           </div>
         </div>
+
+        <!-- 个人资料 -->
         <div class="pf-module pf-settings">
+          <div class="pf-module-head">
+            <div>
+              <h3 class="pf-module-title">个人资料</h3>
+              <p class="pf-module-sub">昵称、邮箱、手机号等信息</p>
+            </div>
+          </div>
+          <form id="profile-form" class="pf-form">
+            <div class="pf-form-row">
+              <div class="form-group">
+                <label class="form-label">用户名</label>
+                <input type="text" id="profile-username" class="input-field" disabled>
+              </div>
+              <div class="form-group">
+                <label class="form-label">昵称</label>
+                <input type="text" id="profile-nickname" class="input-field" placeholder="给自己起个名字">
+              </div>
+            </div>
+            <div class="pf-form-row">
+              <div class="form-group">
+                <label class="form-label">邮箱</label>
+                <input type="email" id="profile-email" class="input-field" placeholder="your@email.com">
+              </div>
+              <div class="form-group">
+                <label class="form-label">手机号</label>
+                <input type="tel" id="profile-phone" class="input-field" placeholder="13800138000">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">个人简介</label>
+              <textarea id="profile-bio" class="input-field" rows="3" placeholder="介绍一下自己，让批改记录更有归属感" style="resize:vertical;min-height:80px;"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">保存资料</button>
+          </form>
+        </div>
+
+        <!-- 修改密码 -->
+        <div class="pf-module pf-settings">
+          <div class="pf-module-head">
+            <div>
+              <h3 class="pf-module-title">修改密码</h3>
+              <p class="pf-module-sub">更新登录密码</p>
+            </div>
+          </div>
           <form id="password-form" class="pf-form">
             <div class="form-group">
               <label class="form-label">当前密码</label>
@@ -255,10 +325,9 @@
                 <input type="password" name="confirm_password" class="input-field" required minlength="6">
               </div>
             </div>
-            <button type="submit" class="btn btn-primary">保存修改</button>
+            <button type="submit" class="btn btn-primary">修改密码</button>
           </form>
         </div>
-      </section>
     </main>
   </div>
 </div>
@@ -693,6 +762,107 @@
   }
   .pf-form .btn { margin-top: 8px; }
 
+  /* Package cards */
+  .pkg-card {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 18px 20px !important;
+    gap: 10px !important;
+  }
+  .pkg-info { display: flex; flex-direction: column; gap: 8px; }
+  .pkg-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .pkg-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .pkg-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .pkg-status {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: auto;
+  }
+  .pkg-status.active {
+    background: #dcfce7;
+    color: #16a34a;
+    border: 1px solid #bbf7d0;
+  }
+  .pkg-status.expired {
+    background: #f1f5f9;
+    color: #94a3b8;
+    border: 1px solid #e2e8f0;
+  }
+  .pkg-main {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .pkg-val {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.2;
+  }
+  .pkg-val.dim {
+    color: #94a3b8;
+  }
+  .pkg-label {
+    font-size: 13px;
+    color: #64748b;
+  }
+  .pkg-sub {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 12.5px;
+    color: #64748b;
+  }
+  .pkg-daily-note {
+    color: #f59e0b;
+    font-weight: 500;
+  }
+  .pkg-expiry {
+    color: #94a3b8;
+  }
+
+  /* History pagination */
+  .history-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 14px 0 4px;
+    flex-wrap: wrap;
+  }
+  .history-pagination .btn {
+    min-width: 84px;
+  }
+  .history-pagination .pg-info {
+    font-size: 13px;
+    color: #64748b;
+    white-space: nowrap;
+  }
+
   @media (max-width: 980px) {
     .pf-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .pf-module-grid { grid-template-columns: 1fr; }
@@ -795,7 +965,9 @@
       const data = payload.data || payload;
       const subs = data.submissions || [];
 
-      document.getElementById('stat-submissions').textContent = subs.length;
+      // 累计批改改用后端返回的真实总数（不再受单页 100 条限制）
+      document.getElementById('stat-submissions').textContent =
+        (data.total != null && data.total != undefined) ? data.total : subs.length;
       if (subs.length > 0) {
         const avg = subs.reduce((s, x) => s + (Number(x.score) || 0), 0) / subs.length;
         document.getElementById('stat-avg-score').textContent = Math.round(avg);
@@ -815,34 +987,10 @@
         document.getElementById('week-avg-change').textContent = '基于本周已批改记录';
       }
 
-      renderHistory(subs.slice(0, 20));
       renderCharts(subs);
     } catch (e) {
       console.error('loadStats', e);
     }
-  }
-
-  function renderHistory(subs) {
-    const box = document.getElementById('history-list');
-    if (!box) return;
-    if (!subs.length) {
-      box.innerHTML = '<div class="pf-empty">暂无批改记录，去智能批改试试</div>';
-      return;
-    }
-    box.innerHTML = subs.map(s => {
-      const title = s.paper_title || s.pid || '自定义批改';
-      const score = s.score == null ? '批改中' : `${s.score}${s.score_max ? '/' + s.score_max : ''}`;
-      const when = s.created_at || s.graded_at || '';
-      const href = s.sid ? `/result/${s.sid}` : '#';
-      return `
-        <a class="pf-list-item" href="${esc(href)}" style="text-decoration:none;color:inherit">
-          <div>
-            <div class="pf-list-title">${esc(title)}</div>
-            <div class="pf-list-meta">${esc(s.qid || '')} · ${esc(when)}</div>
-          </div>
-          <span class="badge badge-info">${esc(score)}</span>
-        </a>`;
-    }).join('');
   }
 
   function renderCharts(subs) {
@@ -929,6 +1077,9 @@
   loadWeak();
   loadCredits();
   loadTransactions();
+  loadPackages();
+  loadProfileSettings();
+  loadHistory(1);
 })();
 
 async function loadTransactions() {
@@ -956,6 +1107,83 @@ async function loadTransactions() {
         '</div></div>';
     }).join('');
   } catch (e) { console.error('loadTransactions', e); }
+}
+
+// ====== 批改记录分页 ======
+let historyTotal = 0;
+let historyPage = 1;
+let historyPages = 1;
+const HISTORY_PAGE_SIZE = 10;
+
+async function loadHistory(page) {
+  const token = localStorage.getItem('slb_token') || localStorage.getItem('token');
+  if (!token) {
+    document.getElementById('history-list').innerHTML = '<div class="pf-empty">请先登录查看批改记录</div>';
+    return;
+  }
+  try {
+    const res = await fetch(`/api/submissions/history?page=${page || 1}&limit=${HISTORY_PAGE_SIZE}`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) throw new Error('Failed');
+    const { data } = await res.json();
+    if (!data) return;
+    historyPage = data.page || 1;
+    historyTotal = data.total || 0;
+    historyPages = data.pages || 1;
+    renderHistoryList(data.submissions || []);
+    renderHistoryPagination();
+  } catch (e) {
+    console.error('loadHistory', e);
+    document.getElementById('history-list').innerHTML = '<div class="pf-empty">批改记录加载失败，请刷新重试</div>';
+  }
+}
+
+function renderHistoryList(subs) {
+  const box = document.getElementById('history-list');
+  if (!box) return;
+  const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[c]);
+  if (!subs.length) {
+    box.innerHTML = '<div class="pf-empty">暂无批改记录，去智能批改试试</div>';
+    return;
+  }
+  box.innerHTML = subs.map(s => {
+    const title = s.paper_title || s.pid || '自定义批改';
+    const score = s.score == null ? '批改中' : `${s.score}${s.score_max ? '/' + s.score_max : ''}`;
+    const when = s.created_at || s.graded_at || '';
+    const href = s.sid ? `/result/${s.sid}` : '#';
+    return `
+      <a class="pf-list-item" href="${escHtml(href)}" style="text-decoration:none;color:inherit">
+        <div>
+          <div class="pf-list-title">${escHtml(title)}</div>
+          <div class="pf-list-meta">${escHtml(s.qid || '')} · ${escHtml(when)}</div>
+        </div>
+        <span class="badge badge-info">${escHtml(score)}</span>
+      </a>`;
+  }).join('');
+}
+
+function renderHistoryPagination() {
+  const nav = document.getElementById('history-pagination');
+  if (!nav) return;
+  if (historyPages <= 1) {
+    nav.style.display = 'none';
+    return;
+  }
+  nav.style.display = 'flex';
+  const btn = (label, pg, disabled, cls) =>
+    `<button class="btn btn-sm ${cls || ''}" ${disabled ? 'disabled' : ''} onclick="historyGo(${pg})">${label}</button>`;
+  nav.innerHTML =
+    btn('上一页', historyPage - 1, historyPage <= 1) +
+    `<span class="pg-info">第 ${historyPage} / ${historyPages} 页 · 共 ${historyTotal} 条</span>` +
+    btn('下一页', historyPage + 1, historyPage >= historyPages);
+}
+
+function historyGo(page) {
+  if (page < 1 || page > historyPages) return;
+  loadHistory(page);
 }
 
 async function loadCredits() {
@@ -990,7 +1218,6 @@ async function loadCredits() {
       if (pkg && pkg.has_package) {
         if (pkg.package_type === 'time') {
           const days = pkg.remaining_days;
-          // 主数值显示今日剩余次数（限额套餐）或剩余天数（不限次套餐）
           if (pkg.daily_limit > 0) {
             valEl.textContent = pkg.remaining_today;
             valEl.title = '每日限额 ' + pkg.daily_limit + ' 次，今日已用 ' + (pkg.daily_used || 0) + ' 次';
@@ -999,10 +1226,9 @@ async function loadCredits() {
             valEl.title = '套餐期内不限次批改' + (pkg.expires_at ? '，到期时间: ' + pkg.expires_at.substr(0, 10) : '');
           }
           labEl.textContent = '套餐「' + pkg.package_name + '」';
-          // 副标题补充完整信息
           let sub = '';
           if (pkg.daily_limit > 0) {
-            sub = '今日剩余 / 每日' + pkg.daily_limit + '次';
+            sub = '今日剩余 / 每日' + pkg.daily_limit + '次 · 凌晨0时刷新';
             if (days > 0) sub += ' · ' + days + '天后到期';
             else if (days === -1) sub += ' · 永久有效';
           }
@@ -1020,6 +1246,194 @@ async function loadCredits() {
     }
   } catch (e) { console.error('loadCredits', e); }
 }
+
+// ====== 套餐详情面板 ======
+async function loadPackages() {
+  const token = authToken();
+  if (!token) return;
+  const loading = document.getElementById('packages-loading');
+  const list = document.getElementById('packages-list');
+  const empty = document.getElementById('packages-empty');
+
+  try {
+    const res = await fetch('/api/user/packages', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (!res.ok) throw new Error('Failed');
+    const { data } = await res.json();
+    const pkgs = (data && data.packages) || [];
+
+    loading.style.display = 'none';
+
+    if (!pkgs.length) {
+      list.style.display = 'none';
+      empty.style.display = '';
+      return;
+    }
+
+    empty.style.display = 'none';
+    list.style.display = '';
+    list.innerHTML = pkgs.map(p => renderPackageCard(p)).join('');
+  } catch (e) {
+    loading.textContent = '加载失败，请重试';
+    console.error('loadPackages', e);
+  }
+}
+
+function renderPackageCard(p) {
+  const isTime = p.package_type === 'time';
+  const isActive = p.is_active && !p._is_expired;
+  const badgeColor = p.badge_color || '#0c8ee7';
+  const badge = p.badge_name ? '<span class="pkg-badge" style="background:' + badgeColor + ';color:#fff;">' + esc(p.badge_name) + '</span>' : '';
+
+  let mainInfo = '';
+  let subInfo = '';
+  let statusBadge = '';
+
+  if (isTime) {
+    // 按天套餐
+    if (isActive) {
+      const days = p._remaining_days;
+      const dailyLimit = p.daily_limit || 0;
+      const dailyRem = p._daily_remaining;
+      const dailyUsed = p._daily_used || 0;
+
+      mainInfo = '<span class="pkg-val">' + (days === -1 ? '永久' : days + ' 天') + '</span>';
+      mainInfo += '<span class="pkg-label">剩余</span>';
+
+      if (dailyLimit > 0) {
+        if (dailyRem === null || dailyRem === undefined) {
+          mainInfo += '<span class="pkg-val" style="margin-left:16px;">不限</span>';
+          mainInfo += '<span class="pkg-label">今日</span>';
+        } else {
+          mainInfo += '<span class="pkg-val" style="margin-left:16px;">' + dailyRem + '</span><span class="pkg-label">今日剩余</span>';
+          subInfo = '<span class="pkg-daily-note">每日' + dailyLimit + '次 · 今日已用 ' + dailyUsed + ' 次 · 凌晨0时自动刷新</span>';
+        }
+      } else {
+        subInfo = '<span class="pkg-daily-note">今日不限次批改</span>';
+      }
+
+      if (p.expires_at) {
+        subInfo += '<span class="pkg-expiry">到期: ' + esc(p.expires_at.substr(0, 10)) + '</span>';
+      }
+      statusBadge = '<span class="pkg-status active">生效中</span>';
+    } else {
+      mainInfo = '<span class="pkg-val dim">已过期</span>';
+      mainInfo += '<span class="pkg-label">' + (p.total_days || 0) + '天套餐</span>';
+      statusBadge = '<span class="pkg-status expired">已过期</span>';
+    }
+  } else {
+    // 按次套餐
+    const remaining = p.remaining_credits || 0;
+    const total = p.total_credits || 0;
+    if (isActive && remaining > 0) {
+      mainInfo = '<span class="pkg-val">' + remaining + ' 次</span>';
+      mainInfo += '<span class="pkg-label">剩余 / 共' + total + '次</span>';
+      statusBadge = '<span class="pkg-status active">生效中</span>';
+    } else {
+      mainInfo = '<span class="pkg-val dim">已用完</span>';
+      mainInfo += '<span class="pkg-label">共' + total + '次</span>';
+      statusBadge = '<span class="pkg-status expired">' + (remaining <= 0 ? '已用完' : '已失效') + '</span>';
+    }
+  }
+
+  return '<div class="pf-list-item pkg-card">' +
+    '<div class="pkg-info">' +
+      '<div class="pkg-head">' +
+        '<span class="pkg-name">' + esc(p.package_name) + '</span>' +
+        badge +
+        statusBadge +
+      '</div>' +
+      '<div class="pkg-main">' + mainInfo + '</div>' +
+      (subInfo ? '<div class="pkg-sub">' + subInfo + '</div>' : '') +
+    '</div>' +
+    '</div>';
+}
+
+// ====== 账号设置面板 ======
+async function loadProfileSettings() {
+  const token = authToken();
+  if (!token) return;
+  try {
+    const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (!res.ok) return;
+    const { data } = await res.json();
+    const user = data || {};
+    const usernameEl = document.getElementById('profile-username');
+    const nicknameEl = document.getElementById('profile-nickname');
+    const emailEl = document.getElementById('profile-email');
+    const phoneEl = document.getElementById('profile-phone');
+    const bioEl = document.getElementById('profile-bio');
+    if (usernameEl) usernameEl.value = user.username || '';
+    if (nicknameEl) nicknameEl.value = user.nickname || '';
+    if (emailEl) emailEl.value = user.email || '';
+    if (phoneEl) phoneEl.value = user.phone || '';
+    // bio may be stored in settings JSON or a separate column
+    if (bioEl) {
+      let bio = '';
+      if (user.settings) {
+        try { bio = JSON.parse(user.settings).bio || ''; } catch (e) {}
+      }
+      bioEl.value = bio;
+    }
+  } catch (e) { console.error('loadProfileSettings', e); }
+}
+
+// Profile form submit
+document.getElementById('profile-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const token = authToken();
+  if (!token) { alert('请先登录'); return; }
+  const body = {
+    nickname: document.getElementById('profile-nickname').value.trim(),
+    email: document.getElementById('profile-email').value.trim(),
+    phone: document.getElementById('profile-phone').value.trim(),
+    bio: document.getElementById('profile-bio').value.trim()
+  };
+  try {
+    const res = await fetch('/api/auth/me', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify(body)
+    });
+    const result = await res.json();
+    if (res.ok) {
+      alert('资料已保存');
+      loadProfile(); // refresh display name
+    } else {
+      alert(result.error || '保存失败');
+    }
+  } catch (e) { alert('保存失败，请重试'); }
+});
+
+// Password form submit
+document.getElementById('password-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const token = authToken();
+  if (!token) { alert('请先登录'); return; }
+  const fd = new FormData(this);
+  const body = {
+    old_password: fd.get('old_password'),
+    new_password: fd.get('new_password'),
+    confirm_password: fd.get('confirm_password')
+  };
+  if (body.new_password !== body.confirm_password) {
+    alert('两次输入的新密码不一致');
+    return;
+  }
+  try {
+    const res = await fetch('/api/auth/password', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify(body)
+    });
+    const result = await res.json();
+    if (res.ok) {
+      alert('密码已修改');
+      this.reset();
+    } else {
+      alert(result.error || '修改失败');
+    }
+  } catch (e) { alert('修改失败，请重试'); }
+});
 
 async function redeemCode() {
   const input = document.getElementById('redeem-code-input');

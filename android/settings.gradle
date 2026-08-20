@@ -1,0 +1,22 @@
+# 申论帮 (SLB) Android 客户端
+# 一个简单的 WebView 封装，把服务端 Web 应用打包成可安装的 APK。
+# 构建由 .github/workflows/build-apk.yml 在 GitHub Actions 上自动完成。
+
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "shenlun-app"
+include ':app'

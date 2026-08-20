@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from datetime import date, datetime, timedelta
 
 from src.services.auth import register_user, login_user, logout_user, get_user_profile, is_vip_user
+from src.services.url_safety import safe_get
 from src.api.utils import api_success, api_error, token_required, get_db
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
@@ -76,6 +77,87 @@ def me(current_user):
     return api_success(profile)
 
 
+@auth_bp.route('/me', methods=['PUT'])
+@token_required
+def update_profile(current_user):
+    """更新个人资料（昵称、邮箱、手机、个人简介）"""
+    data = request.get_json(silent=True) or {}
+    uid = current_user['uid']
+    db = get_db()
+
+    allowed = ('nickname', 'email', 'phone')
+    updates = {}
+    for field in allowed:
+        if field in data:
+            val = str(data[field]).strip() if data[field] else ''
+            if field == 'nickname' and len(val) > 50:
+                return api_error("昵称不能超过50个字符", 400)
+            if field == 'email' and val and '@' not in val:
+                return api_error("邮箱格式不正确", 400)
+            if field == 'phone' and val and len(val) > 20:
+                return api_error("手机号过长", 400)
+            updates[field] = val
+
+    # bio 存储在 settings JSON 中
+    if 'bio' in data:
+        bio = str(data['bio']).strip() if data['bio'] else ''
+        if len(bio) > 500:
+            return api_error("个人简介不能超过500字", 400)
+        import json
+        user = db.execute("SELECT settings FROM users WHERE uid = ?", (uid,)).fetchone()
+        try:
+            settings = json.loads(user['settings']) if user and user['settings'] else {}
+        except (json.JSONDecodeError, TypeError):
+            settings = {}
+        settings['bio'] = bio
+        updates['settings'] = json.dumps(settings, ensure_ascii=False)
+
+    if not updates:
+        return api_error("没有需要更新的字段", 400)
+
+    set_clause = ', '.join(f"{k} = ?" for k in updates)
+    values = list(updates.values()) + [uid]
+    db.execute(f"UPDATE users SET {set_clause} WHERE uid = ?", values)
+    db.commit()
+
+    return api_success({"updated": list(updates.keys()), "message": "资料已更新"})
+
+
+@auth_bp.route('/password', methods=['PUT'])
+@token_required
+def change_password(current_user):
+    """修改密码"""
+    data = request.get_json(silent=True) or {}
+    old = (data.get('old_password') or '').strip()
+    new = (data.get('new_password') or '').strip()
+    confirm = (data.get('confirm_password') or '').strip()
+
+    if not old or not new:
+        return api_error("请填写当前密码和新密码", 400)
+    if len(new) < 6 or len(new) > 100:
+        return api_error("新密码长度需在6-100个字符之间", 400)
+    if new != confirm:
+        return api_error("两次输入的新密码不一致", 400)
+
+    db = get_db()
+    user = db.execute("SELECT password_hash FROM users WHERE uid = ?", (current_user['uid'],)).fetchone()
+    if not user:
+        return api_error("用户不存在", 404)
+
+    import bcrypt
+    try:
+        if not bcrypt.checkpw(old.encode('utf-8'), user['password_hash'].encode('utf-8')):
+            return api_error("当前密码错误", 400)
+    except Exception:
+        return api_error("密码验证失败", 500)
+
+    new_hash = bcrypt.hashpw(new.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    db.execute("UPDATE users SET password_hash = ? WHERE uid = ?", (new_hash, current_user['uid']))
+    db.commit()
+
+    return api_success({"message": "密码已修改"})
+
+
 
 
 @auth_bp.route('/wx-login', methods=['POST'])
@@ -92,7 +174,7 @@ def wx_login():
 
     try:
         url = f'https://api.weixin.qq.com/sns/jscode2session?appid={appid}&secret={secret}&js_code={code}&grant_type=authorization_code'
-        r = requests.get(url, timeout=10)
+        r = safe_get(url, timeout=10)
         wx = r.json()
     except Exception as e:
         return api_error(f'WeChat error: {e}', 502)

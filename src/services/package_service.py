@@ -208,18 +208,51 @@ def get_user_package_balance(uid: str) -> dict:
 
 
 def get_user_packages(uid: str) -> list[dict]:
-    """获取用户所有套餐记录"""
+    """获取用户所有套餐记录（含计算字段：剩余天数、每日剩余等）"""
     db = get_db()
+    now = datetime.now().isoformat()
+    today = _today_cn()
     rows = db.execute(
         """SELECT * FROM user_packages WHERE uid = ?
-           ORDER BY created_at DESC""",
+           ORDER BY is_active DESC, expires_at DESC NULLS LAST, id DESC""",
         (uid,),
     ).fetchall()
-    return [dict(r) for r in rows]
+
+    result = []
+    for r in rows:
+        pkg = dict(r)
+        pkg["_remaining_days"] = None
+        pkg["_daily_remaining"] = None
+        pkg["_is_expired"] = False
+
+        if pkg["package_type"] == "time":
+            if pkg["expires_at"]:
+                try:
+                    expire_dt = datetime.fromisoformat(pkg["expires_at"])
+                    remaining = (expire_dt - datetime.now()).days
+                    pkg["_remaining_days"] = max(0, remaining)
+                    pkg["_is_expired"] = remaining <= 0
+                except (ValueError, TypeError):
+                    pkg["_remaining_days"] = 0
+                    pkg["_is_expired"] = True
+            else:
+                pkg["_remaining_days"] = -1  # 永久
+
+            # 每日限额
+            rem = _daily_remaining(pkg)
+            pkg["_daily_remaining"] = rem  # None = 不限次, int = 剩余次数
+            pkg["_daily_used"] = (pkg.get("daily_used") or 0) if pkg.get("daily_date") == today else 0
+
+        result.append(pkg)
+
+    return result
 
 
 def redeem_package(uid: str, package: dict, code: str) -> dict:
-    """为用户兑换套餐（创建 user_package 记录）"""
+    """为用户兑换套餐。
+    - 同 package_id 叠加：按天→延长到期日；按次→累加次数
+    - 不同 package_id：创建新记录
+    """
     db = get_db()
     now = datetime.now().isoformat()
 
@@ -227,7 +260,74 @@ def redeem_package(uid: str, package: dict, code: str) -> dict:
     credits = int(package.get("credits", 0))
     duration_days = int(package.get("duration_days", 0))
     daily_limit = int(package.get("daily_limit", 0))
+    pkg_id = package["id"]
 
+    # 同套餐叠加逻辑
+    if package_type == "time":
+        existing = db.execute(
+            """SELECT * FROM user_packages
+               WHERE uid = ? AND package_id = ? AND is_active = 1 AND package_type = 'time'
+                 AND (expires_at IS NULL OR expires_at > ?)
+               ORDER BY expires_at DESC LIMIT 1""",
+            (uid, pkg_id, now),
+        ).fetchone()
+        if existing:
+            # 延长到期日
+            old_expiry = existing["expires_at"]
+            if old_expiry:
+                try:
+                    base = datetime.fromisoformat(old_expiry)
+                except (ValueError, TypeError):
+                    base = datetime.now()
+            else:
+                base = datetime.now()
+            new_expiry = (base + timedelta(days=duration_days)).isoformat()
+            new_total_days = (existing["total_days"] or 0) + duration_days
+            db.execute(
+                "UPDATE user_packages SET expires_at = ?, total_days = ? WHERE id = ?",
+                (new_expiry, new_total_days, existing["id"]),
+            )
+            db.commit()
+            return {
+                "package_name": package["name"],
+                "package_type": package_type,
+                "credits": 0,
+                "duration_days": duration_days,
+                "daily_limit": daily_limit,
+                "expires_at": new_expiry,
+                "badge_name": package.get("badge_name", ""),
+                "stacked": True,
+                "stacked_days": duration_days,
+            }
+    elif package_type == "usage":
+        existing = db.execute(
+            """SELECT * FROM user_packages
+               WHERE uid = ? AND package_id = ? AND is_active = 1 AND package_type = 'usage'
+                 AND remaining_credits > 0
+               ORDER BY id DESC LIMIT 1""",
+            (uid, pkg_id),
+        ).fetchone()
+        if existing:
+            new_total = (existing["total_credits"] or 0) + credits
+            new_remaining = (existing["remaining_credits"] or 0) + credits
+            db.execute(
+                "UPDATE user_packages SET total_credits = ?, remaining_credits = ? WHERE id = ?",
+                (new_total, new_remaining, existing["id"]),
+            )
+            db.commit()
+            return {
+                "package_name": package["name"],
+                "package_type": package_type,
+                "credits": credits,
+                "duration_days": 0,
+                "daily_limit": 0,
+                "expires_at": None,
+                "badge_name": package.get("badge_name", ""),
+                "stacked": True,
+                "stacked_credits": credits,
+            }
+
+    # 不同套餐或首次兑换：创建新记录
     expires_at = None
     if package_type == "time" and duration_days > 0:
         expires_at = (datetime.now() + timedelta(days=duration_days)).isoformat()
@@ -240,7 +340,7 @@ def redeem_package(uid: str, package: dict, code: str) -> dict:
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 1, ?, ?, ?)""",
         (
             uid,
-            package["id"],
+            pkg_id,
             code,
             package["name"],
             package_type,
@@ -266,6 +366,7 @@ def redeem_package(uid: str, package: dict, code: str) -> dict:
         "daily_limit": daily_limit,
         "expires_at": expires_at,
         "badge_name": package.get("badge_name", ""),
+        "stacked": False,
     }
 
 
@@ -290,13 +391,14 @@ def has_available_grading(uid: str) -> bool:
     return bool(usage_pkg)
 
 
-def deduct_package_credit(uid: str) -> tuple[bool, str]:
+def deduct_package_credit(uid: str, cost: float = 1.0) -> tuple[bool, str]:
     """
-    从用户活跃套餐扣减 1 次。返回 (是否扣减成功, 描述)。
-    - 按天不限次：直接通过
-    - 按天限额：遍历所有生效按天套餐，用今日还有额度的那个计数扣减
-    - 均不可用后回退到按次套餐
-    - 按次套餐：扣减 remaining_credits，用完自动标记 inactive
+    从用户活跃套餐扣减。返回 (是否扣减成功, 描述)。
+    扣费优先级：按天套餐 → 按次套餐 → 通用积分（由调用方保证回退）
+    
+    - 按天不限次：直接通过（不计 cost）
+    - 按天有限额：daily_used += 1（每次批改计 1 次，不论模型）
+    - 按次套餐：remaining_credits -= cost（按模型消耗）
     """
     db = get_db()
     today = _today_cn()
@@ -308,7 +410,7 @@ def deduct_package_credit(uid: str) -> tuple[bool, str]:
             # 不限次
             return True, f"套餐「{time_pkg['package_name']}」有效期内不限次"
         if remaining_today > 0:
-            # 计数扣减（跨天自动重置）
+            # 计数扣减（跨天自动重置），按天套餐每次批改计 1 次
             used = time_pkg["daily_used"] or 0
             if time_pkg["daily_date"] != today:
                 used = 0
@@ -330,7 +432,7 @@ def deduct_package_credit(uid: str) -> tuple[bool, str]:
     ).fetchone()
 
     if usage_pkg:
-        new_remaining = usage_pkg["remaining_credits"] - 1
+        new_remaining = round(usage_pkg["remaining_credits"] - cost, 1)
         if new_remaining <= 0:
             db.execute(
                 "UPDATE user_packages SET remaining_credits = 0, is_active = 0 WHERE id = ?",

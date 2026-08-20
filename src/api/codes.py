@@ -35,6 +35,15 @@ def get_credits(current_user):
     return api_success({"credits": balance, "package": pkg_info})
 
 
+@codes_bp.route('/user/packages', methods=['GET'])
+@token_required
+def get_user_packages(current_user):
+    """获取用户所有套餐详情（含历史记录）"""
+    from src.services import package_service
+    pkgs = package_service.get_user_packages(current_user['uid'])
+    return api_success({"packages": pkgs})
+
+
 # ==================== 管理员端：兑换码管理 ====================
 
 @codes_bp.route('/admin/codes', methods=['GET'])
