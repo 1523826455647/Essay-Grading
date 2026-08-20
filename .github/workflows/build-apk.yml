@@ -22,18 +22,24 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          # 没有提交 wrapper 时，setup-gradle 会自动安装一个可用的 Gradle
+          gradle-version: '8.5'
+
       - name: Generate Gradle wrapper
         working-directory: android
         run: gradle wrapper --gradle-version 8.5 --distribution-type bin
 
       - name: Build release APK
         working-directory: android
-        run: ./gradlew :app:assembleRelease --no-daemon
+        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: shenlun-apk-v${{ github.ref_name }}
+          name: shenlun-apk-${{ github.ref_name }}
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
