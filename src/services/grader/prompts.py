@@ -450,131 +450,153 @@ def build_zhixing_prompt(question: dict, user_answer: str, material: list = None
 
 
 # ============================================================
-# 题型五：大作文
+# 题型五：大作文（两阶段批改）
 # ============================================================
 
-ZUOWEN_SYSTEM_PROMPT = BASE_SYSTEM_ROLE + """
+# 阶段一：审题锚点（只看材料+题目，独立分析命题意图，不看考生作文）
+ZUOWEN_ANALYZE_SYSTEM_PROMPT = BASE_SYSTEM_ROLE + """
 
-你正在评阅【申论大作文】。申论大作文是议论文，不是对策文。
+你现在的身份是【申论命题研究员】，不是阅卷人。你的任务是：只根据给定材料和题目，独立分析"这道作文题到底要写什么"，产出一份《审题锚点》。你看不到考生作文，也不要猜测考生会怎么写。
 
-【体裁铁律——最优先检查】
-申论大作文必须是以"分析论证"为主体的议论文。如果文章80%以上的篇幅是"第一...第二...第三..."的对策罗列，缺乏"为什么"的分析论证，视为体裁错误——直接归入三类文（11-20分），因为这不是一篇议论文。
+【分析要求】
+1. 通读全部材料，找出材料真正围绕的核心矛盾/核心议题（不要被次要细节带偏）
+2. 判断命题人的态度倾向：材料支持什么、反对什么、期待考生论证什么
+3. 提炼最切题的中心论点方向，列出 2-3 个可接受立意（按切题度从高到低排序）
+4. 指出"容易写偏"的陷阱方向（材料讲 A，考生容易写成 B）
+5. 判断本题应侧重"分析为什么"还是"论证怎么办"，文体是议论文还是策论文
+6. 标出必须正确理解的核心概念（政策术语、关键提法）
 
-【评分机制】
-分档赋分制：先判断立意是否切合材料主旨，据此定档，再在档内微调。
-
-【四档标准——立意是第一标准】
-一类文（31-40）：立意精准对准材料核心议题。论证充实（>=3处材料事实作为论据）。以分析论证为主，对策为辅。结构四要素齐全。
-二类文（21-30）：立意方向正确，围绕材料总主题，选的角度不够精准或论述深度不足。论证有1-2处材料支撑。分析和对策比例基本合理。
-三类文（11-20）：立意选择了材料中的次要角度，或忽略了材料主要篇幅讨论的核心问题。论证以泛泛而谈为主。或者体裁有问题（写成纯对策文）。结构有缺失。
-四类文（0-10）：立意完全跑题，或抄袭材料（>40%内容照搬），或未完成。
-
-【判断立意偏差的关键测试】
-材料花了大量篇幅讨论A（水价机制/阶梯水价/公用事业市场化），文章讨论的是B（污染治理/日常节水/跨区调水）-> 立意偏差，归入三类。
-文章讨论的是A但论述不够深入 -> 归入二类。
-
-【加减分】
-加分：标题有文采+1-2 | 结尾升华+1-2 | 时政热词恰当+1
-扣分：无标题-2 | 无副标题-2 | 体裁为纯对策文-5 | 字数<70%降一档 | 无结尾-3
-
-【评分步骤】
-第1步：体裁检查——是议论文还是对策文？纯对策直接三类
-第2步：读材料，确定材料核心议题
-第3步：读文章，判断文章核心议题是否与材料一致
-第4步：一致但不够深->二类，不一致或纯对策->三类
-第5步：在档内微调得分，叠加加减分
-
-【维度评分区间】
-立意（满分25）：一类20-25 | 二类15-19 | 三类10-14 | 四类0-9
-论证（满分25）：一类20-25 | 二类15-19 | 三类10-14 | 四类0-9
-结构（满分20）：一类16-20 | 二类12-15 | 三类8-11 | 四类0-7
-语言（满分20）：一类16-20 | 二类12-15 | 三类8-11 | 四类0-7
-创新（满分10）：7-10（>=2亮点）| 4-6（1-2亮点）| 0-3（无亮点）"""
+严格输出 JSON（只输出 JSON，不要任何解释、不要 markdown 代码块）：
+{
+  "core_topic": "材料核心议题（一句话，20字内）",
+  "material_position": "材料的命题倾向/矛盾焦点（80字内）",
+  "intended_theses": [
+    {"rank": 1, "thesis": "最切题的中心论点方向", "depth": "为什么层面要论证的核心"},
+    {"rank": 2, "thesis": "次切题角度", "depth": "..."}
+  ],
+  "offtopic_risks": ["容易写偏成...", "..."],
+  "key_concepts": ["必须正确使用的核心概念/提法"],
+  "intended_genre": "议论文/策论文",
+  "intended_focus": "应以分析论证为主还是对策为主，以及期待的论证深度",
+  "evidence_pool": ["可作为论据的材料事实/案例（3-5条，简短概括）"]
+}"""
 
 
-def build_zuowen_prompt(question: dict, user_answer: str, material: list = None) -> list:
-    """构建大作文的批改 prompt"""
+def build_zuowen_analyze_prompt(question: dict, material: list = None) -> list:
+    """阶段一：只给材料+题目，生成审题锚点（不含考生答案）。"""
     prompt = f"""题目类型：大作文
 题目：{question.get('stem', '')}
 字数要求：{question.get('word_limit', '不少于1000字')}
-材料主旨：{question.get('material_theme', '未指定')}
-
-评分参考："""
-
-    key_points = normalize_key_points(question)
-    if key_points:
-        for i, point in enumerate(key_points, 1):
-            prompt += f"\n{i}. [{point['point_id']}] {point['point']}（{point['score']}分）"
-    else:
-        prompt += "\n（无具体采分点，以立意准确为核心标准）"
-
+"""
     if material:
-        prompt += "\n\n给定材料："
+        prompt += "\n给定材料：\n"
         for i, seg in enumerate(material, 1):
-            prompt += f"\n[材料{i}] {seg}"
+            prompt += f"[材料{i}] {seg}\n"
+    prompt += "\n请独立分析本题，输出《审题锚点》JSON。"
+    return [
+        {"role": "system", "content": ZUOWEN_ANALYZE_SYSTEM_PROMPT},
+        {"role": "user", "content": prompt},
+    ]
 
-    prompt += f"""
 
-考生答案：
+# 阶段二：评分（拿审题锚点对照考生作文）
+ZUOWEN_GRADE_SYSTEM_PROMPT = BASE_SYSTEM_ROLE + """
+
+你正在评阅【申论大作文】。你会收到一份《审题锚点》（命题分析）和考生作文。请严格对照锚点评分。
+
+【体裁铁律——最优先】
+申论大作文必须是以"分析论证"为主体的议论文。若文章80%以上篇幅是"第一...第二...第三..."的对策罗列，缺乏"为什么"的分析，视为体裁错误，直接归入三类文。
+
+【评分流程——严格按顺序】
+第1步 文体判定：议论文 / 策论文 / 纯对策罗列 / 其他
+第2步 立意对照：从作文提炼中心论点，与锚点 intended_theses 逐条比对，判定 deviation（准确/基本准确/有偏差/严重偏离）
+第3步 逐段分析：把作文按自然段切分，逐段点评（写得好的地方、问题、修改建议）
+第4步 结构与内容：标题是否点题、开头是否亮论点、分论点是否平行、论据是否支撑、有无结尾
+第5步 综合定档：先由文体+立意定档，再由结构/内容/语言在档内微调
+
+【四档标准】
+一类文（31-40）：立意精准命中锚点核心；论证充实(>=3处材料论据)；分析为主对策为辅；结构完整
+二类文（21-30）：立意方向正确但角度或深度不足；有1-2处材料支撑；分析对策比例合理
+三类文（11-20）：立意选了次要角度/偏离核心；泛泛而谈；或纯对策文；结构有缺失
+四类文（0-10）：立意完全跑题；或抄袭材料>40%；或未完成
+
+【加减分】加分：标题有文采+1-2 | 结尾升华+1-2 | 时政热词恰当+1；扣分：无标题-2 | 字数不足降档 | 无结尾-3
+
+严格输出 JSON（只输出 JSON，不要 markdown）：
+{
+  "score_rate": 0-100的整数,
+  "tier": "一类文/二类文/三类文/四类文",
+  "tier_score_range": "31-40",
+  "tier_reason": "定档核心理由（结合锚点说明立意偏差或命中情况）",
+  "genre_judgment": {"genre": "议论文/策论文/纯对策罗列", "analysis_ratio": "分析占比约X%", "is_correct_genre": true},
+  "thesis_comparison": {
+    "student_thesis": "从作文提炼的中心论点",
+    "matched_rank": 命中锚点第几个立意(整数，0表示未命中),
+    "deviation": "准确/基本准确/有偏差/严重偏离",
+    "explanation": "对照锚点说明"
+  },
+  "paragraph_analysis": [
+    {
+      "para_index": 1,
+      "summary": "本段大意",
+      "strengths": "写得好的地方（无则空字符串）",
+      "issues": "存在的问题（无则空字符串）",
+      "suggestion": "具体修改建议（无则空字符串）"
+    }
+  ],
+  "dimension_scores": {
+    "thesis_accuracy": 0-25,
+    "argument_richness": 0-25,
+    "structure": 0-20,
+    "language": 0-20,
+    "innovation": 0-10
+  },
+  "structure_analysis": {
+    "has_title": true, "title_on_topic": true,
+    "has_opening_thesis": true, "sub_thesis_count": 0,
+    "sub_theses_parallel": true, "has_conclusion": true, "has_sublimation": true
+  },
+  "bonus_points": [{"reason": "", "score": 0}],
+  "penalty_points": [{"reason": "", "score": 0}],
+  "overall_evaluation": "整体评价（立意+论证+结构+语言，200字内，要具体不要套话）",
+  "top_improvements": ["最该改进的第1点", "第2点", "第3点"]
+}"""
+
+
+def build_zuowen_grade_prompt(question: dict, user_answer: str, anchor: dict) -> list:
+    """阶段二：审题锚点 + 考生作文，产出评分与逐段分析。"""
+    anchor_text = json.dumps(anchor, ensure_ascii=False, indent=2)
+    prompt = f"""题目：{question.get('stem', '')}
+字数要求：{question.get('word_limit', '不少于1000字')}
+
+《审题锚点》（本题应写内容的权威分析，请严格对照）：
+{anchor_text}
+
+考生作文：
 {user_answer}
 
-请按以下步骤评分：
-1. 先判断立意是否准确（是否切合题意和材料主旨）
-2. 根据立意确定所属档次（一档/二档/三档/四档）
-3. 在档次内根据各维度表现给出具体分数
-4. 检查是否有加分项（标题新颖、结尾升华、时政热词）
-5. 检查是否有扣分项（无标题、字数不足、抄袭材料）
-
-请严格按以下JSON格式输出（只输出JSON，不要其他内容）：
-{{
-    "score_rate": 百分制总分（0-100）,
-    "tier": "一档/二档/三档/四档",
-    "tier_reason": "定档理由",
-    "dimension_scores": {{
-        "thesis_accuracy": 立意准确度得分（0-25）,
-        "argument_richness": 论证充实度得分（0-25）,
-        "structure": 结构完整性得分（0-20）,
-        "language": 语言表达得分（0-20）,
-        "innovation": 创新亮点得分（0-10）
-    }},
-    "thesis_analysis": {{
-        "main_thesis": "考生的中心论点（从文章中提炼）",
-        "is_accurate": true或false,
-        "deviation_degree": "准确/基本准确/有偏差/严重偏离"
-    }},
-    "argument_analysis": {{
-        "argument_count": 论据数量,
-        "has_material_evidence": true或false（是否有材料支撑）,
-        "has_current_affairs": true或false（是否使用时政素材）,
-        "argument_methods": ["使用的论证方法，如举例论证、对比论证、道理论证"]
-    }},
-    "structure_analysis": {{
-        "has_title": true或false,
-        "has_opening": true或false,
-        "sub_thesis_count": 分论点数量,
-        "has_conclusion": true或false,
-        "has_sublimation": true或false（结尾是否有升华）
-    }},
-    "bonus_points": [
-        {{"reason": "加分理由", "score": 加分值}}
-    ],
-    "penalty_points": [
-        {{"reason": "扣分理由", "score": 扣分值（负数）}}
-    ],
-    "hit_points": [
-        {{"point_id": "kp_qid_index", "point": "命中的要点", "score": 得分, "max_score": 满分, "evidence": "考生答案中的原文证据", "verdict": "full或partial"}}
-    ],
-    "missing_points": [
-        {{"point_id": "kp_qid_index", "point": "遗漏的要点", "max_score": 满分}}
-    ],
-    "ai_feedback": "详细分析，包含立意评价、论证评价、结构评价和语言评价",
-    "improving_suggestions": ["改进建议1", "改进建议2"]
-}}"""
-
+请对照审题锚点，按文体→立意→逐段→结构→定档的流程评分，输出 JSON。"""
     return [
-        {"role": "system", "content": ZUOWEN_SYSTEM_PROMPT},
-        {"role": "user", "content": prompt}
+        {"role": "system", "content": ZUOWEN_GRADE_SYSTEM_PROMPT},
+        {"role": "user", "content": prompt},
     ]
+
+
+ZUOWEN_SYSTEM_PROMPT = ZUOWEN_GRADE_SYSTEM_PROMPT  # 向后兼容
+
+
+def build_zuowen_prompt(question: dict, user_answer: str, material: list = None) -> list:
+    """向后兼容：旧的单轮大作文 prompt。
+
+    新流程（两阶段批改）请使用 build_zuowen_analyze_prompt +
+    build_zuowen_grade_prompt，此函数仅用于未走两阶段分支时的兜底。
+    """
+    anchor = {
+        "core_topic": question.get('material_theme', '未指定材料主旨'),
+        "intended_theses": [{"rank": 1, "thesis": question.get('material_theme', '紧扣材料主旨立意')}],
+        "intended_genre": "议论文",
+    }
+    return build_zuowen_grade_prompt(question, user_answer, anchor)
 
 
 # ============================================================

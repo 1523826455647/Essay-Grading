@@ -159,7 +159,7 @@ def aggregate_judgments(
         or (score_spread is not None and score_spread > spread_threshold)
         or failed > 0
     )
-    return {
+    result = {
         "status": "completed" if valid else "pending_review",
         "score_rate": score_rate,
         "dimension_scores": dimensions,
@@ -171,3 +171,23 @@ def aggregate_judgments(
         "failed_judges": failed,
         "needs_review": needs_review,
     }
+
+    # 大作文两阶段字段：取首个有效评审的锚点/档次/逐段分析透传
+    # （作文是主观题，多模型 ensemble 主要取分数平均，文案以一份为准）
+    essay_judgment = next(
+        (j for j in valid if j.essay_anchor or j.tier or j.paragraph_analysis), None
+    )
+    if essay_judgment is not None:
+        result["essay"] = {
+            "tier": essay_judgment.tier,
+            "tier_reason": essay_judgment.tier_reason,
+            "genre_judgment": essay_judgment.genre_judgment,
+            "thesis_comparison": essay_judgment.thesis_comparison,
+            "paragraph_analysis": essay_judgment.paragraph_analysis,
+            "structure_analysis": essay_judgment.structure_analysis,
+            "overall_evaluation": essay_judgment.overall_evaluation,
+            "top_improvements": essay_judgment.top_improvements,
+            "anchor": essay_judgment.essay_anchor,
+            "anchor_from_cache": essay_judgment.anchor_from_cache,
+        }
+    return result

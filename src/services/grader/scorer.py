@@ -317,6 +317,38 @@ def grade_with_model(
     sid: str | None = None,
 ) -> JudgeResult:
     """Grade one answer through a registered provider model."""
+    # 大作文走两阶段批改（先独立审题生成锚点，再对照评分+逐段分析）
+    qtype = normalize_question_type(question.get('type'), question.get('stem', ''))
+    if qtype == 'zuowen':
+        from src.services.grader.essay_review import grade_essay_two_stage
+        essay = grade_essay_two_stage(
+            model_config, question, user_answer, material,
+            pid=str(question.get('pid') or question.get('paper_id') or ''),
+            qid=str(question.get('qid') or question.get('id') or ''),
+        )
+        return JudgeResult(
+            model_id=str(model_config.get('model_id') or ''),
+            score_rate=essay.get('score_rate'),
+            dimension_scores=essay.get('dimension_scores') or {},
+            hit_points=essay.get('hit_points') or [],
+            missing_points=essay.get('missing_points') or [],
+            ai_feedback=str(essay.get('ai_feedback') or ''),
+            improving_suggestions=essay.get('improving_suggestions') or [],
+            # 两阶段特有字段透传到 aggregate 层
+            essay_anchor=essay.get('anchor'),
+            tier=essay.get('tier', ''),
+            tier_reason=essay.get('tier_reason', ''),
+            genre_judgment=essay.get('genre_judgment', {}),
+            thesis_comparison=essay.get('thesis_comparison', {}),
+            paragraph_analysis=essay.get('paragraph_analysis', []),
+            structure_analysis=essay.get('structure_analysis', {}),
+            overall_evaluation=essay.get('overall_evaluation', ''),
+            top_improvements=essay.get('top_improvements', []),
+            anchor_from_cache=bool(essay.get('anchor_from_cache')),
+            raw_metadata={'latency_ms': essay.get('latency_ms'), 'two_stage': True},
+            latency_ms=essay.get('latency_ms'),
+        )
+
     messages = build_grading_prompt(question, user_answer, material)
     adapter = adapter_for_protocol(model_config.get('protocol'))
     runtime_config = dict(model_config)

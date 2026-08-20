@@ -48,6 +48,65 @@
     display: flex; justify-content: flex-end; gap: 10px;
   }
   .regrade-model-empty { font-size: 13.5px; color: #64748b; padding: 6px 0; }
+
+  /* ===== 大作文两阶段批改 ===== */
+  .es-banner {
+    background: linear-gradient(135deg, #0b6fbe, #0c8ee7);
+    color: #fff; border-radius: 16px; padding: 22px 26px; margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+  }
+  .es-tier-name { font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
+  .es-tier-range { font-size: 13px; opacity: .85; margin-top: 4px; }
+  .es-tier-score { text-align: right; }
+  .es-tier-score b { font-size: 2.4rem; font-weight: 800; line-height: 1; }
+  .es-tier-score span { font-size: 13px; opacity: .85; }
+  .es-tier-1 { background: linear-gradient(135deg, #047857, #10b981); }
+  .es-tier-2 { background: linear-gradient(135deg, #0b6fbe, #0c8ee7); }
+  .es-tier-3 { background: linear-gradient(135deg, #b45309, #f59e0b); }
+  .es-tier-4 { background: linear-gradient(135deg, #991b1b, #ef4444); }
+
+  .es-layout { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
+  .es-side { display: grid; gap: 14px; position: sticky; top: 12px; }
+  .es-card {
+    background: #fff; border: 1px solid #e3eef9; border-radius: 14px; padding: 16px 18px;
+  }
+  .es-card h4 { margin: 0 0 12px; font-size: 13px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px; }
+  .es-genre { font-size: 13.5px; color: #334155; line-height: 1.6; }
+  .es-genre .tag { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px; font-weight:700; margin-right:6px; }
+  .tag-ok { background:#dcfce7; color:#15803d; }
+  .tag-bad { background:#fee2e2; color:#b91c1c; }
+  .es-thesis { font-size: 13px; color: #475569; line-height: 1.7; }
+  .es-thesis .label { color:#94a3b8; font-weight:600; }
+  .es-thesis .student { background:#f8fafc; border-left:3px solid #0c8ee7; padding:6px 10px; border-radius:0 6px 6px 0; margin:6px 0; color:#0f172a; }
+  .es-thesis .deviation { font-weight:700; }
+  .dev-准确 { color:#15803d; } .dev-基本准确 { color:#0c8ee7; }
+  .dev-有偏差 { color:#d97706; } .dev-严重偏离 { color:#dc2626; }
+
+  .es-main { display: grid; gap: 14px; min-width: 0; }
+  .es-overall { font-size: 14.5px; line-height: 1.85; color: #334155; white-space: pre-wrap; }
+  .es-para { border:1px solid #eef4fb; border-radius:12px; padding:14px 16px; background:#fcfdff; }
+  .es-para-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .es-para-idx { font-size:12px; font-weight:700; color:#0c8ee7; background:#eaf4ff; padding:2px 9px; border-radius:999px; }
+  .es-para-summary { font-size:13.5px; color:#64748b; margin-bottom:8px; line-height:1.6; }
+  .es-para-row { font-size:13px; line-height:1.65; margin-top:5px; }
+  .es-para-row b { display:inline-block; min-width:54px; color:#0f172a; }
+  .es-good { color:#15803d; } .es-issue { color:#b45309; } .es-suggest { color:#0c8ee7; }
+  .es-anchor { font-size: 13px; line-height: 1.75; color: #475569; }
+  .es-anchor .core { font-weight:700; color:#0f172a; }
+  .es-anchor ul { margin:6px 0 0; padding-left:1.2rem; }
+  .es-anchor li { margin-bottom: 4px; }
+  .es-improve { margin:0; padding-left:1.2rem; }
+  .es-improve li { margin-bottom:6px; font-size:13.5px; line-height:1.7; color:#334155; }
+  .es-structure { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:8px; }
+  .es-struct-item { font-size:12.5px; padding:8px 10px; border-radius:8px; background:#f8fafc; }
+  .es-struct-item.yes { background:#dcfce7; color:#15803d; }
+  .es-struct-item.no { background:#fee2e2; color:#b91c1c; }
+  .es-cache { font-size:11px; color:#94a3b8; }
+
+  @media (max-width: 920px) {
+    .es-layout { grid-template-columns: 1fr; }
+    .es-side { position: static; }
+  }
 </style>
 {% endblock %}
 
@@ -75,6 +134,57 @@
       <div>
         <strong id="review-notice-title" style="display:block;margin-bottom:4px;">本次结果建议复核</strong>
         <span id="review-notice-text" style="font-size:13px;color:#64748b;line-height:1.55;">模型结果存在分歧，请结合逐模型明细判断。</span>
+      </div>
+    </div>
+
+    <!-- 大作文两阶段批改结果 -->
+    <div id="essay-review" class="es-review" style="display:none;">
+      <div id="es-banner" class="es-banner">
+        <div>
+          <div class="es-tier-name" id="es-tier-name">--</div>
+          <div class="es-tier-range" id="es-tier-reason"></div>
+        </div>
+        <div class="es-tier-score">
+          <b id="es-score">--</b><span>/100</span>
+        </div>
+      </div>
+
+      <div class="es-layout">
+        <!-- 左侧：审题锚点 + 文体/立意/结构 -->
+        <aside class="es-side">
+          <div class="es-card">
+            <h4>📌 审题锚点 <span class="es-cache" id="es-anchor-cache"></span></h4>
+            <div id="es-anchor" class="es-anchor"></div>
+          </div>
+          <div class="es-card">
+            <h4>📝 文体判定</h4>
+            <div id="es-genre" class="es-genre"></div>
+          </div>
+          <div class="es-card">
+            <h4>🎯 立意对照</h4>
+            <div id="es-thesis" class="es-thesis"></div>
+          </div>
+          <div class="es-card">
+            <h4>🏗 结构检查</h4>
+            <div id="es-structure" class="es-structure"></div>
+          </div>
+        </aside>
+
+        <!-- 右侧：逐段分析 + 整体评价 + 提分建议 -->
+        <main class="es-main">
+          <div class="es-card">
+            <h4>✍️ 逐段分析</h4>
+            <div id="es-paragraphs" style="display:grid;gap:10px;"></div>
+          </div>
+          <div class="es-card">
+            <h4>💬 整体评价</h4>
+            <div id="es-overall" class="es-overall"></div>
+          </div>
+          <div class="es-card">
+            <h4>🚀 提分路径（最该改的 Top 3）</h4>
+            <ol id="es-improvements" class="es-improve"></ol>
+          </div>
+        </main>
       </div>
     </div>
 
@@ -526,6 +636,93 @@
     }).join('');
   }
 
+  function renderEssayReview(essay) {
+    const box = document.getElementById('essay-review');
+    if (!essay || !essay.tier) { if (box) box.style.display = 'none'; return; }
+    box.style.display = 'block';
+
+    // 顶部档次横幅
+    const tierMap = { '一类文': 1, '二类文': 2, '三类文': 3, '四类文': 4 };
+    const tnum = tierMap[essay.tier] || 2;
+    const banner = document.getElementById('es-banner');
+    banner.className = 'es-banner es-tier-' + tnum;
+    document.getElementById('es-tier-name').textContent = essay.tier;
+    document.getElementById('es-tier-reason').textContent = essay.tier_reason || '';
+    const score = finiteNumber(essay.score_rate ?? essay.score);
+    document.getElementById('es-score').textContent = score === null ? '--' : score;
+
+    // 审题锚点
+    const a = essay.anchor || {};
+    let anchorHtml = '';
+    if (a.core_topic) anchorHtml += `<div class="core">${escapeHtml(a.core_topic)}</div>`;
+    if (a.material_position) anchorHtml += `<div style="margin-top:6px;">${escapeHtml(a.material_position)}</div>`;
+    if (Array.isArray(a.intended_theses) && a.intended_theses.length) {
+      anchorHtml += '<ul>' + a.intended_theses.map(t =>
+        `<li><b style="color:#0c8ee7;">${escapeHtml((t.rank ? '立意' + t.rank + '：' : '') + (t.thesis || ''))}</b>${t.depth ? '<br><span style="color:#64748b;">' + escapeHtml(t.depth) + '</span>' : ''}</li>`
+      ).join('') + '</ul>';
+    }
+    if (Array.isArray(a.offtopic_risks) && a.offtopic_risks.length) {
+      anchorHtml += '<div style="margin-top:6px;color:#b45309;">⚠ 易写偏：' + a.offtopic_risks.map(escapeHtml).join('；') + '</div>';
+    }
+    if (Array.isArray(a.key_concepts) && a.key_concepts.length) {
+      anchorHtml += '<div style="margin-top:6px;font-size:12px;color:#64748b;">核心概念：' + a.key_concepts.map(escapeHtml).join('、') + '</div>';
+    }
+    document.getElementById('es-anchor').innerHTML = anchorHtml;
+    document.getElementById('es-anchor-cache').textContent = essay.anchor_from_cache ? '（已缓存）' : '（本次生成）';
+
+    // 文体判定
+    const g = essay.genre_judgment || {};
+    const genreOk = g.is_correct_genre !== false;
+    document.getElementById('es-genre').innerHTML =
+      `<span class="tag ${genreOk ? 'tag-ok' : 'tag-bad'}">${escapeHtml(g.genre || '议论文')}</span>` +
+      (g.analysis_ratio ? `分析占比约 ${escapeHtml(g.analysis_ratio)}` : '') +
+      (g.is_correct_genre === false ? '<div style="margin-top:6px;color:#b91c1c;">⚠ 体裁不符要求，已影响定档</div>' : '');
+
+    // 立意对照
+    const tc = essay.thesis_comparison || {};
+    let thesisHtml = '';
+    if (tc.student_thesis) thesisHtml += `<div class="student">${escapeHtml(tc.student_thesis)}</div>`;
+    if (tc.deviation) thesisHtml += `<div><span class="label">偏差判定：</span><span class="deviation dev-${escapeHtml(tc.deviation)}">${escapeHtml(tc.deviation)}</span></div>`;
+    if (tc.explanation) thesisHtml += `<div style="margin-top:4px;color:#475569;">${escapeHtml(tc.explanation)}</div>`;
+    document.getElementById('es-thesis').innerHTML = thesisHtml;
+
+    // 结构检查
+    const s = essay.structure_analysis || {};
+    const structItems = [
+      ['有标题', s.has_title], ['标题点题', s.title_on_topic],
+      ['开头亮论点', s.has_opening_thesis], ['有结尾', s.has_conclusion],
+      ['结尾升华', s.has_sublimation], ['分论点平行', s.sub_theses_parallel]
+    ];
+    document.getElementById('es-structure').innerHTML = structItems.map(([label, val]) => {
+      const yes = val === true; const no = val === false;
+      const cls = yes ? 'yes' : (no ? 'no' : '');
+      const mark = yes ? '✓ ' : (no ? '✗ ' : '· ');
+      return `<div class="es-struct-item ${cls}">${mark}${escapeHtml(label)}</div>`;
+    }).join('') + (s.sub_thesis_count != null ? `<div class="es-struct-item">分论点 ${escapeHtml(s.sub_thesis_count)} 个</div>` : '');
+
+    // 逐段分析
+    const paras = Array.isArray(essay.paragraph_analysis) ? essay.paragraph_analysis : [];
+    document.getElementById('es-paragraphs').innerHTML = paras.length
+      ? paras.map(p => `
+        <div class="es-para">
+          <div class="es-para-head"><span class="es-para-idx">第 ${escapeHtml(p.para_index || '?')} 段</span></div>
+          ${p.summary ? `<div class="es-para-summary">${escapeHtml(p.summary)}</div>` : ''}
+          ${p.strengths ? `<div class="es-para-row es-good"><b>✓ 优点：</b>${escapeHtml(p.strengths)}</div>` : ''}
+          ${p.issues ? `<div class="es-para-row es-issue"><b>! 问题：</b>${escapeHtml(p.issues)}</div>` : ''}
+          ${p.suggestion ? `<div class="es-para-row es-suggest"><b>→ 修改：</b>${escapeHtml(p.suggestion)}</div>` : ''}
+        </div>`).join('')
+      : '<div style="color:#94a3b8;font-size:13px;">暂无逐段分析</div>';
+
+    // 整体评价
+    document.getElementById('es-overall').textContent = essay.overall_evaluation || essay.tier_reason || '暂无整体评价';
+
+    // 提分路径
+    const tips = Array.isArray(essay.top_improvements) ? essay.top_improvements : [];
+    document.getElementById('es-improvements').innerHTML = tips.length
+      ? tips.map(t => `<li>${escapeHtml(typeof t === 'string' ? t : (t.text || t.suggestion || JSON.stringify(t)))}</li>`).join('')
+      : '<li style="list-style:none;color:#94a3b8;">继续保持，无明显短板</li>';
+  }
+
   function renderResult(data) {
     const scoreMax = finiteNumber(data.score_max) || 100;
     const score = finiteNumber(data.score);
@@ -600,6 +797,7 @@
     document.getElementById('disagreement-points').innerHTML = disagreement.map(p => '<li>' + escapeHtml(formatPoint(p)) + '</li>').join('');
 
     renderModelJudgments(data, scoreMax);
+    renderEssayReview(aggregate.essay || data.essay || null);
 
     // 记录上一次批改使用的模型，用于重新批改弹窗预选
     const priorJudgments = Array.isArray(data.judgments) ? data.judgments : [];

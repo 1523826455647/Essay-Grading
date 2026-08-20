@@ -29,8 +29,8 @@ def create_post(uid, post_type, content, title=None, related_sid=None, related_p
     return {'post_id': cursor.lastrowid}
 
 
-def get_post_list(post_type=None, sort='latest', page=1, per_page=20):
-    """获取帖子列表"""
+def get_post_list(post_type=None, sort='latest', page=1, per_page=20, uid=None):
+    """获取帖子列表。uid 非空时同时返回当前用户是否点赞。"""
     db = get_db()
     query = "SELECT p.*, u.nickname, u.avatar_url FROM community_posts p LEFT JOIN users u ON p.uid = u.uid WHERE p.status = 'published'"
     params = []
@@ -51,10 +51,25 @@ def get_post_list(post_type=None, sort='latest', page=1, per_page=20):
     ).fetchone()[0]
 
     offset = (page - 1) * per_page
-    query += f" LIMIT {per_page} OFFSET {offset}"
-    rows = db.execute(query, params).fetchall()
+    rows = db.execute(query + " LIMIT ? OFFSET ?", params + [per_page, offset]).fetchall()
+
+    # 当前用户的点赞集合（一次性查询，避免 N+1；ID 均为数据库整数）
+    liked_ids = set()
+    if uid and rows:
+        pids = [r['id'] for r in rows]
+        # 占位符数量由整数长度决定，内容恒为 '?'，不包含任何用户输入
+        placeholders = ['?'] * len(pids)
+        like_sql = (
+            "SELECT target_id FROM community_likes "
+            "WHERE uid = ? AND target_type = 'post' "
+            "AND target_id IN (" + ','.join(placeholders) + ")"
+        )
+        for row in db.execute(like_sql, [uid] + pids):
+            liked_ids.add(row['target_id'])
 
     items = [format_post_brief(dict(r)) for r in rows]
+    for it in items:
+        it['is_liked'] = it['post_id'] in liked_ids
     return {
         'items': items,
         'total': total,
@@ -215,18 +230,41 @@ def update_post(post_id, uid, content=None, title=None):
     return {'post_id': post_id, 'updated': True}
 
 
-def delete_post(post_id, uid):
-    """删除帖子（仅作者或管理员可删除）"""
+def delete_post(post_id, uid, is_admin=False):
+    """删除帖子（作者本人或管理员可删除；软删除）"""
     db = get_db()
     post = db.execute("SELECT uid FROM community_posts WHERE id = ?", (post_id,)).fetchone()
     if not post:
         return {'error': '帖子不存在'}
-    if post['uid'] != uid:
+    if post['uid'] != uid and not is_admin:
         return {'error': '只能删除自己的帖子'}
 
     db.execute("UPDATE community_posts SET status = 'deleted' WHERE id = ?", (post_id,))
+    # 同时隐藏该帖下的评论（不级联硬删除，保留审计痕迹）
+    db.execute("UPDATE community_comments SET status = 'deleted' WHERE post_id = ?", (post_id,))
     db.commit()
     return {'post_id': post_id, 'deleted': True}
+
+
+def delete_comment(comment_id, uid, is_admin=False):
+    """删除评论（作者本人或管理员可删除；软删除）"""
+    db = get_db()
+    comment = db.execute(
+        "SELECT id, post_id, uid FROM community_comments WHERE id = ?", (comment_id,)
+    ).fetchone()
+    if not comment:
+        return {'error': '评论不存在'}
+    if comment['uid'] != uid and not is_admin:
+        return {'error': '只能删除自己的评论'}
+
+    db.execute("UPDATE community_comments SET status = 'deleted' WHERE id = ?", (comment_id,))
+    # 帖子评论计数 -1（不小于 0）
+    db.execute(
+        "UPDATE community_posts SET comment_count = MAX(0, comment_count - 1) WHERE id = ?",
+        (comment['post_id'],)
+    )
+    db.commit()
+    return {'comment_id': comment_id, 'deleted': True}
 
 
 def feature_post(post_id):
@@ -302,10 +340,12 @@ def format_post_brief(row):
         'title': row['title'] or '',
         'content': (row['content'] or '')[:120],
         'nickname': row.get('nickname') or '匿名用户',
+        'uid': row['uid'],
         'view_count': row['view_count'],
         'like_count': row['like_count'],
         'comment_count': row['comment_count'],
         'is_featured': bool(row['is_featured']),
+        'is_pinned': bool(row['is_pinned']),
         'related_sid': row.get('related_sid'),
         'created_at': row['created_at']
     }

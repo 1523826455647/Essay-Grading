@@ -6,14 +6,20 @@ from src.services import community_service
 community_bp = Blueprint('community', __name__, url_prefix='/api/community')
 
 
+def _is_admin(current_user):
+    return bool(current_user) and current_user.get('role') in ('admin', 'super_admin')
+
+
 @community_bp.route('/posts', methods=['GET'])
-def list_posts():
+@optional_token
+def list_posts(current_user):
     """获取帖子列表"""
     post_type = request.args.get('type')
     sort = request.args.get('sort', 'latest')
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('limit', 20, type=int)
-    result = community_service.get_post_list(post_type, sort, page, per_page)
+    uid = current_user['uid'] if current_user else None
+    result = community_service.get_post_list(post_type, sort, page, per_page, uid)
     return api_success(result)
 
 
@@ -126,8 +132,22 @@ def edit_post(current_user, post_id):
 @community_bp.route('/posts/<int:post_id>', methods=['DELETE'])
 @token_required
 def delete_post(current_user, post_id):
-    """删除自己的帖子"""
-    result = community_service.delete_post(post_id, current_user['uid'])
+    """删除帖子：作者本人或管理员可删除"""
+    result = community_service.delete_post(
+        post_id, current_user['uid'], is_admin=_is_admin(current_user)
+    )
+    if 'error' in result:
+        return api_error(result['error'], 403)
+    return api_success(result)
+
+
+@community_bp.route('/comments/<int:comment_id>', methods=['DELETE'])
+@token_required
+def delete_comment(current_user, comment_id):
+    """删除评论：作者本人或管理员可删除"""
+    result = community_service.delete_comment(
+        comment_id, current_user['uid'], is_admin=_is_admin(current_user)
+    )
     if 'error' in result:
         return api_error(result['error'], 403)
     return api_success(result)

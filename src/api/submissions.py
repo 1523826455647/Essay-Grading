@@ -234,6 +234,9 @@ def create_submission(current_user):
     question = paper_service.get_question_by_qid(pid, qid, include_scoring=True)
     if not question:
         return api_error("题目不存在", 404)
+    # 补充 pid/qid 供大作文两阶段审题锚点缓存使用
+    question.setdefault('pid', pid)
+    question.setdefault('qid', qid)
 
     model_configs = None
     grading_mode = None
@@ -549,6 +552,9 @@ def regrade_submission(current_user, sid):
     question = paper_service.get_question_by_qid(pid, qid, include_scoring=True)
     if not question:
         return api_error("题目不存在", 404)
+    # 补充 pid/qid 供大作文两阶段审题锚点缓存使用
+    question.setdefault('pid', pid)
+    question.setdefault('qid', qid)
 
     paper = paper_service.get_paper_by_pid(pid)
     material = json.loads(paper['material']) if paper and paper.get('material') else None

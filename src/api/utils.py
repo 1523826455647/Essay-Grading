@@ -142,6 +142,21 @@ NEW_TABLES = {
         CREATE INDEX IF NOT EXISTS idx_user_pkg_uid ON user_packages(uid);
         CREATE INDEX IF NOT EXISTS idx_user_pkg_active ON user_packages(uid, is_active);
     """,
+    # 大作文审题锚点缓存：同一道题、同一个模型只审一次（按模型隔离）
+    'essay_anchors': """
+        CREATE TABLE IF NOT EXISTS essay_anchors (
+            anchor_key      TEXT NOT NULL,
+            model_id        TEXT NOT NULL DEFAULT '',
+            pid             TEXT,
+            qid             TEXT,
+            anchor_json     TEXT NOT NULL,
+            is_reviewed     INTEGER NOT NULL DEFAULT 0,
+            created_at      DATETIME DEFAULT (datetime('now')),
+            updated_at      DATETIME DEFAULT (datetime('now')),
+            PRIMARY KEY (anchor_key, model_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_anchor_pid ON essay_anchors(pid, qid);
+    """,
 }
 
 
@@ -227,6 +242,37 @@ def _migrate_simulation_records_id(db) -> None:
     )
 
 
+def _migrate_essay_anchors_pk(db) -> None:
+    """essay_anchors 主键由 anchor_key 改为 (anchor_key, model_id)。
+
+    审题锚点按模型隔离：A 模型生成的锚点只给 A 用。
+    该表是近期新增的缓存表，重建不影响业务数据。
+    """
+    pragma = db.execute("PRAGMA table_info(essay_anchors)").fetchall()
+    if not pragma:
+        return
+    pk_cols = [row[1] for row in pragma if row[5] > 0]
+    if set(pk_cols) == {"anchor_key", "model_id"}:
+        return  # 已是新结构
+    db.executescript(
+        """
+        DROP TABLE IF EXISTS essay_anchors;
+        CREATE TABLE essay_anchors (
+            anchor_key      TEXT NOT NULL,
+            model_id        TEXT NOT NULL DEFAULT '',
+            pid             TEXT,
+            qid             TEXT,
+            anchor_json     TEXT NOT NULL,
+            is_reviewed     INTEGER NOT NULL DEFAULT 0,
+            created_at      DATETIME DEFAULT (datetime('now')),
+            updated_at      DATETIME DEFAULT (datetime('now')),
+            PRIMARY KEY (anchor_key, model_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_anchor_pid ON essay_anchors(pid, qid);
+        """
+    )
+
+
 def init_db():
     """Initialize database with schema and seed data"""
     db_path = Config.DATABASE_PATH
@@ -252,6 +298,7 @@ def init_db():
     # Create new tables not in schema.sql
     for table_sql in NEW_TABLES.values():
         db.executescript(table_sql)
+    _migrate_essay_anchors_pk(db)
     ensure_schema_columns(db)
     # Initialize grading credits: 9999 for admins, 3 for new users, keep existing
     db.execute(

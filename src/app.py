@@ -21,6 +21,7 @@ from src.api.diagnosis import diagnosis_bp
 from src.api.phrases import phrases_bp
 from src.api.topic import topic_bp
 from src.api.grading_chat import grading_chat_bp
+from src.api.community import community_bp
 
 
 def create_app():
@@ -45,6 +46,7 @@ def create_app():
     app.register_blueprint(phrases_bp)
     app.register_blueprint(topic_bp)
     app.register_blueprint(grading_chat_bp)
+    app.register_blueprint(community_bp)
 
     # Initialize database
     with app.app_context():
@@ -154,6 +156,10 @@ def create_app():
     @app.route('/topics')
     def topics():
         return render_template('topics.html')
+
+    @app.route('/community')
+    def community():
+        return render_template('community.html')
 
     @app.route('/topics/<int:topic_id>')
     def topic_detail(topic_id):

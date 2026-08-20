@@ -42,3 +42,15 @@ class JudgeResult:
     raw_metadata: dict[str, Any] = field(default_factory=dict)
     error_code: str | None = None
     latency_ms: int | None = None
+
+    # 大作文两阶段批改专有字段
+    essay_anchor: dict[str, Any] | None = None
+    tier: str = ""
+    tier_reason: str = ""
+    genre_judgment: dict[str, Any] = field(default_factory=dict)
+    thesis_comparison: dict[str, Any] = field(default_factory=dict)
+    paragraph_analysis: list[dict[str, Any]] = field(default_factory=list)
+    structure_analysis: dict[str, Any] = field(default_factory=dict)
+    overall_evaluation: str = ""
+    top_improvements: list[Any] = field(default_factory=list)
+    anchor_from_cache: bool = False

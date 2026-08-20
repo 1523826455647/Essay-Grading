@@ -143,7 +143,7 @@ def summarize_judgments(
     if len(valid) == 1:
         # 只有一个有效模型，直接返回其结果
         j = valid[0]
-        return {
+        result = {
             "score_rate": j.score_rate,
             "dimension_scores": dict(j.dimension_scores),
             "hit_points": [dict(p) for p in j.hit_points],
@@ -155,6 +155,21 @@ def summarize_judgments(
             "failed_judges": len(judgments) - 1,
             "needs_review": False,
         }
+        # 大作文两阶段字段透传
+        if j.essay_anchor or j.tier or j.paragraph_analysis:
+            result["essay"] = {
+                "tier": j.tier,
+                "tier_reason": j.tier_reason,
+                "genre_judgment": j.genre_judgment,
+                "thesis_comparison": j.thesis_comparison,
+                "paragraph_analysis": j.paragraph_analysis,
+                "structure_analysis": j.structure_analysis,
+                "overall_evaluation": j.overall_evaluation,
+                "top_improvements": j.top_improvements,
+                "anchor": j.essay_anchor,
+                "anchor_from_cache": j.anchor_from_cache,
+            }
+        return result
 
     # 多模型汇总
     messages = build_summarize_prompt(valid, question, user_answer, material)
@@ -186,7 +201,7 @@ def summarize_judgments(
     if not isinstance(dimensions, dict):
         dimensions = {}
 
-    return {
+    summary = {
         "score_rate": round(float(score_rate), 1),
         "dimension_scores": dimensions,
         "hit_points": hit_points,
@@ -198,6 +213,24 @@ def summarize_judgments(
         "failed_judges": len(judgments) - len(valid),
         "needs_review": False,
     }
+    # 多模型汇总时，大作文字段取首个有效评审的锚点/档次/逐段分析
+    essay_judgment = next(
+        (jj for jj in valid if jj.essay_anchor or jj.tier or jj.paragraph_analysis), None
+    )
+    if essay_judgment is not None:
+        summary["essay"] = {
+            "tier": essay_judgment.tier,
+            "tier_reason": essay_judgment.tier_reason,
+            "genre_judgment": essay_judgment.genre_judgment,
+            "thesis_comparison": essay_judgment.thesis_comparison,
+            "paragraph_analysis": essay_judgment.paragraph_analysis,
+            "structure_analysis": essay_judgment.structure_analysis,
+            "overall_evaluation": essay_judgment.overall_evaluation,
+            "top_improvements": essay_judgment.top_improvements,
+            "anchor": essay_judgment.essay_anchor,
+            "anchor_from_cache": essay_judgment.anchor_from_cache,
+        }
+    return summary
 
 
 def _fallback_aggregate(judgments: list[JudgeResult]) -> dict:
