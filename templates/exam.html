@@ -168,14 +168,15 @@
     font-size: 14.5px !important;
   }
   .ex-actions {
-    display:flex; gap:12px; margin-top: 14px; align-items:center; flex-wrap:wrap;
+    display:flex; flex-direction:column; gap:10px; margin-top: 14px;
   }
-  .ex-actions .btn { min-height: 46px; }
-  .ex-actions .btn-primary { flex: 1; }
-  /* 批改方式切换（常规 / Agent） */
-  .ex-mode-toggle { display:flex; align-items:center; gap:10px; padding:8px 2px; }
+  /* 批改方式切换（常规 / Agent）——独立一行，不挤压按钮 */
+  .ex-mode-toggle { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   .ex-mode-label { font-size:13px; font-weight:700; color:#334155; }
   .ex-mode-hint { font-size:12px; color:#94a3b8; }
+  .ex-action-btns { display:flex; gap:12px; }
+  .ex-action-btns .btn { min-height: 46px; }
+  .ex-action-btns .btn-primary { flex: 1; }
   .mode-switch {
     position: relative; display: inline-flex; background: #eef2f7;
     border-radius: 999px; padding: 3px; border: 1px solid #e2e8f0;
@@ -185,6 +186,10 @@
     border-radius: 999px; background: linear-gradient(135deg, #0b6fbe, #0c8ee7);
     box-shadow: 0 2px 8px rgba(12,142,231,.35);
     transition: left .28s cubic-bezier(.4,0,.2,1), width .28s cubic-bezier(.4,0,.2,1);
+  }
+  .mode-switch[data-mode="agent"] .mode-slider {
+    background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+    box-shadow: 0 2px 8px rgba(139,92,246,.35);
   }
   .mode-switch-opt {
     position: relative; z-index: 1; border: none; background: transparent;
@@ -326,10 +331,6 @@
             required
           ></textarea>
           <div class="ex-actions">
-            <button type="submit" class="btn btn-primary">
-              <i data-lucide="send"></i>
-              提交批改
-            </button>
             <div id="grade-mode-toggle" class="ex-mode-toggle">
               <span class="ex-mode-label">批改方式</span>
               <div class="mode-switch" id="grade-mode-switch">
@@ -339,10 +340,16 @@
               </div>
               <span class="ex-mode-hint" id="grade-mode-hint"></span>
             </div>
-            <button type="button" class="btn btn-secondary" onclick="clearAnswer()">
-              <i data-lucide="trash-2"></i>
-              清空
-            </button>
+            <div class="ex-action-btns">
+              <button type="submit" class="btn btn-primary">
+                <i data-lucide="send"></i>
+                提交批改
+              </button>
+              <button type="button" class="btn btn-secondary" onclick="clearAnswer()">
+                <i data-lucide="trash-2"></i>
+                清空
+              </button>
+            </div>
           </div>
         </form>
       </section>

@@ -69,6 +69,10 @@
     box-shadow: 0 2px 8px rgba(12,142,231,.35);
     transition: left .28s cubic-bezier(.4,0,.2,1), width .28s cubic-bezier(.4,0,.2,1);
   }
+  .mode-switch[data-mode="agent"] .mode-slider {
+    background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+    box-shadow: 0 2px 8px rgba(139,92,246,.35);
+  }
   .mode-switch-opt {
     position: relative; z-index: 1; border: none; background: transparent;
     padding: 7px 18px; border-radius: 999px; font-size: 12.5px; font-weight: 700;
@@ -1052,6 +1056,7 @@
   function openRegradeModal() {
     const modal = document.getElementById('regrade-modal');
     modal.classList.add('open');
+    setRegradeMode(regradeMode); // 打开时定位滑块（含升级 Agent 入口预选的情况）
     loadRegradeModels();
     if (window.lucide) lucide.createIcons();
   }
