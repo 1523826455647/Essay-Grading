@@ -80,6 +80,18 @@ def list_papers():
     return api_success(result)
 
 
+@papers_bp.route('/question-search', methods=['GET'])
+def question_search():
+    """按题目内容反查所属试卷：输入题干关键词，返回命中的题目 + 所属试卷。"""
+    q = (request.args.get('q') or '').strip()
+    limit = clamp_per_page(request.args.get('limit', 30, type=int))
+    if not q:
+        return api_success({'matches': [], 'total': 0})
+    if len(q) > 200:
+        return api_error('关键词过长', 400)
+    return api_success(paper_service.search_questions(q, limit=limit))
+
+
 @papers_bp.route('/meta', methods=['GET'])
 def papers_meta():
     """卷库筛选元信息：年份列表、省份列表（含数量）、总数。"""

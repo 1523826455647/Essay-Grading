@@ -21,7 +21,8 @@ def get_papers(exam_type=None, year=None, province=None, keyword=None, status='p
         params.append(province)
     if keyword:
         kw = f"%{keyword}%"
-        query += " AND (title LIKE ? OR province LIKE ?)"
+        query += " AND (title LIKE ? OR province LIKE ? OR questions LIKE ?)"
+        params.append(kw)
         params.append(kw)
         params.append(kw)
 
@@ -61,6 +62,57 @@ def get_papers_meta():
         'provinces': provinces,
         'total': total,
     }
+
+
+def search_questions(keyword: str, limit: int = 30):
+    """按题目内容反查所属试卷。
+
+    先用 SQL LIKE 预筛出 questions 字段含关键词的试卷（避免全库解析 JSON），
+    再解析题目逐条匹配题干，返回命中题目及其所属试卷信息。
+    """
+    keyword = (keyword or '').strip()
+    if not keyword:
+        return {'matches': [], 'total': 0}
+    db = get_db()
+    kw = f"%{keyword}%"
+    rows = db.execute(
+        """SELECT pid, title, exam_type, year, province, questions
+           FROM papers WHERE status = 'published' AND questions LIKE ?
+           ORDER BY year DESC, created_at DESC""",
+        (kw,),
+    ).fetchall()
+
+    matches = []
+    for row in rows:
+        try:
+            questions = json.loads(row['questions']) if row['questions'] else []
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if not isinstance(questions, list):
+            continue
+        for q in questions:
+            if not isinstance(q, dict):
+                continue
+            stem = str(q.get('stem') or '')
+            if keyword.lower() not in stem.lower():
+                continue
+            matches.append({
+                'qid': q.get('qid'),
+                'stem': stem,
+                'type': q.get('type'),
+                'score_max': q.get('score_max'),
+                'word_limit': q.get('word_limit'),
+                'pid': row['pid'],
+                'paper_title': row['title'],
+                'exam_type': row['exam_type'],
+                'year': row['year'],
+                'province': row['province'],
+            })
+            if len(matches) >= limit:
+                break
+        if len(matches) >= limit:
+            break
+    return {'matches': matches, 'total': len(matches)}
 
 
 def get_paper_by_pid(pid: str):
