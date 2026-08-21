@@ -12,7 +12,7 @@ import hashlib
 import json
 import logging
 
-from src.api.utils import get_db
+from src.api.utils import get_db, get_setting
 from src.services.grader.prompts import (
     build_zuowen_analyze_prompt,
     build_zuowen_anchor_check_prompt,
@@ -224,8 +224,12 @@ def grade_essay_two_stage(
         model_config, question, material, pid, qid, sid=sid
     )
 
-    # 阶段二：拿锚点评分
-    messages = build_zuowen_grade_prompt(question, user_answer, anchor)
+    # 阶段二：拿锚点评分（可选携带原始材料，严格核对「结合材料」）
+    grade_with_material = bool(get_setting('essay_grade_with_material', True))
+    messages = build_zuowen_grade_prompt(
+        question, user_answer, anchor,
+        material=material if grade_with_material else None,
+    )
     payload, latency_ms = _model_call(model_config, messages, sid=sid)
 
     # 维度分归一

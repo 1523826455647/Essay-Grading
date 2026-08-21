@@ -563,8 +563,17 @@ ZUOWEN_GRADE_SYSTEM_PROMPT = BASE_SYSTEM_ROLE + """
 }"""
 
 
-def build_zuowen_grade_prompt(question: dict, user_answer: str, anchor: dict) -> list:
-    """阶段二：审题锚点 + 考生作文，产出评分与逐段分析。"""
+def build_zuowen_grade_prompt(
+    question: dict,
+    user_answer: str,
+    anchor: dict,
+    material: list = None,
+) -> list:
+    """阶段二：审题锚点 + 考生作文，产出评分与逐段分析。
+
+    可选携带原始材料（material 非空时）：评分官直接对照材料，严格核对
+    「是否结合材料、是否使用了材料论据」，避免只靠锚点概括判断。
+    """
     # 剥离 P1 自检注入的下划线开头的元信息字段（_meta），只把审题内容发给评分模型
     anchor_clean = {k: v for k, v in (anchor or {}).items() if not str(k).startswith('_')}
     anchor_text = json.dumps(anchor_clean, ensure_ascii=False, indent=2)
@@ -573,11 +582,17 @@ def build_zuowen_grade_prompt(question: dict, user_answer: str, anchor: dict) ->
 
 《审题锚点》（本题应写内容的权威分析，请严格对照）：
 {anchor_text}
+"""
+    if material:
+        prompt += "\n【给定材料】（评分官须逐条核对：考生的论据/核心概念是否来自材料，是否脱离材料语境）：\n"
+        for i, seg in enumerate(material, 1):
+            prompt += f"[材料{i}] {seg}\n"
+    prompt += f"""
 
 考生作文：
 {user_answer}
 
-请对照审题锚点，按文体→立意→逐段→结构→定档的流程评分，输出 JSON。"""
+请对照审题锚点（有材料时并对照材料），按文体→立意→逐段→结构→定档的流程评分，输出 JSON。"""
     return [
         {"role": "system", "content": ZUOWEN_GRADE_SYSTEM_PROMPT},
         {"role": "user", "content": prompt},

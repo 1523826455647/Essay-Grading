@@ -1072,7 +1072,8 @@ DEFAULT_SETTINGS = {
     'credit_ratio': 0.1,
     'llm_provider': 'deepseek',
     'llm_model': 'deepseek-chat',
-    'llm_base_url': 'https://api.deepseek.com'
+    'llm_base_url': 'https://api.deepseek.com',
+    'essay_grade_with_material': True,
 }
 
 

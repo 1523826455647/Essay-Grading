@@ -1,4 +1,5 @@
 import inspect
+import json
 import sqlite3
 import uuid
 import os
@@ -211,6 +212,21 @@ def close_db(e=None):
     db = g.pop('db', None)
     if db is not None:
         db.close()
+
+
+def get_setting(key: str, default=None):
+    """读取 settings 表配置（带默认值兜底，任何异常都回退默认值）。"""
+    try:
+        db = get_db()
+        row = db.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        if not row:
+            return default
+        try:
+            return json.loads(row['value'])
+        except (json.JSONDecodeError, TypeError):
+            return row['value']
+    except Exception:
+        return default
 
 
 def ensure_schema_columns(db) -> None:

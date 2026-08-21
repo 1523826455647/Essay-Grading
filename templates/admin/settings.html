@@ -54,6 +54,14 @@
         </select>
       </div>
       <div class="admin-form-group">
+        <label class="admin-form-label">大作文评分携带材料</label>
+        <select id="essay-grade-with-material" class="input-field">
+          <option value="true">携带（评分时直接对照材料，更准但稍慢）</option>
+          <option value="false">不携带（只靠审题锚点，更快更省）</option>
+        </select>
+        <p style="font-size:12px;color:#9ca3af;margin:4px 0 0;">阶段二评分官是否携带原始材料，严格核对「结合材料」。仅影响大作文两阶段评分。</p>
+      </div>
+      <div class="admin-form-group">
         <label class="admin-form-label">低分阈值 (需复核)</label>
         <input type="number" id="low-score-threshold" class="input-field" value="60" min="0" max="100">
       </div>
@@ -176,6 +184,7 @@
       document.getElementById('free-grades').value = settings.free_grades || 3;
       document.getElementById('vip-daily-grades').value = settings.vip_daily_grades || 10;
       document.getElementById('ai-review-enabled').value = String(settings.ai_review_enabled ?? true);
+      document.getElementById('essay-grade-with-material').value = String(settings.essay_grade_with_material ?? true);
       document.getElementById('low-score-threshold').value = settings.low_score_threshold || 60;
 
       // 会员设置
@@ -211,6 +220,7 @@
       free_grades: parseInt(document.getElementById('free-grades').value),
       vip_daily_grades: parseInt(document.getElementById('vip-daily-grades').value),
       ai_review_enabled: document.getElementById('ai-review-enabled').value === 'true',
+      essay_grade_with_material: document.getElementById('essay-grade-with-material').value === 'true',
       low_score_threshold: parseInt(document.getElementById('low-score-threshold').value)
     };
     await saveSettings(settings);

@@ -34,8 +34,8 @@ PANEL_DIMENSIONS = [
 TIER_CUTOFFS = (77.5, 52.5, 27.5)
 BOUNDARY_MARGIN = 5.0
 
-# 子评审单个输出 token 上限（控制单次时延）
-REVIEWER_MAX_TOKENS = 2000
+# 子评审单个输出 token 上限（推理模型需「先思考再作答」，放宽到 4000 防截断）
+REVIEWER_MAX_TOKENS = 4000
 
 
 def should_run_panel(initial: dict, deep: bool = False) -> tuple[bool, str]:
@@ -92,19 +92,7 @@ def _reviewer_call(
     messages = build_zuowen_reviewer_prompt(
         question, user_answer, anchor, dimension_key, dimension_label
     )
-    runtime = dict(model_config)
-    runtime["max_attempts"] = 1
-    try:
-        mt = int(runtime.get("max_tokens") or 0)
-    except (TypeError, ValueError):
-        mt = 0
-    runtime["max_tokens"] = max(256, min(mt if mt > 0 else REVIEWER_MAX_TOKENS, REVIEWER_MAX_TOKENS))
-    adapter = adapter_for_protocol(model_config.get("protocol"))
-    response = adapter.complete(messages, runtime)
-    _record_usage(model_config, response, sid)
-    payload = _parse_provider_json(response.content)
-    if not isinstance(payload, dict):
-        raise ProviderError("response_format", "评审返回的不是 JSON 对象")
+    payload = _complete_json(model_config, messages, sid, max_tokens_cap=REVIEWER_MAX_TOKENS)
     return _normalize_review(payload, dimension_key, dimension_label)
 
 
@@ -143,15 +131,53 @@ def _arbitrate(
     messages = build_zuowen_arbitration_prompt(
         question, user_answer, anchor, initial, reviews
     )
-    runtime = dict(model_config)
-    runtime["max_attempts"] = 1
-    adapter = adapter_for_protocol(model_config.get("protocol"))
-    response = adapter.complete(messages, runtime)
-    _record_usage(model_config, response, sid)
-    payload = _parse_provider_json(response.content)
+    payload = _complete_json(model_config, messages, sid)
     if not isinstance(payload, dict):
         raise ProviderError("response_format", "仲裁返回的不是 JSON 对象")
     return _normalize_arbitration(payload, reviews, initial)
+
+
+def _complete_json(
+    model_config: dict,
+    messages: list,
+    sid: str | None,
+    max_tokens_cap: int | None = None,
+) -> dict:
+    """调用模型并解析 JSON；response_format 失败时重试一次。
+
+    推理模型（如 LongCat）常只返回 reasoning_content，其末尾的 JSON 可能
+    不完整或被截断；放宽 max_tokens + 一次重试可显著提升评审团成功率。
+    """
+    runtime = dict(model_config)
+    runtime["max_attempts"] = 1
+    if max_tokens_cap:
+        try:
+            mt = int(runtime.get("max_tokens") or 0)
+        except (TypeError, ValueError):
+            mt = 0
+        runtime["max_tokens"] = max(
+            256, min(mt if mt > 0 else max_tokens_cap, max_tokens_cap)
+        )
+    adapter = adapter_for_protocol(model_config.get("protocol"))
+    last_error = None
+    for attempt in range(2):
+        response = adapter.complete(messages, runtime)
+        _record_usage(model_config, response, sid)
+        try:
+            payload = _parse_provider_json(response.content)
+        except ProviderError as exc:
+            if exc.code == "response_format" and attempt == 0:
+                last_error = exc
+                logger.warning("评审团 JSON 解析失败，重试一次（model=%s）", model_config.get("model_name"))
+                continue
+            raise
+        if not isinstance(payload, dict):
+            if attempt == 0:
+                last_error = ProviderError("response_format", "模型返回的不是 JSON 对象")
+                continue
+            raise last_error
+        return payload
+    raise last_error if last_error else ProviderError("response_format", "模型返回的不是 JSON 对象")
 
 
 def _normalize_arbitration(payload: dict, reviews: list, initial: dict) -> dict:
