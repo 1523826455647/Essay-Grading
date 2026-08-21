@@ -118,34 +118,56 @@
   /* ===== 智能体协作流程 stepper ===== */
   .ag-flow { background: #fff; border: 1px solid #e3eef9; border-radius: 16px; padding: 16px 20px; margin-bottom: 14px; }
   .ag-flow-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
-  .ag-flow-title { font-size: 14.5px; font-weight: 800; color: #0f172a; }
+  .ag-flow-title { font-size: 14.5px; font-weight: 800; color: #0f172a; display: inline-flex; align-items: center; gap: 7px; }
+  .ag-flow-title .ag-flow-title-ico { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg, #0b6fbe, #0c8ee7); color: #fff; display: inline-flex; align-items: center; justify-content: center; }
+  .ag-flow-title .ag-flow-title-ico svg, .ag-flow-title .ag-flow-title-ico i { width: 14px; height: 14px; }
   .ag-flow-meta { font-size: 12px; color: #64748b; font-weight: 500; }
   .ag-steps { display: flex; align-items: flex-start; }
-  .ag-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; position: relative; padding: 4px; border-radius: 10px; transition: background .15s; text-align: center; }
+  .ag-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; position: relative; padding: 6px 4px; border-radius: 12px; transition: background .15s; text-align: center; }
   .ag-step:hover { background: #f0f8ff; }
   .ag-step:not(:last-child)::after {
-    content: ''; position: absolute; top: 17px; left: calc(50% + 22px);
-    width: calc(100% - 44px); height: 2px; background: #e2e8f0; z-index: 0;
+    content: ''; position: absolute; top: 24px; left: calc(50% + 24px);
+    width: calc(100% - 48px); height: 2px; background: #e2e8f0; z-index: 0;
+    border-radius: 2px;
   }
-  .ag-step.done:not(:last-child)::after { background: #0c8ee7; }
+  .ag-step.done:not(:last-child)::after { background: linear-gradient(90deg, #0c8ee7, #38bdf8); }
   .ag-step-dot {
-    width: 32px; height: 32px; border-radius: 50%; z-index: 1;
+    width: 36px; height: 36px; border-radius: 50%; z-index: 1;
     display: flex; align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 800; background: #e2e8f0; color: #64748b;
-    box-shadow: 0 0 0 4px #fff;
+    background: #eef2f7; color: #94a3b8;
+    box-shadow: 0 0 0 4px #fff; transition: background .2s, color .2s, transform .15s;
   }
-  .ag-step.done .ag-step-dot { background: #0c8ee7; color: #fff; }
-  .ag-step.degraded .ag-step-dot { background: #f59e0b; color: #fff; }
+  .ag-step-dot svg, .ag-step-dot i { width: 16px; height: 16px; }
+  .ag-step:hover .ag-step-dot { transform: translateY(-1px); }
+  .ag-step.done .ag-step-dot { background: linear-gradient(135deg, #0b6fbe, #0c8ee7); color: #fff; box-shadow: 0 0 0 4px #fff, 0 4px 10px rgba(12,142,231,.3); }
+  .ag-step.degraded .ag-step-dot { background: linear-gradient(135deg, #d97706, #f59e0b); color: #fff; }
   .ag-step-name { font-size: 12.5px; font-weight: 700; color: #334155; }
+  .ag-step.done .ag-step-name { color: #0b6fbe; }
   .ag-step-status { font-size: 11px; color: #94a3b8; }
 
   /* ===== 智能体角色卡 ===== */
-  .ag-cards { display: grid; gap: 14px; margin-bottom: 14px; }
-  .ag-card { background: #fff; border: 1px solid #e3eef9; border-radius: 16px; padding: 18px 20px; }
-  .ag-card-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-  .ag-role { font-size: 14.5px; font-weight: 800; color: #0f172a; display: inline-flex; align-items: center; gap: 8px; }
-  .ag-role-1 { color: #4f46e5; } .ag-role-2 { color: #0c8ee7; }
-  .ag-role-3 { color: #d97706; } .ag-role-4 { color: #7c3aed; }
+  .ag-cards { display: grid; gap: 16px; margin-bottom: 16px; }
+  .ag-card { background: #fff; border: 1px solid #e3eef9; border-radius: 16px; padding: 18px 20px; box-shadow: 0 4px 14px rgba(12,142,231,.04); }
+  #ag-reviewer-card { border-top: 3px solid #6366f1; }
+  #ag-grader-card { border-top: 3px solid #0c8ee7; }
+  #ag-panel-card { border-top: 3px solid #f59e0b; }
+  #ag-arbiter-card { border-top: 3px solid #8b5cf6; }
+  .ag-card-head {
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+    gap: 10px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px dashed #e8f0fa;
+  }
+  .ag-role-wrap { display: flex; align-items: center; gap: 11px; min-width: 0; }
+  .ag-role-badge { width: 36px; height: 36px; border-radius: 11px; flex: 0 0 36px; display: flex; align-items: center; justify-content: center; }
+  .ag-role-badge svg, .ag-role-badge i { width: 18px; height: 18px; }
+  .ag-role-badge.r1 { background: #eef2ff; color: #4f46e5; }
+  .ag-role-badge.r2 { background: #eaf4ff; color: #0c8ee7; }
+  .ag-role-badge.r3 { background: #fef3c7; color: #d97706; }
+  .ag-role-badge.r4 { background: #f3e8ff; color: #7c3aed; }
+  .ag-role-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .ag-role { font-size: 15px; font-weight: 800; color: #0f172a; line-height: 1.2; }
+  .ag-role-1 { color: #4f46e5; } .ag-role-2 { color: #0b6fbe; }
+  .ag-role-3 { color: #b45309; } .ag-role-4 { color: #6d28d9; }
+  .ag-role-sub { font-size: 12px; color: #94a3b8; line-height: 1.4; }
   .ag-badge { font-size: 11.5px; padding: 2px 10px; border-radius: 999px; background: #eaf4ff; color: #0c8ee7; font-weight: 700; }
   .ag-badge.off { background: #f1f5f9; color: #64748b; }
   .ag-badge.warn { background: #fef3c7; color: #b45309; }
@@ -174,7 +196,8 @@
   .ag-side { display: grid; gap: 12px; position: sticky; top: 12px; }
   .ag-main { display: grid; gap: 12px; min-width: 0; }
   .ag-block { border: 1px solid #eef4fb; border-radius: 12px; padding: 14px 16px; background: #fcfdff; }
-  .ag-block-title { font-size: 12.5px; font-weight: 700; color: #0f172a; margin-bottom: 10px; }
+  .ag-block-title { font-size: 12.5px; font-weight: 700; color: #0f172a; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .ag-block-title svg, .ag-block-title i { width: 14px; height: 14px; color: #0c8ee7; flex: 0 0 14px; }
   .ag-muted { font-size: 12.5px; color: #94a3b8; }
   .ag-student-thesis { background: #f8fafc; border-left: 3px solid #0c8ee7; padding: 6px 10px; border-radius: 0 6px 6px 0; margin: 6px 0; font-size: 13px; color: #0f172a; }
   .ag-dev { font-weight: 700; }
@@ -184,41 +207,55 @@
   .ag-struct-item { font-size: 12.5px; padding: 8px 10px; border-radius: 8px; background: #f8fafc; }
   .ag-struct-item.yes { background: #dcfce7; color: #15803d; }
   .ag-struct-item.no { background: #fee2e2; color: #b91c1c; }
-  .ag-para { border: 1px solid #eef4fb; border-radius: 12px; padding: 12px 14px; background: #fff; }
+  .ag-para { border: 1px solid #eef4fb; border-left: 3px solid #7cc4f5; border-radius: 6px 12px 12px 6px; padding: 12px 14px; background: #fff; }
   .ag-para-head { margin-bottom: 6px; }
   .ag-para-idx { font-size: 11.5px; font-weight: 700; color: #0c8ee7; background: #eaf4ff; padding: 2px 9px; border-radius: 999px; }
   .ag-para-sum { font-size: 13px; color: #64748b; margin-bottom: 6px; line-height: 1.6; }
   .ag-para-row { font-size: 13px; line-height: 1.65; margin-top: 5px; }
   .ag-para-row b { min-width: 54px; display: inline-block; color: #0f172a; }
   .ag-para-row.good { color: #15803d; } .ag-para-row.issue { color: #b45309; } .ag-para-row.suggest { color: #0c8ee7; }
-  .ag-overall { font-size: 14.5px; line-height: 1.85; color: #334155; white-space: pre-wrap; }
+  .ag-overall { font-size: 14.5px; line-height: 1.85; color: #334155; white-space: pre-wrap; background: #f8fafc; border-left: 3px solid #0c8ee7; border-radius: 0 10px 10px 0; padding: 12px 16px; }
 
   /* ③ 评审团 */
   .ag-pv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
-  .ag-pv { border: 1px solid #fde68a; border-radius: 12px; padding: 12px 14px; background: #fffdf5; }
+  .ag-pv { border: 1px solid #fde68a; border-radius: 12px; padding: 12px 14px; background: #fffdf5; transition: border-color .15s, box-shadow .15s; }
+  .ag-pv:hover { border-color: #f59e0b; box-shadow: 0 4px 12px rgba(245,158,11,.1); }
   .ag-pv-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
   .ag-pv-dim { font-size: 13px; font-weight: 700; color: #92400e; }
   .ag-pv-tier { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: #fef3c7; color: #b45309; font-weight: 700; white-space: nowrap; }
-  .ag-pv-meta { display: flex; justify-content: space-between; align-items: baseline; }
-  .ag-pv-score { font-size: 15px; font-weight: 800; color: #b45309; }
-  .ag-pv-meta span { font-size: 11px; color: #94a3b8; }
-  .ag-pv-ev { font-size: 12.5px; color: #64748b; margin-top: 6px; line-height: 1.6; }
+  .ag-pv-tier.pv-t1 { background: #dcfce7; color: #15803d; }
+  .ag-pv-tier.pv-t2 { background: #e0f2fe; color: #0369a1; }
+  .ag-pv-tier.pv-t3 { background: #fef3c7; color: #b45309; }
+  .ag-pv-tier.pv-t4 { background: #fee2e2; color: #b91c1c; }
+  .ag-pv-meta { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 7px; }
+  .ag-pv-score { font-size: 16px; font-weight: 800; color: #b45309; }
+  .ag-pv-score span { font-size: 10.5px; font-weight: 600; color: #94a3b8; }
+  .ag-pv-meta > span { font-size: 11px; color: #94a3b8; }
+  .ag-pv-bar { height: 5px; border-radius: 999px; background: #f1f5f9; overflow: hidden; }
+  .ag-pv-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #f59e0b, #fbbf24); transition: width .3s ease; }
+  .ag-pv-fill.pv-t1 { background: linear-gradient(90deg, #059669, #34d399); }
+  .ag-pv-fill.pv-t2 { background: linear-gradient(90deg, #0284c7, #38bdf8); }
+  .ag-pv-fill.pv-t3 { background: linear-gradient(90deg, #d97706, #fbbf24); }
+  .ag-pv-fill.pv-t4 { background: linear-gradient(90deg, #dc2626, #f87171); }
+  .ag-pv-ev { font-size: 12.5px; color: #64748b; margin-top: 8px; line-height: 1.6; }
   .ag-pv-row { font-size: 12.5px; line-height: 1.6; margin-top: 6px; }
   .ag-pv-row b { color: #0f172a; }
   .ag-pv-row.good { color: #15803d; } .ag-pv-row.issue { color: #b45309; } .ag-pv-row.suggest { color: #0c8ee7; }
   .ag-note { margin-top: 10px; font-size: 12.5px; color: #94a3b8; }
 
   /* ④ 仲裁官 */
-  .ag-arb { border: 1px solid #ede9fe; background: #faf8ff; border-radius: 12px; padding: 16px 18px; }
+  .ag-arb { border: 1px solid #ede9fe; background: linear-gradient(180deg, #faf8ff, #fdfcff); border-radius: 12px; padding: 16px 18px; }
   .ag-arb-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-  .ag-arb-label { font-size: 11.5px; color: #7c3aed; font-weight: 700; }
-  .ag-arb-tier { font-size: 20px; font-weight: 800; color: #6d28d9; margin-top: 2px; }
-  .ag-arb-consensus { font-size: 20px; font-weight: 800; color: #6d28d9; margin-top: 2px; }
+  .ag-arb-label { font-size: 11.5px; color: #7c3aed; font-weight: 700; letter-spacing: 1px; }
+  .ag-arb-tier { font-size: 22px; font-weight: 800; color: #6d28d9; margin-top: 3px; line-height: 1.2; }
+  .ag-arb-side { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ag-arb-pill { font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; background: #f3e8ff; color: #6d28d9; white-space: nowrap; }
+  .ag-arb-pill.score { background: #ede9fe; color: #5b21b6; }
   .ag-arb-diff { margin-top: 12px; border-radius: 8px; padding: 8px 12px; font-size: 13px; line-height: 1.6; }
   .ag-arb-diff.changed { background: #fef3c7; color: #92400e; }
   .ag-arb-diff.same { background: #f0fdf4; color: #166534; }
   .ag-arb-reason { font-size: 13.5px; line-height: 1.75; color: #334155; margin-top: 12px; white-space: pre-wrap; }
-  .ag-arb-dissent { margin-top: 10px; font-size: 12.5px; color: #b45309; line-height: 1.6; }
+  .ag-arb-dissent { margin-top: 10px; font-size: 12.5px; color: #b45309; line-height: 1.6; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 12px; }
 
   /* ===== 折叠区块 ===== */
   .ag-collapse-head { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
@@ -283,7 +320,7 @@
     <!-- 大作文：AI 评卷组协作流程 -->
     <div id="agent-flow" class="ag-flow" style="display:none;">
       <div class="ag-flow-head">
-        <span class="ag-flow-title">🤖 AI 评卷组协作流程</span>
+        <span class="ag-flow-title"><span class="ag-flow-title-ico"><i data-lucide="bot"></i></span>AI 评卷组协作流程</span>
         <span style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <span class="ag-flow-meta" id="ag-flow-meta"></span>
           <span id="ag-flow-cta"></span>
@@ -296,7 +333,13 @@
     <div id="agent-cards" class="ag-cards" style="display:none;">
       <div class="ag-card" id="ag-reviewer-card">
         <div class="ag-card-head">
-          <span class="ag-role ag-role-1">① 审题官 · 审题锚点</span>
+          <div class="ag-role-wrap">
+            <span class="ag-role-badge r1"><i data-lucide="search"></i></span>
+            <div class="ag-role-text">
+              <span class="ag-role ag-role-1">① 审题官 · 审题锚点</span>
+              <span class="ag-role-sub">先独立读懂材料与题目，产出本题的评分锚点</span>
+            </div>
+          </div>
           <span class="ag-badge" id="ag-reviewer-badge"></span>
         </div>
         <div class="ag-card-body" id="ag-reviewer-body"></div>
@@ -304,7 +347,13 @@
 
       <div class="ag-card" id="ag-grader-card">
         <div class="ag-card-head">
-          <span class="ag-role ag-role-2">② 评分官 · 对照评分</span>
+          <div class="ag-role-wrap">
+            <span class="ag-role-badge r2"><i data-lucide="pen-line"></i></span>
+            <div class="ag-role-text">
+              <span class="ag-role ag-role-2">② 评分官 · 对照评分</span>
+              <span class="ag-role-sub">拿审题锚点对照作文：文体 · 立意 · 结构 · 逐段 · 定档</span>
+            </div>
+          </div>
           <span class="ag-badge" id="ag-grader-badge"></span>
         </div>
         <div class="ag-grid">
@@ -315,7 +364,13 @@
 
       <div class="ag-card" id="ag-panel-card" style="display:none;">
         <div class="ag-card-head">
-          <span class="ag-role ag-role-3">③ 评审团 · 五维独立评审</span>
+          <div class="ag-role-wrap">
+            <span class="ag-role-badge r3"><i data-lucide="users"></i></span>
+            <div class="ag-role-text">
+              <span class="ag-role ag-role-3">③ 评审团 · 五维独立评审</span>
+              <span class="ag-role-sub">立意 / 论证 / 结构 / 语言 / 创新各出独立评分与投票</span>
+            </div>
+          </div>
           <span class="ag-badge" id="ag-panel-badge"></span>
         </div>
         <div class="ag-panel-reviews" id="ag-panel-reviews"></div>
@@ -324,7 +379,13 @@
 
       <div class="ag-card" id="ag-arbiter-card" style="display:none;">
         <div class="ag-card-head">
-          <span class="ag-role ag-role-4">④ 仲裁官 · 综合定档</span>
+          <div class="ag-role-wrap">
+            <span class="ag-role-badge r4"><i data-lucide="scale"></i></span>
+            <div class="ag-role-text">
+              <span class="ag-role ag-role-4">④ 仲裁官 · 综合定档</span>
+              <span class="ag-role-sub">综合评审团意见与常规批改，给出最终档次</span>
+            </div>
+          </div>
           <span class="ag-badge" id="ag-arbiter-badge"></span>
         </div>
         <div class="ag-arb" id="ag-arb-body"></div>
@@ -736,14 +797,14 @@
     const arb = panel && panel.arbitration ? panel.arbitration : null;
     const reviews = panel ? (Array.isArray(panel.reviews) ? panel.reviews : []) : [];
     const steps = [
-      { n: '①', name: '审题官', status: essay.anchor_from_cache ? '已缓存' : '已完成', done: true, target: 'ag-reviewer-card' },
-      { n: '②', name: '评分官', status: '已完成', done: true, target: 'ag-grader-card' },
-      { n: '③', name: '评审团', status: panel ? (reviews.length ? `${reviews.length}/5 维度` : '已触发') : '未触发', done: !!panel, degraded: !!(panel && reviews.length && reviews.length < 5), target: 'ag-panel-card' },
-      { n: '④', name: '仲裁官', status: arb && arb.tier ? '已定档' : (panel ? '未完成' : '未触发'), done: !!(arb && arb.tier), degraded: !!(panel && (!arb || !arb.tier)), target: 'ag-arbiter-card' }
+      { n: '①', icon: 'search', name: '审题官', status: essay.anchor_from_cache ? '已缓存' : '已完成', done: true, target: 'ag-reviewer-card' },
+      { n: '②', icon: 'pen-line', name: '评分官', status: '已完成', done: true, target: 'ag-grader-card' },
+      { n: '③', icon: 'users', name: '评审团', status: panel ? (reviews.length ? `${reviews.length}/5 维度` : '已触发') : '未触发', done: !!panel, degraded: !!(panel && reviews.length && reviews.length < 5), target: 'ag-panel-card' },
+      { n: '④', icon: 'scale', name: '仲裁官', status: arb && arb.tier ? '已定档' : (panel ? '未完成' : '未触发'), done: !!(arb && arb.tier), degraded: !!(panel && (!arb || !arb.tier)), target: 'ag-arbiter-card' }
     ];
     box.innerHTML = steps.map(s => `
       <div class="ag-step ${s.done ? 'done' : ''} ${s.degraded ? 'degraded' : ''}" data-target="${s.target}">
-        <div class="ag-step-dot">${s.done ? '✓' : s.n}</div>
+        <div class="ag-step-dot"><i data-lucide="${s.icon}"></i></div>
         <div class="ag-step-name">${s.n} ${s.name}</div>
         <div class="ag-step-status">${escapeHtml(s.status)}</div>
       </div>`).join('');
@@ -813,7 +874,7 @@
 
     const g = essay.genre_judgment || {};
     const genreOk = g.is_correct_genre !== false;
-    side.push(`<div class="ag-block"><div class="ag-block-title">文体判定</div>` +
+    side.push(`<div class="ag-block"><div class="ag-block-title"><i data-lucide="file-check"></i>文体判定</div>` +
       `<span class="ag-tag ${genreOk ? 'ag-tag-ok' : 'ag-tag-bad'}">${escapeHtml(g.genre || '议论文')}</span>` +
       (g.analysis_ratio ? `<div class="ag-muted" style="margin-top:6px;">分析占比约 ${escapeHtml(g.analysis_ratio)}</div>` : '') +
       (g.is_correct_genre === false ? '<div style="margin-top:8px;color:#b91c1c;font-size:12.5px;">⚠ 体裁不符要求，已影响定档</div>' : '') +
@@ -824,14 +885,14 @@
     if (tc.student_thesis) tHtml += `<div class="ag-student-thesis">${escapeHtml(tc.student_thesis)}</div>`;
     if (tc.deviation) tHtml += `<div style="margin-top:6px;">偏差判定：<span class="ag-dev ag-dev-${escapeHtml(tc.deviation)}">${escapeHtml(tc.deviation)}</span></div>`;
     if (tc.explanation) tHtml += `<div class="ag-muted" style="margin-top:6px;">${escapeHtml(tc.explanation)}</div>`;
-    side.push(`<div class="ag-block"><div class="ag-block-title">立意对照</div>${tHtml || '<div class="ag-muted">暂无</div>'}</div>`);
+    side.push(`<div class="ag-block"><div class="ag-block-title"><i data-lucide="target"></i>立意对照</div>${tHtml || '<div class="ag-muted">暂无</div>'}</div>`);
 
     const s = essay.structure_analysis || {};
     const items = [
       ['有标题', s.has_title], ['标题点题', s.title_on_topic], ['开头亮论点', s.has_opening_thesis],
       ['有结尾', s.has_conclusion], ['结尾升华', s.has_sublimation], ['分论点平行', s.sub_theses_parallel]
     ];
-    side.push(`<div class="ag-block"><div class="ag-block-title">结构检查</div><div class="ag-struct">` +
+    side.push(`<div class="ag-block"><div class="ag-block-title"><i data-lucide="layout-grid"></i>结构检查</div><div class="ag-struct">` +
       items.map(([label, val]) => {
         const yes = val === true, no = val === false;
         return `<div class="ag-struct-item ${yes ? 'yes' : no ? 'no' : ''}">${yes ? '✓ ' : no ? '✗ ' : '· '}${escapeHtml(label)}</div>`;
@@ -842,7 +903,7 @@
 
     const main = [];
     const paras = Array.isArray(essay.paragraph_analysis) ? essay.paragraph_analysis : [];
-    main.push('<div class="ag-block"><div class="ag-block-title">逐段分析</div>' +
+    main.push('<div class="ag-block"><div class="ag-block-title"><i data-lucide="list-checks"></i>逐段分析</div>' +
       (paras.length ? paras.map(p => `
         <div class="ag-para">
           <div class="ag-para-head"><span class="ag-para-idx">第 ${escapeHtml(p.para_index || '?')} 段</span></div>
@@ -851,7 +912,7 @@
           ${p.issues ? `<div class="ag-para-row issue"><b>! 问题：</b>${escapeHtml(p.issues)}</div>` : ''}
           ${p.suggestion ? `<div class="ag-para-row suggest"><b>→ 修改：</b>${escapeHtml(p.suggestion)}</div>` : ''}
         </div>`).join('') : '<div class="ag-muted">暂无逐段分析</div>') + '</div>');
-    main.push(`<div class="ag-block"><div class="ag-block-title">整体评价</div><div class="ag-overall">${escapeHtml(essay.overall_evaluation || essay.tier_reason || '暂无整体评价')}</div></div>`);
+    main.push(`<div class="ag-block"><div class="ag-block-title"><i data-lucide="message-square"></i>整体评价</div><div class="ag-overall">${escapeHtml(essay.overall_evaluation || essay.tier_reason || '暂无整体评价')}</div></div>`);
     document.getElementById('ag-grader-main').innerHTML = main.join('');
   }
 
@@ -866,12 +927,18 @@
     badge.className = 'ag-badge warn';
 
     const reviews = Array.isArray(panel.reviews) ? panel.reviews : [];
+    const pvTierClass = (tier) => ({
+      '一类文': ' pv-t1', '二类文': ' pv-t2', '三类文': ' pv-t3', '四类文': ' pv-t4'
+    }[String(tier || '')] || '');
+
     document.getElementById('ag-panel-reviews').innerHTML = reviews.length
       ? '<div class="ag-pv-grid">' + reviews.map(r => {
           const score = finiteNumber(r.score);
+          const barPct = score === null ? 0 : Math.max(0, Math.min(100, score));
           return '<div class="ag-pv">' +
-            '<div class="ag-pv-head"><span class="ag-pv-dim">' + escapeHtml(r.dimension_label || r.dimension || '') + '</span><span class="ag-pv-tier">' + escapeHtml(r.tier_vote || '') + '</span></div>' +
-            '<div class="ag-pv-meta"><span class="ag-pv-score">' + (score === null ? '--' : score) + '</span><span>自信度 ' + escapeHtml(r.confidence || '中') + '</span></div>' +
+            '<div class="ag-pv-head"><span class="ag-pv-dim">' + escapeHtml(r.dimension_label || r.dimension || '') + '</span><span class="ag-pv-tier' + pvTierClass(r.tier_vote) + '">' + escapeHtml(r.tier_vote || '') + '</span></div>' +
+            '<div class="ag-pv-meta"><span class="ag-pv-score">' + (score === null ? '--' : score) + '<span> / 100</span></span><span>自信度 ' + escapeHtml(r.confidence || '中') + '</span></div>' +
+            '<div class="ag-pv-bar"><div class="ag-pv-fill' + pvTierClass(r.tier_vote) + '" style="width:' + barPct + '%"></div></div>' +
             (r.evidence ? '<div class="ag-pv-ev">「' + escapeHtml(r.evidence) + '」</div>' : '') +
             (r.strengths ? '<div class="ag-pv-row good"><b>✓ 亮点：</b>' + escapeHtml(r.strengths) + '</div>' : '') +
             (r.issues ? '<div class="ag-pv-row issue"><b>! 问题：</b>' + escapeHtml(r.issues) + '</div>' : '') +
@@ -906,8 +973,8 @@
       const finalScore = finiteNumber(arb.score_rate);
       const changed = initTier !== arb.tier;
       html += `<div class="ag-arb-head">
-        <div><div class="ag-arb-label">最终定档</div><div class="ag-arb-tier">${escapeHtml(arb.tier)}${arb.tier_score_range ? '（' + escapeHtml(arb.tier_score_range) + '）' : ''}</div></div>
-        <div style="text-align:right;"><div class="ag-arb-label">一致度</div><div class="ag-arb-consensus">${escapeHtml(arb.consensus || '中')}</div></div>
+        <div><div class="ag-arb-label">⚖ 最终定档</div><div class="ag-arb-tier">${escapeHtml(arb.tier)}${arb.tier_score_range ? '（' + escapeHtml(arb.tier_score_range) + '）' : ''}</div></div>
+        <div class="ag-arb-side"><span class="ag-arb-pill">一致度 ${escapeHtml(arb.consensus || '中')}</span>${finalScore !== null ? `<span class="ag-arb-pill score">最终分 ${finalScore}</span>` : ''}</div>
       </div>`;
       html += `<div class="ag-arb-diff ${changed ? 'changed' : 'same'}">初评 <b>${escapeHtml(initTier)}</b>${initScore !== null ? ' · ' + initScore : ''} ${changed ? '→' : '＝'} 仲裁 <b>${escapeHtml(arb.tier)}</b>${finalScore !== null ? ' · ' + finalScore : ''}${changed ? '（档次已调整）' : ''}</div>`;
       if (arb.tier_reason) html += `<div class="ag-arb-reason">${escapeHtml(arb.tier_reason)}</div>`;
