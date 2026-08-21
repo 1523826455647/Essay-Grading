@@ -11,6 +11,9 @@
     body { background: white !important; }
   }
 
+  /* 结果页更宽，减少左右留白（默认 880px → 1180px） */
+  .rs-page { width: min(1180px, calc(100% - 24px)); margin: 0 auto; padding: 8px 0 48px; }
+
   /* ===== 重新批改 - 模型选择弹窗 ===== */
   .regrade-modal {
     position: fixed; inset: 0; z-index: 1200;
@@ -148,9 +151,12 @@
   .ag-badge.warn { background: #fef3c7; color: #b45309; }
 
   /* ① 审题官 */
+  .ag-anchor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+  .ag-anchor-cell { border: 1px solid #eef4fb; border-radius: 12px; padding: 12px 14px; background: #fcfdff; }
   .ag-anchor-core { font-size: 16px; font-weight: 800; color: #0f172a; }
   .ag-anchor-pos { font-size: 13px; color: #475569; margin-top: 6px; line-height: 1.7; }
   .ag-anchor-sec { margin-top: 12px; }
+  .ag-anchor-cell .ag-anchor-sec { margin-top: 0; }
   .ag-anchor-label { display: inline-block; font-size: 11.5px; font-weight: 700; color: #4338ca; background: #eef2ff; padding: 2px 10px; border-radius: 999px; margin-bottom: 6px; }
   .ag-theses { list-style: none; padding: 0; margin: 0; }
   .ag-theses li { font-size: 13.5px; line-height: 1.7; padding: 8px 12px; background: #f8fafc; border-left: 3px solid #6366f1; border-radius: 0 8px 8px 0; margin-top: 6px; }
@@ -164,7 +170,7 @@
   .ag-anchor-note { margin-top: 12px; font-size: 12px; color: #6366f1; }
 
   /* ② 评分官 */
-  .ag-grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
+  .ag-grid { display: grid; grid-template-columns: 360px 1fr; gap: 16px; align-items: start; }
   .ag-side { display: grid; gap: 12px; position: sticky; top: 12px; }
   .ag-main { display: grid; gap: 12px; min-width: 0; }
   .ag-block { border: 1px solid #eef4fb; border-radius: 12px; padding: 14px 16px; background: #fcfdff; }
@@ -769,22 +775,33 @@
     else if (meta.revised) { badge.textContent = '本次生成 · 已自检修订'; badge.className = 'ag-badge warn'; }
     else { badge.textContent = '本次生成 · 自检通过'; badge.className = 'ag-badge'; }
 
-    let html = '';
-    if (a.core_topic) html += `<div class="ag-anchor-core">${escapeHtml(a.core_topic)}</div>`;
-    if (a.material_position) html += `<div class="ag-anchor-pos">${escapeHtml(a.material_position)}</div>`;
+    let cells = [];
+    if (a.core_topic || a.material_position) {
+      cells.push('<div class="ag-anchor-cell">' +
+        '<span class="ag-anchor-label">核心议题</span>' +
+        (a.core_topic ? `<div class="ag-anchor-core">${escapeHtml(a.core_topic)}</div>` : '') +
+        (a.material_position ? `<div class="ag-anchor-pos">${escapeHtml(a.material_position)}</div>` : '') +
+        '</div>');
+    }
     if (Array.isArray(a.intended_theses) && a.intended_theses.length) {
-      html += '<div class="ag-anchor-sec"><span class="ag-anchor-label">可选立意</span><ul class="ag-theses">' +
-        a.intended_theses.map(t => `<li><b>${escapeHtml((t.rank ? '立意' + t.rank + '：' : '') + (t.thesis || ''))}</b>${t.depth ? '<span>' + escapeHtml(t.depth) + '</span>' : ''}</li>`).join('') + '</ul></div>';
+      cells.push('<div class="ag-anchor-cell"><span class="ag-anchor-label">可选立意</span><ul class="ag-theses">' +
+        a.intended_theses.map(t => `<li><b>${escapeHtml((t.rank ? '立意' + t.rank + '：' : '') + (t.thesis || ''))}</b>${t.depth ? '<span>' + escapeHtml(t.depth) + '</span>' : ''}</li>`).join('') + '</ul></div>');
     }
-    if (Array.isArray(a.offtopic_risks) && a.offtopic_risks.length) {
-      html += `<div class="ag-anchor-sec"><span class="ag-anchor-label">易写偏</span><div class="ag-risk">⚠ ${a.offtopic_risks.map(escapeHtml).join('；')}</div></div>`;
-    }
-    if (Array.isArray(a.key_concepts) && a.key_concepts.length) {
-      html += `<div class="ag-anchor-sec"><span class="ag-anchor-label">核心概念</span><div class="ag-tags">${a.key_concepts.map(escapeHtml).map(t => `<span class="ag-tag">${t}</span>`).join('')}</div></div>`;
+    if ((Array.isArray(a.offtopic_risks) && a.offtopic_risks.length) || (Array.isArray(a.key_concepts) && a.key_concepts.length)) {
+      let cell = '<div class="ag-anchor-cell">';
+      if (Array.isArray(a.offtopic_risks) && a.offtopic_risks.length) {
+        cell += '<span class="ag-anchor-label">易写偏</span><div class="ag-risk">⚠ ' + a.offtopic_risks.map(escapeHtml).join('；') + '</div>';
+      }
+      if (Array.isArray(a.key_concepts) && a.key_concepts.length) {
+        cell += '<span class="ag-anchor-label">核心概念</span><div class="ag-tags">' + a.key_concepts.map(escapeHtml).map(t => `<span class="ag-tag">${t}</span>`).join('') + '</div>';
+      }
+      cells.push(cell + '</div>');
     }
     if (Array.isArray(a.evidence_pool) && a.evidence_pool.length) {
-      html += `<div class="ag-anchor-sec"><span class="ag-anchor-label">可用论据</span><ul class="ag-evidence">${a.evidence_pool.map(escapeHtml).map(t => `<li>${t}</li>`).join('')}</ul></div>`;
+      cells.push('<div class="ag-anchor-cell"><span class="ag-anchor-label">可用论据</span><ul class="ag-evidence">' +
+        a.evidence_pool.map(escapeHtml).map(t => `<li>${t}</li>`).join('') + '</ul></div>');
     }
+    let html = cells.length ? '<div class="ag-anchor-grid">' + cells.join('') + '</div>' : '';
     if (meta.check) html += `<div class="ag-anchor-note">🔎 ${escapeHtml(meta.check)}</div>`;
     document.getElementById('ag-reviewer-body').innerHTML = html || '<div class="ag-muted">暂无审题锚点</div>';
   }
