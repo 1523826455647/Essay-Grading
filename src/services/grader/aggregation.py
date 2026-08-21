@@ -189,5 +189,6 @@ def aggregate_judgments(
             "top_improvements": essay_judgment.top_improvements,
             "anchor": essay_judgment.essay_anchor,
             "anchor_from_cache": essay_judgment.anchor_from_cache,
+            "panel": essay_judgment.essay_panel,
         }
     return result

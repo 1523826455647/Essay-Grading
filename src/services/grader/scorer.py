@@ -325,6 +325,8 @@ def grade_with_model(
             model_config, question, user_answer, material,
             pid=str(question.get('pid') or question.get('paper_id') or ''),
             qid=str(question.get('qid') or question.get('id') or ''),
+            sid=sid,
+            deep=bool(question.get('_deep_review')),
         )
         return JudgeResult(
             model_id=str(model_config.get('model_id') or ''),
@@ -345,6 +347,7 @@ def grade_with_model(
             overall_evaluation=essay.get('overall_evaluation', ''),
             top_improvements=essay.get('top_improvements', []),
             anchor_from_cache=bool(essay.get('anchor_from_cache')),
+            essay_panel=essay.get('panel'),
             raw_metadata={'latency_ms': essay.get('latency_ms'), 'two_stage': True},
             latency_ms=essay.get('latency_ms'),
         )

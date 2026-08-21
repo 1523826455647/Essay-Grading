@@ -237,6 +237,8 @@ def create_submission(current_user):
     # 补充 pid/qid 供大作文两阶段审题锚点缓存使用
     question.setdefault('pid', pid)
     question.setdefault('qid', qid)
+    # 深度批改：大作文显式升级为评审团（边界分数仍会自动触发）
+    question['_deep_review'] = bool(data.get('deep'))
 
     model_configs = None
     grading_mode = None
@@ -555,6 +557,8 @@ def regrade_submission(current_user, sid):
     # 补充 pid/qid 供大作文两阶段审题锚点缓存使用
     question.setdefault('pid', pid)
     question.setdefault('qid', qid)
+    # 深度批改：大作文显式升级为评审团
+    question['_deep_review'] = bool(data.get('deep'))
 
     paper = paper_service.get_paper_by_pid(pid)
     material = json.loads(paper['material']) if paper and paper.get('material') else None

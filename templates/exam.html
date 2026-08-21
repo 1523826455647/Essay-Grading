@@ -168,10 +168,15 @@
     font-size: 14.5px !important;
   }
   .ex-actions {
-    display:flex; gap:12px; margin-top: 14px;
+    display:flex; gap:12px; margin-top: 14px; align-items:center; flex-wrap:wrap;
   }
   .ex-actions .btn { min-height: 46px; }
   .ex-actions .btn-primary { flex: 1; }
+  .ex-deep {
+    display:inline-flex; align-items:center; gap:6px; cursor:pointer;
+    font-size:12.5px; color:#64748b; user-select:none; padding:8px 0;
+  }
+  .ex-deep input { width:15px; height:15px; cursor:pointer; accent-color:#0c8ee7; }
 
   @media (max-width: 980px) {
     .ex-body { grid-template-columns: 1fr; }
@@ -310,6 +315,10 @@
               <i data-lucide="send"></i>
               提交批改
             </button>
+            <label id="deep-review-toggle" class="ex-deep" style="display:none;" title="大作文额外并行 5 位维度评审并仲裁定档，更准但耗时更长">
+              <input type="checkbox" id="deep-review">
+              <span>深度批改（评审团）</span>
+            </label>
             <button type="button" class="btn btn-secondary" onclick="clearAnswer()">
               <i data-lucide="trash-2"></i>
               清空
@@ -497,6 +506,11 @@
       document.getElementById('question-type').textContent = question.type || '未知';
       document.getElementById('question-score').textContent = `满分 ${question.score_max || 100} 分`;
 
+      // 大作文显示「深度批改（评审团）」开关
+      const qtype = String(question.type || question.stem || '').toLowerCase();
+      document.getElementById('deep-review-toggle').style.display =
+        (qtype.includes('zuowen') || qtype.includes('作文')) ? 'inline-flex' : 'none';
+
       // top meta chips
       const info = document.getElementById('question-info');
       info.innerHTML = `
@@ -682,6 +696,7 @@
           pid: pid,
           qid: qid,
           user_answer: answer,
+          ...(document.getElementById('deep-review')?.checked ? { deep: true } : {}),
           ...(selectedModelIds.length ? {
             mode: gradingMode,
             model_ids: selectedModelIds

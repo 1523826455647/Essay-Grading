@@ -8,7 +8,7 @@ from typing import Optional
 
 import jwt
 import bcrypt
-from flask import g, request, jsonify
+from flask import g, request, jsonify, has_app_context
 
 from src.config import Config, JWT_ALGORITHM, JWT_SECRET
 
@@ -161,6 +161,13 @@ NEW_TABLES = {
 
 
 def get_db():
+    # 无 app context（如 ThreadPoolExecutor 工作线程）时返回独立连接，
+    # 供锚点缓存/用量记录等只读或短事务使用；请求线程内行为不变。
+    if not has_app_context():
+        conn = sqlite3.connect(Config.DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        return conn
     if 'db' not in g:
         g.db = sqlite3.connect(Config.DATABASE_PATH)
         g.db.row_factory = sqlite3.Row

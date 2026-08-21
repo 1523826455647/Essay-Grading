@@ -565,7 +565,9 @@ ZUOWEN_GRADE_SYSTEM_PROMPT = BASE_SYSTEM_ROLE + """
 
 def build_zuowen_grade_prompt(question: dict, user_answer: str, anchor: dict) -> list:
     """阶段二：审题锚点 + 考生作文，产出评分与逐段分析。"""
-    anchor_text = json.dumps(anchor, ensure_ascii=False, indent=2)
+    # 剥离 P1 自检注入的下划线开头的元信息字段（_meta），只把审题内容发给评分模型
+    anchor_clean = {k: v for k, v in (anchor or {}).items() if not str(k).startswith('_')}
+    anchor_text = json.dumps(anchor_clean, ensure_ascii=False, indent=2)
     prompt = f"""题目：{question.get('stem', '')}
 字数要求：{question.get('word_limit', '不少于1000字')}
 
@@ -597,6 +599,214 @@ def build_zuowen_prompt(question: dict, user_answer: str, material: list = None)
         "intended_genre": "议论文",
     }
     return build_zuowen_grade_prompt(question, user_answer, anchor)
+
+
+# ============================================================
+# P1：审题锚点自检（审题官复核循环）
+# ============================================================
+
+ZUOWEN_ANCHOR_CHECK_SYSTEM_PROMPT = BASE_SYSTEM_ROLE + """
+
+你现在的身份是【申论审题复核官】。审题研究员已经生成了一份《审题锚点》，你的任务是批判性地复核它：找出遗漏和跑偏，输出修订后的锚点。你不看考生作文，只看材料、题目和这份锚点。
+
+【复核清单——逐项核对】
+1. 作答要求覆盖：题目是否要求自拟题目/结合自身感悟/联系实际/指定身份或文种？锚点是否体现？
+2. 核心概念：材料与题目中的关键政策提法、核心概念，锚点是否准确抓取？有无遗漏或误解？
+3. 立意切题：intended_theses 是否真正切题？有没有选错重点、以偏概全、把次要角度当首选？
+4. 材料把握：core_topic 与 material_position 是否准确概括了材料的核心矛盾与命题倾向？
+5. 陷阱提醒：offtopic_risks 是否覆盖考生最容易写偏的方向？
+6. 文体判断：intended_genre / intended_focus 是否符合本题"分析为主还是对策为主"的要求？
+
+【输出规则】
+- 若锚点已经准确：revised_anchor 保持原样，changes 写「无需修改」。
+- 若发现问题：必须直接修订，不要委婉；但 revised_anchor 的字段结构必须与输入锚点完全一致（core_topic/material_position/intended_theses/offtopic_risks/key_concepts/intended_genre/intended_focus/evidence_pool），不得增删字段。
+
+严格输出 JSON（只输出 JSON，不要 markdown）：
+{
+  "revised_anchor": { 与原锚点同结构的修订后锚点 },
+  "changes": ["本次复核修改了哪些地方（无需修改则为空数组）"],
+  "coverage_check": {
+    "requirement_covered": true,
+    "concepts_correct": true,
+    "thesis_on_target": true,
+    "notes": "复核要点说明（100字内）"
+  }
+}"""
+
+
+def build_zuowen_anchor_check_prompt(question: dict, material: list = None, anchor: dict = None) -> list:
+    """P1：把已生成的审题锚点交给复核官自检，产出修订版锚点。"""
+    anchor_text = json.dumps(anchor or {}, ensure_ascii=False, indent=2)
+    prompt = f"""题目类型：大作文
+题目：{question.get('stem', '')}
+字数要求：{question.get('word_limit', '不少于1000字')}
+"""
+    if material:
+        prompt += "\n给定材料：\n"
+        for i, seg in enumerate(material, 1):
+            prompt += f"[材料{i}] {seg}\n"
+    prompt += f"""
+
+当前《审题锚点》：
+{anchor_text}
+
+请逐项复核上面的清单，输出修订后的锚点 JSON。"""
+    return [
+        {"role": "system", "content": ZUOWEN_ANCHOR_CHECK_SYSTEM_PROMPT},
+        {"role": "user", "content": prompt},
+    ]
+
+
+# ============================================================
+# P2：大作文评审团（并行维度评审 + 仲裁）
+# ============================================================
+
+ZUOWEN_REVIEWER_SYSTEM_PROMPT = BASE_SYSTEM_ROLE + """
+
+你正在以【独立维度评审官】身份评阅一篇申论大作文。你只负责一个评分维度，请给出独立、客观的判断（你看不到其他评审的意见）。
+
+【四档标准（全局锚点，所有维度共同遵守）】
+一类文（31-40）：立意精准命中锚点核心；论证充实(>=3处材料论据)；分析为主对策为辅；结构完整
+二类文（21-30）：立意方向正确但角度或深度不足；有1-2处材料支撑；分析对策比例合理
+三类文（11-20）：立意选了次要角度/偏离核心；泛泛而谈；或纯对策文；结构有缺失
+四类文（0-10）：立意完全跑题；或抄袭材料>40%；或未完成
+
+【你的评分维度】{dimension_label}（{dimension_key}）
+侧重：{focus}
+
+【要求】
+- score 是你基于全局四档标准对整篇作文给出的百分制总分（0-100），必须与 tier_vote 一致：一类77.5-100 / 二类52.5-77.5 / 三类27.5-52.5 / 四类0-27.5
+- evidence 必须引用考生作文原文（用「」引用，不超过60字）
+- strengths / issues / suggestion 要具体到句、段，给考生的改进建议要有可操作性
+- 只在本维度内展开，不要越界评价其他维度
+
+严格输出 JSON（只输出 JSON，不要 markdown）：
+{
+  "dimension": "{dimension_key}",
+  "dimension_label": "{dimension_label}",
+  "score": 0-100整数,
+  "tier_vote": "一类文/二类文/三类文/四类文",
+  "tier_score_range": "31-40",
+  "confidence": "高/中/低",
+  "evidence": "考生作文原文依据",
+  "strengths": "本维度亮点",
+  "issues": "本维度问题",
+  "suggestion": "针对本维度的具体修改建议"
+}"""
+
+
+ZUOWEN_REVIEWER_FOCUS = {
+    "thesis_accuracy": "中心论点是否精准命中审题锚点的核心立意，立意有无深度、是否跑偏，是否真正紧扣材料主旨。",
+    "argument_richness": "论据是否充实（>=3处来自材料的论据），论证是否有力、层次是否丰富，论据是否真正支撑论点，有无套话充数。",
+    "structure": "标题是否点题，开头是否亮明论点，分论点是否平行清晰，段落间逻辑是否连贯，有无完整结尾与升华。",
+    "language": "表达是否规范、有申论语感，有无口语化、重复啰嗦、堆砌套话，语言是否有文采。",
+    "innovation": "角度是否新颖、见解是否独到，有无合理使用时政热词，立意与论证是否有个人特色而非千篇一律。",
+}
+
+
+def build_zuowen_reviewer_prompt(
+    question: dict,
+    user_answer: str,
+    anchor: dict,
+    dimension_key: str,
+    dimension_label: str,
+) -> list:
+    """P2：单个维度评审官 prompt（每个维度一份，独立调用）。"""
+    focus = ZUOWEN_REVIEWER_FOCUS.get(dimension_key, "")
+    # 用 replace 而非 format：模板里含 JSON 字面花括号，format 会误解析
+    system = (
+        ZUOWEN_REVIEWER_SYSTEM_PROMPT
+        .replace("{dimension_key}", dimension_key)
+        .replace("{dimension_label}", dimension_label)
+        .replace("{focus}", focus)
+    )
+    anchor_clean = {k: v for k, v in (anchor or {}).items() if not str(k).startswith('_')}
+    anchor_text = json.dumps(anchor_clean, ensure_ascii=False, indent=2)
+    prompt = f"""题目：{question.get('stem', '')}
+字数要求：{question.get('word_limit', '不少于1000字')}
+
+《审题锚点》（本题应写内容的权威分析，请严格对照）：
+{anchor_text}
+
+考生作文：
+{user_answer}
+
+你只负责「{dimension_label}」维度，请独立给出判断，输出 JSON。"""
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": prompt},
+    ]
+
+
+ZUOWEN_ARBITRATION_SYSTEM_PROMPT = BASE_SYSTEM_ROLE + """
+
+你是【申论仲裁官】（评卷组组长）。你面前有：一份常规批改结果（含档次、立意对照、逐段分析），以及 5 位独立维度评审官的意见（立意/论证/结构/语言/创新，每位给出独立百分制总分与档次投票）。请综合全部信息，做出最终定档与最终得分。
+
+【定档规则】
+1. 尊重多数：大多数评审官投票的档次是定档的主要依据
+2. 处理分歧：若评审间档次跨度超过一档，必须在 tier_reason 里说明关键分歧及你采信的理由
+3. 铁律优先：体裁错误（纯对策罗列）最优先压档；立意严重偏离锚点者不得进高档
+4. 一致性：最终 score_rate 必须与 final_tier 匹配（一类77.5-100 / 二类52.5-77.5 / 三类27.5-52.5 / 四类0-27.5）
+
+【输出字段说明】
+- consensus：多数意见的档次；若评审高度一致填「高」，基本一致填「中」，分歧大填「低」
+- dissent_notes：与最终定档不同的评审意见及理由（无则空数组）
+- overall_evaluation：综合全部评审的整体评价（150字内，具体不要套话）
+- top_improvements：综合意见后最该改的 Top 3
+
+严格输出 JSON（只输出 JSON，不要 markdown）：
+{
+  "final_tier": "一类文/二类文/三类文/四类文",
+  "tier_score_range": "31-40",
+  "score_rate": 0-100整数,
+  "tier_reason": "定档核心理由（含采纳了哪些评审、如何处理分歧）",
+  "consensus": "高/中/低",
+  "dissent_notes": ["不同意见说明"],
+  "overall_evaluation": "整体评价",
+  "top_improvements": ["改进1", "改进2", "改进3"]
+}"""
+
+
+def build_zuowen_arbitration_prompt(
+    question: dict,
+    user_answer: str,
+    anchor: dict,
+    initial: dict,
+    reviews: list,
+) -> list:
+    """P2：把常规批改结果 + 5 位评审意见交给仲裁官综合定档。"""
+    anchor_clean = {k: v for k, v in (anchor or {}).items() if not str(k).startswith('_')}
+    anchor_text = json.dumps(anchor_clean, ensure_ascii=False, indent=2)
+    initial_brief = {
+        "tier": initial.get("tier", ""),
+        "tier_reason": initial.get("tier_reason", ""),
+        "score_rate": initial.get("score_rate"),
+        "genre_judgment": initial.get("genre_judgment", {}),
+        "thesis_comparison": initial.get("thesis_comparison", {}),
+        "structure_analysis": initial.get("structure_analysis", {}),
+        "overall_evaluation": initial.get("overall_evaluation", ""),
+        "top_improvements": initial.get("top_improvements", []),
+    }
+    prompt = f"""题目：{question.get('stem', '')}
+字数要求：{question.get('word_limit', '不少于1000字')}
+
+《审题锚点》：
+{anchor_text}
+
+常规批改结果：
+{json.dumps(initial_brief, ensure_ascii=False, indent=2)}
+
+5 位维度评审官意见：
+{json.dumps(reviews, ensure_ascii=False, indent=2)}
+
+考生作文（{len(user_answer)}字）：
+{user_answer[:2000]}
+
+请综合定档，输出 JSON。"""
+    return [
+        {"role": "system", "content": ZUOWEN_ARBITRATION_SYSTEM_PROMPT},
+        {"role": "user", "content": prompt},
+    ]
 
 
 # ============================================================

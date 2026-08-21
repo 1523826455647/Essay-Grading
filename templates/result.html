@@ -103,6 +103,21 @@
   .es-struct-item.no { background:#fee2e2; color:#b91c1c; }
   .es-cache { font-size:11px; color:#94a3b8; }
 
+  /* 评审团（P2） */
+  .es-trigger { font-size:12px; color:#b45309; margin-left:6px; font-weight:600; }
+  .es-panel-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; }
+  .es-pv { border:1px solid #eef4fb; border-radius:12px; padding:12px 14px; background:#fcfdff; }
+  .es-pv-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px; }
+  .es-pv-dim { font-size:13px; font-weight:700; color:#0f172a; }
+  .es-pv-score { font-size:15px; font-weight:800; color:#0c8ee7; }
+  .es-pv-tier { font-size:11.5px; padding:1px 8px; border-radius:999px; background:#eaf4ff; color:#0c8ee7; font-weight:700; white-space:nowrap; }
+  .es-pv-row { font-size:12.5px; line-height:1.6; margin-top:6px; }
+  .es-pv-row b { color:#0f172a; }
+  .es-pv-good { color:#15803d; } .es-pv-issue { color:#b45309; } .es-pv-suggest { color:#0c8ee7; } .es-pv-ev { color:#64748b; }
+  .es-arb { border:1px solid #ede9fe; background:#faf8ff; border-radius:12px; padding:14px 16px; margin-top:12px; }
+  .es-arb-tier { font-size:15px; font-weight:800; color:#6d28d9; }
+  .es-arb-reason { font-size:13.5px; line-height:1.75; color:#334155; margin-top:6px; white-space:pre-wrap; }
+
   @media (max-width: 920px) {
     .es-layout { grid-template-columns: 1fr; }
     .es-side { position: static; }
@@ -179,6 +194,10 @@
           <div class="es-card">
             <h4>💬 整体评价</h4>
             <div id="es-overall" class="es-overall"></div>
+          </div>
+          <div class="es-card" id="es-panel-card" style="display:none;">
+            <h4>👥 评审团意见 <span class="es-trigger" id="es-panel-trigger"></span></h4>
+            <div id="es-panel" style="display:grid;gap:12px;"></div>
           </div>
           <div class="es-card">
             <h4>🚀 提分路径（最该改的 Top 3）</h4>
@@ -721,6 +740,61 @@
     document.getElementById('es-improvements').innerHTML = tips.length
       ? tips.map(t => `<li>${escapeHtml(typeof t === 'string' ? t : (t.text || t.suggestion || JSON.stringify(t)))}</li>`).join('')
       : '<li style="list-style:none;color:#94a3b8;">继续保持，无明显短板</li>';
+
+    // 评审团意见（P2）
+    renderEssayPanel(essay);
+  }
+
+  function renderEssayPanel(essay) {
+    const pcard = document.getElementById('es-panel-card');
+    const pbox = document.getElementById('es-panel');
+    const panel = (essay && essay.panel && essay.panel.triggered) ? essay.panel : null;
+    if (!panel) {
+      if (pcard) pcard.style.display = 'none';
+      if (pbox) pbox.innerHTML = '';
+      return;
+    }
+    pcard.style.display = '';
+    document.getElementById('es-panel-trigger').textContent = panel.reason ? '触发：' + panel.reason : '';
+    const reviews = Array.isArray(panel.reviews) ? panel.reviews : [];
+    let html = '';
+    if (reviews.length) {
+      html += '<div class="es-panel-grid">' + reviews.map(r => {
+        const dim = escapeHtml(r.dimension_label || r.dimension || '');
+        const tier = escapeHtml(r.tier_vote || '');
+        const score = finiteNumber(r.score);
+        const conf = escapeHtml(r.confidence || '中');
+        return '<div class="es-pv">' +
+          '<div class="es-pv-head"><span class="es-pv-dim">' + dim + '</span><span class="es-pv-tier">' + tier + '</span></div>' +
+          '<div style="display:flex;justify-content:space-between;align-items:baseline;">' +
+            '<span class="es-pv-score">' + (score === null ? '--' : score) + '</span>' +
+            '<span style="font-size:11px;color:#94a3b8;">自信度：' + conf + '</span>' +
+          '</div>' +
+          (r.evidence ? '<div class="es-pv-row es-pv-ev">「' + escapeHtml(r.evidence) + '」</div>' : '') +
+          (r.strengths ? '<div class="es-pv-row es-pv-good"><b>✓ 亮点：</b>' + escapeHtml(r.strengths) + '</div>' : '') +
+          (r.issues ? '<div class="es-pv-row es-pv-issue"><b>! 问题：</b>' + escapeHtml(r.issues) + '</div>' : '') +
+          (r.suggestion ? '<div class="es-pv-row es-pv-suggest"><b>→ 建议：</b>' + escapeHtml(r.suggestion) + '</div>' : '') +
+        '</div>';
+      }).join('') + '</div>';
+    }
+    const arb = panel.arbitration || null;
+    if (arb && arb.tier) {
+      const arbScore = finiteNumber(arb.score_rate);
+      html += '<div class="es-arb">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
+          '<span style="font-size:12px;color:#7c3aed;font-weight:700;">⚖ 仲裁定档</span>' +
+          '<span class="es-arb-tier">' + escapeHtml(arb.tier) + (arb.tier_score_range ? '（' + escapeHtml(arb.tier_score_range) + '）' : '') + '</span>' +
+          '<span style="font-size:11.5px;color:#94a3b8;">一致度：' + escapeHtml(arb.consensus || '中') + ' · 最终分 ' + (arbScore === null ? '--' : arbScore) + '</span>' +
+        '</div>' +
+        (arb.tier_reason ? '<div class="es-arb-reason">' + escapeHtml(arb.tier_reason) + '</div>' : '') +
+        (Array.isArray(arb.dissent_notes) && arb.dissent_notes.length
+          ? '<div style="margin-top:8px;font-size:12.5px;color:#b45309;line-height:1.6;"><b>分歧说明：</b>' + arb.dissent_notes.map(escapeHtml).join('；') + '</div>'
+          : '') +
+      '</div>';
+    } else if (reviews.length) {
+      html += '<div style="font-size:12.5px;color:#94a3b8;">仲裁未完成，以下为各维度独立评审意见，请结合常规批改参考。</div>';
+    }
+    pbox.innerHTML = html;
   }
 
   function renderResult(data) {

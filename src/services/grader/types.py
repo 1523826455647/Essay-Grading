@@ -54,3 +54,5 @@ class JudgeResult:
     overall_evaluation: str = ""
     top_improvements: list[Any] = field(default_factory=list)
     anchor_from_cache: bool = False
+    # P2 评审团 + 仲裁结果（大作文边界/深度批改时触发）
+    essay_panel: dict[str, Any] | None = None
