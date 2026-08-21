@@ -1,0 +1,239 @@
+{% extends "admin/base.html" %}
+
+{% block title %}工单管理 - 申论帮管理后台{% endblock %}
+{% block page_title %}工单管理{% endblock %}
+
+{% block admin_content %}
+
+<!-- 工单列表 -->
+<div class="admin-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+    <div>
+      <h3 style="margin:0;font-size:16px;font-weight:650;color:#111827;">客服工单</h3>
+      <p style="margin:6px 0 0;font-size:13px;color:#6b7280;">用户提交的建议/反馈，管理员回复后用户可查看并追问</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <select id="filter-status" class="admin-form-input" style="width:auto;min-width:110px;" onchange="loadTickets(1)">
+        <option value="">全部状态</option>
+        <option value="open">待处理</option>
+        <option value="replied">已回复</option>
+        <option value="closed">已关闭</option>
+      </select>
+      <select id="filter-category" class="admin-form-input" style="width:auto;min-width:100px;" onchange="loadTickets(1)">
+        <option value="">全部分类</option>
+        <option>建议</option>
+        <option>问题反馈</option>
+        <option>投诉</option>
+        <option>其他</option>
+      </select>
+      <input id="search-q" class="admin-form-input" type="text" placeholder="搜索工单号/标题/内容" style="width:200px;"
+             onkeydown="if(event.key==='Enter')loadTickets(1)">
+      <button class="btn btn-sm btn-secondary" onclick="loadTickets(1)">
+        <i data-lucide="search" style="width:13px;height:13px;"></i> 搜索
+      </button>
+      <button class="btn btn-sm btn-secondary" onclick="loadTickets(page)">
+        <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> 刷新
+      </button>
+    </div>
+  </div>
+
+  <div style="overflow-x:auto;">
+    <table class="admin-table" style="min-width:820px;">
+      <thead>
+        <tr>
+          <th>工单号</th><th>标题</th><th>分类</th><th>提交用户</th>
+          <th>状态</th><th>更新时间</th><th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="tickets-table">
+        <tr><td colspan="7" style="text-align:center;padding:32px;color:#9ca3af;font-size:14px;">
+          <i data-lucide="loader-2" style="width:16px;height:16px;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle;margin-right:6px;"></i>
+          加载中...
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="admin-pagination" style="margin-top:14px;">
+    <span class="pagination-info" id="pagination-info">共 0 条</span>
+    <div class="pagination-buttons" id="pagination-buttons"></div>
+  </div>
+</div>
+
+<!-- 工单详情弹窗 -->
+<div id="ticket-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(15,23,42,.45);backdrop-filter:blur(2px);align-items:center;justify-content:center;padding:24px;">
+  <div style="background:#fff;border-radius:16px;max-width:760px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 64px rgba(15,23,42,.24);">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:18px 22px;border-bottom:1px solid #e5e7eb;">
+      <div style="min-width:0;">
+        <h3 id="ticket-modal-title" style="margin:0;font-size:16px;font-weight:650;color:#111827;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">工单详情</h3>
+        <div id="ticket-modal-meta" style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap;font-size:12px;color:#6b7280;"></div>
+      </div>
+      <button onclick="closeTicketModal()" style="background:none;border:none;cursor:pointer;color:#6b7280;padding:4px;">
+        <i data-lucide="x" style="width:18px;height:18px;"></i>
+      </button>
+    </div>
+    <div id="ticket-thread" style="padding:20px 22px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;background:#fafbfc;"></div>
+    <div id="ticket-reply-area" style="padding:16px 22px;border-top:1px solid #e5e7eb;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+      <textarea id="ticket-reply-text" class="admin-form-input" rows="2" placeholder="输入管理员回复..." style="flex:1;min-width:240px;resize:vertical;"></textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button id="ticket-close-btn" class="btn btn-sm btn-secondary" onclick="setTicketStatus('closed')">关闭工单</button>
+        <button id="ticket-reopen-btn" class="btn btn-sm btn-secondary" onclick="setTicketStatus('open')" style="display:none;">重新打开</button>
+        <button class="btn btn-sm btn-primary" onclick="submitTicketReply()">
+          <i data-lucide="send" style="width:13px;height:13px;"></i> 回复
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let page = 1;
+  let currentTicket = null;
+
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function fmtTime(s) { return s ? String(s).slice(0, 16).replace('T', ' ').replace(/-/g, '/') : ''; }
+  const STATUS_CLS = { open: 'badge-info', replied: 'badge-success', closed: 'badge-secondary' };
+  const STATUS_LABEL = { open: '待处理', replied: '已回复', closed: '已关闭' };
+
+  async function loadTickets(p = 1) {
+    const status = document.getElementById('filter-status').value;
+    const category = document.getElementById('filter-category').value;
+    const q = document.getElementById('search-q').value.trim();
+    const params = new URLSearchParams({ page: p, limit: 15 });
+    if (status) params.set('status', status);
+    if (category) params.set('category', category);
+    if (q) params.set('q', q);
+    try {
+      const res = await adminFetch('/tickets?' + params.toString());
+      const data = res.data || {};
+      page = data.page || 1;
+      renderTickets(data.tickets || []);
+      renderPagination(data);
+    } catch (e) {
+      document.getElementById('tickets-table').innerHTML =
+        '<tr><td colspan="7" style="text-align:center;padding:28px;color:#ef4444;">加载失败，请重试</td></tr>';
+    }
+  }
+
+  function renderTickets(items) {
+    const box = document.getElementById('tickets-table');
+    if (!items.length) {
+      box.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#9ca3af;">暂无工单</td></tr>';
+      return;
+    }
+    box.innerHTML = items.map(t => `
+      <tr>
+        <td style="font-family:monospace;font-size:12px;">${esc(t.ticket_no)}</td>
+        <td style="max-width:260px;">
+          <div style="font-weight:550;color:#111827;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+        </td>
+        <td><span class="badge" style="background:#f3e8ff;color:#7c3aed;">${esc(t.category)}</span></td>
+        <td>${esc(t.nickname || t.username || t.uid || '-')}</td>
+        <td><span class="badge ${STATUS_CLS[t.status] || 'badge-secondary'}">${esc(t.status_label || STATUS_LABEL[t.status] || t.status)}</span></td>
+        <td style="font-size:12.5px;color:#6b7280;">${esc(fmtTime(t.updated_at))}</td>
+        <td><button class="btn btn-sm btn-secondary" onclick="openTicket(${t.id})">查看</button></td>
+      </tr>`).join('');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function renderPagination(data) {
+    document.getElementById('pagination-info').textContent = `共 ${data.total || 0} 条`;
+    const box = document.getElementById('pagination-buttons');
+    const pages = data.pages || 1;
+    let html = '';
+    for (let i = 1; i <= pages; i++) {
+      html += `<button class="pagination-btn ${i === page ? 'active' : ''}" onclick="loadTickets(${i})">${i}</button>`;
+    }
+    box.innerHTML = html;
+  }
+
+  async function openTicket(id) {
+    try {
+      const res = await adminFetch('/tickets/' + id);
+      if (!res.data) { showToast('加载失败', 'error'); return; }
+      currentTicket = res.data;
+      const t = res.data;
+      document.getElementById('ticket-modal-title').textContent = t.title;
+      document.getElementById('ticket-modal-meta').innerHTML =
+        `<span style="font-family:monospace;">${esc(t.ticket_no)}</span>` +
+        `<span class="badge" style="background:#f3e8ff;color:#7c3aed;">${esc(t.category)}</span>` +
+        `<span>提交：${esc(t.nickname || t.username || t.uid || '-')}</span>` +
+        `<span class="badge ${STATUS_CLS[t.status] || 'badge-secondary'}">${esc(t.status_label || STATUS_LABEL[t.status] || t.status)}</span>`;
+
+      document.getElementById('ticket-thread').innerHTML = (t.replies || []).map(r => {
+        const time = fmtTime(r.created_at);
+        if (r.is_system || r.author_role === 'system') {
+          return `<div style="align-self:center;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:999px;padding:4px 12px;font-size:12px;">${esc(r.content)} <span style="opacity:.7">· ${esc(time)}</span></div>`;
+        }
+        if (r.author_role === 'admin') {
+          return `<div style="align-self:flex-end;max-width:78%;background:#f0fdf4;border:1px solid #bbf7d0;color:#14532d;padding:10px 14px;border-radius:12px;font-size:13.5px;line-height:1.7;white-space:pre-wrap;">
+            <div style="font-size:11px;color:#16a34a;font-weight:700;margin-bottom:3px;">管理员 · ${esc(time)}</div>${esc(r.content)}</div>`;
+        }
+        return `<div style="align-self:flex-start;max-width:78%;background:#eaf4ff;border:1px solid #d4e8fb;color:#1e3a5f;padding:10px 14px;border-radius:12px;font-size:13.5px;line-height:1.7;white-space:pre-wrap;">
+          <div style="font-size:11px;color:#0c8ee7;font-weight:700;margin-bottom:3px;">用户 · ${esc(time)}</div>${esc(r.content)}</div>`;
+      }).join('') || '<div style="color:#9ca3af;font-size:13px;text-align:center;padding:20px;">暂无内容</div>';
+
+      const closed = t.status === 'closed';
+      document.getElementById('ticket-reply-text').disabled = closed;
+      document.getElementById('ticket-reply-text').value = '';
+      document.getElementById('ticket-close-btn').style.display = closed ? 'none' : '';
+      document.getElementById('ticket-reopen-btn').style.display = closed ? '' : 'none';
+      document.getElementById('ticket-reply-area').style.display = closed ? 'none' : '';
+
+      document.getElementById('ticket-modal').style.display = 'flex';
+      if (window.lucide) lucide.createIcons();
+    } catch (e) {
+      showToast('加载失败', 'error');
+    }
+  }
+
+  function closeTicketModal() {
+    document.getElementById('ticket-modal').style.display = 'none';
+    currentTicket = null;
+  }
+
+  async function submitTicketReply() {
+    if (!currentTicket) return;
+    const content = document.getElementById('ticket-reply-text').value.trim();
+    if (!content) { showToast('请输入回复内容', 'warning'); return; }
+    try {
+      const res = await adminFetch('/tickets/' + currentTicket.id + '/reply', {
+        method: 'POST', body: JSON.stringify({ content })
+      });
+      showToast('回复成功', 'success');
+      openTicket(currentTicket.id);
+      loadTickets(page);
+    } catch (e) {
+      showToast(e.message || '回复失败', 'error');
+    }
+  }
+
+  async function setTicketStatus(status) {
+    if (!currentTicket) return;
+    if (status === 'closed' && !confirm('确定关闭该工单吗？')) return;
+    try {
+      const res = await adminFetch('/tickets/' + currentTicket.id + '/status', {
+        method: 'POST', body: JSON.stringify({ status })
+      });
+      showToast('状态已更新', 'success');
+      openTicket(currentTicket.id);
+      loadTickets(page);
+    } catch (e) {
+      showToast(e.message || '操作失败', 'error');
+    }
+  }
+
+  // 点击遮罩关闭弹窗
+  document.getElementById('ticket-modal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeTicketModal();
+  });
+
+  loadTickets(1);
+  if (window.lucide) lucide.createIcons();
+</script>
+{% endblock %}

@@ -22,6 +22,7 @@ from src.api.phrases import phrases_bp
 from src.api.topic import topic_bp
 from src.api.grading_chat import grading_chat_bp
 from src.api.community import community_bp
+from src.api.tickets import tickets_bp
 
 
 def create_app():
@@ -47,6 +48,7 @@ def create_app():
     app.register_blueprint(topic_bp)
     app.register_blueprint(grading_chat_bp)
     app.register_blueprint(community_bp)
+    app.register_blueprint(tickets_bp)
 
     # Initialize database
     with app.app_context():
@@ -161,6 +163,10 @@ def create_app():
     def community():
         return render_template('community.html')
 
+    @app.route('/tickets')
+    def tickets():
+        return render_template('tickets.html')
+
     @app.route('/topics/<int:topic_id>')
     def topic_detail(topic_id):
         import jwt
@@ -243,6 +249,10 @@ def create_app():
     @app.route('/admin/packages')
     def admin_packages():
         return _admin_page('admin/packages.html')
+
+    @app.route('/admin/tickets')
+    def admin_tickets():
+        return _admin_page('admin/tickets.html')
 
     @app.after_request
     def add_security_headers(response):

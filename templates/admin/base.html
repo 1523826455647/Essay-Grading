@@ -57,6 +57,10 @@
           <i data-lucide="check-square"></i>
           批改复核
         </a>
+        <a href="/admin/tickets" class="admin-nav-item {% if '/admin/tickets' in request.path %}active{% endif %}">
+          <i data-lucide="inbox"></i>
+          工单管理
+        </a>
         <div class="admin-nav-divider"></div>
         <a href="/admin/packages" class="admin-nav-item {% if '/admin/packages' in request.path %}active{% endif %}">
           <i data-lucide="package"></i>

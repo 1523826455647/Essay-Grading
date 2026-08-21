@@ -59,6 +59,7 @@
       <li><a href="/plan" class="{% if request.path == '/plan' %}active{% endif %}">备考计划</a></li>
       <li><a href="/topics" class="{% if request.path == '/topics' %}active{% endif %}">时政热点</a></li>
       <li><a href="/community" class="{% if request.path == '/community' %}active{% endif %}">社区</a></li>
+      <li><a href="/tickets" class="{% if request.path == '/tickets' %}active{% endif %}">工单<span id="nav-ticket-badge" style="display:none;background:#ef4444;color:#fff;border-radius:999px;font-size:10.5px;line-height:1.4;padding:0 5px;margin-left:4px;vertical-align:top;">0</span></a></li>
       <li><a href="/demo" class="{% if request.path == '/demo' %}active{% endif %}">试用</a></li>
       <!-- 移动端登录按钮（桌面端隐藏） -->
       <li class="mobile-auth-item">
@@ -214,12 +215,30 @@
           const { data } = await res.json();
           state.user = data;
           updateUserUI();
+          refreshTicketBadge();
         } else {
           logout();
         }
       } catch (e) {
         console.error('Failed to fetch user info:', e);
       }
+    }
+
+    // 工单未读新回复徽标
+    async function refreshTicketBadge() {
+      const badge = document.getElementById('nav-ticket-badge');
+      if (!badge) return;
+      if (!state.token) { badge.style.display = 'none'; return; }
+      try {
+        const res = await fetch('/api/tickets/unread-count', {
+          headers: { 'Authorization': 'Bearer ' + state.token }
+        });
+        if (!res.ok) { badge.style.display = 'none'; return; }
+        const { data } = await res.json();
+        const c = (data && data.count) || 0;
+        badge.style.display = c > 0 ? '' : 'none';
+        badge.textContent = c > 99 ? '99+' : c;
+      } catch (e) { badge.style.display = 'none'; }
     }
 
     // 获取用户套餐标识

@@ -1,5 +1,6 @@
 import json
 import time
+from datetime import datetime, timezone
 
 from flask import Blueprint, request, session
 
@@ -1172,4 +1173,151 @@ def clear_cache():
         return api_success(message="缓存已清除")
     except Exception as e:
         return api_error("清除缓存失败", 500)
+
+
+# ============================================================
+# 客服工单管理（用户提交建议/反馈，管理员回复）
+# ============================================================
+
+_TICKET_STATUS_LABELS = {'open': '待处理', 'replied': '已回复', 'closed': '已关闭'}
+
+
+def _admin_ticket_brief(row: dict) -> dict:
+    row = dict(row)
+    row['status_label'] = _TICKET_STATUS_LABELS.get(row.get('status'), row.get('status'))
+    return row
+
+
+@admin_bp.route('/tickets', methods=['GET'])
+@admin_required('tickets.view')
+def list_tickets():
+    """全部工单列表（状态/分类/关键词筛选 + 分页）。"""
+    page = max(1, request.args.get('page', 1, type=int))
+    per_page = clamp_per_page(request.args.get('limit', 15, type=int))
+    status = request.args.get('status', '').strip()
+    category = request.args.get('category', '').strip()
+    q = request.args.get('q', '').strip()
+
+    where = []
+    params = []
+    if status and status in ('open', 'replied', 'closed'):
+        where.append('t.status = ?')
+        params.append(status)
+    if category:
+        where.append('t.category = ?')
+        params.append(category)
+    if q:
+        where.append('(t.ticket_no LIKE ? OR t.title LIKE ? OR t.content LIKE ?)')
+        like = f'%{q}%'
+        params.extend([like, like, like])
+    where_clause = ('WHERE ' + ' AND '.join(where)) if where else ''
+
+    db = get_db()
+    total = db.execute(
+        f'SELECT COUNT(*) FROM tickets t{where_clause}', params
+    ).fetchone()[0]
+    rows = db.execute(
+        f"""SELECT t.*, u.username, u.nickname
+            FROM tickets t LEFT JOIN users u ON u.uid = t.uid
+            {where_clause}
+            ORDER BY (t.status = 'open') DESC, t.updated_at DESC, t.id DESC
+            LIMIT ? OFFSET ?""",
+        params + [per_page, (page - 1) * per_page],
+    ).fetchall()
+    return api_success({
+        'tickets': [_admin_ticket_brief(dict(r)) for r in rows],
+        'total': total,
+        'page': page,
+        'pages': (total + per_page - 1) // per_page,
+    })
+
+
+@admin_bp.route('/tickets/<int:ticket_id>', methods=['GET'])
+@admin_required('tickets.view')
+def get_ticket(ticket_id):
+    """工单详情 + 完整回复串。"""
+    db = get_db()
+    row = db.execute(
+        """SELECT t.*, u.username, u.nickname FROM tickets t
+           LEFT JOIN users u ON u.uid = t.uid WHERE t.id = ?""",
+        (ticket_id,),
+    ).fetchone()
+    if not row:
+        return api_error('工单不存在', 404)
+    replies = db.execute(
+        """SELECT author_role, author_uid, content, is_system, created_at
+           FROM ticket_replies WHERE ticket_id = ? ORDER BY id ASC""",
+        (ticket_id,),
+    ).fetchall()
+    result = _admin_ticket_brief(dict(row))
+    result['replies'] = [dict(r) for r in replies]
+    return api_success(result)
+
+
+@admin_bp.route('/tickets/<int:ticket_id>/reply', methods=['POST'])
+@admin_required('tickets.reply')
+def reply_ticket(current_user, ticket_id):
+    """管理员回复（状态 → replied，写审计日志）。"""
+    row = get_db().execute(
+        'SELECT * FROM tickets WHERE id = ?', (ticket_id,)
+    ).fetchone()
+    if not row:
+        return api_error('工单不存在', 404)
+    if row['status'] == 'closed':
+        return api_error('工单已关闭，无法回复', 400)
+    content = str((request.get_json(silent=True) or {}).get('content') or '').strip()
+    if not content:
+        return api_error('回复内容不能为空', 400)
+    if len(content) > 5000:
+        return api_error('回复不能超过5000字', 400)
+
+    now = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    admin_uid = current_user.get('uid') or 'admin'
+    db = get_db()
+    db.execute(
+        """INSERT INTO ticket_replies (ticket_id, author_uid, author_role, content)
+           VALUES (?, ?, 'admin', ?)""",
+        (ticket_id, admin_uid, content),
+    )
+    db.execute(
+        """UPDATE tickets SET status = 'replied', last_admin_reply_at = ?, updated_at = ?
+           WHERE id = ?""",
+        (now, now, ticket_id),
+    )
+    db.execute(
+        """INSERT INTO admin_logs (admin_uid, action, target_type, target_id, detail)
+           VALUES (?, 'ticket_reply', 'ticket', ?, ?)""",
+        (admin_uid, ticket_id, json.dumps({'content': content[:200]}, ensure_ascii=False)),
+    )
+    db.commit()
+    return api_success(message='回复成功')
+
+
+@admin_bp.route('/tickets/<int:ticket_id>/status', methods=['POST'])
+@admin_required('tickets.reply')
+def update_ticket_status(current_user, ticket_id):
+    """管理员更改工单状态（关闭 / 重新打开）。"""
+    row = get_db().execute(
+        'SELECT * FROM tickets WHERE id = ?', (ticket_id,)
+    ).fetchone()
+    if not row:
+        return api_error('工单不存在', 404)
+    status = str((request.get_json(silent=True) or {}).get('status') or '').strip()
+    if status not in ('open', 'replied', 'closed'):
+        return api_error('无效状态', 400)
+
+    now = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    admin_uid = current_user.get('uid') or 'admin'
+    db = get_db()
+    db.execute(
+        'UPDATE tickets SET status = ?, updated_at = ? WHERE id = ?',
+        (status, now, ticket_id),
+    )
+    db.execute(
+        """INSERT INTO admin_logs (admin_uid, action, target_type, target_id, detail)
+           VALUES (?, 'ticket_status', 'ticket', ?, ?)""",
+        (admin_uid, ticket_id, json.dumps({'status': status}, ensure_ascii=False)),
+    )
+    db.commit()
+    return api_success(message='状态已更新')
 

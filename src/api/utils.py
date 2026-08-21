@@ -157,6 +157,38 @@ NEW_TABLES = {
         );
         CREATE INDEX IF NOT EXISTS idx_anchor_pid ON essay_anchors(pid, qid);
     """,
+    # 客服工单：用户提交建议/反馈，管理员后台回复，用户端查看回复
+    'tickets': """
+        CREATE TABLE IF NOT EXISTS tickets (
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticket_no           TEXT UNIQUE NOT NULL,
+            uid                 TEXT NOT NULL,
+            category            TEXT NOT NULL DEFAULT '建议',
+            title               TEXT NOT NULL,
+            content             TEXT NOT NULL,
+            status              TEXT NOT NULL DEFAULT 'open',
+            last_admin_reply_at DATETIME,
+            user_read_at        DATETIME,
+            created_at          DATETIME DEFAULT (datetime('now')),
+            updated_at          DATETIME DEFAULT (datetime('now')),
+            FOREIGN KEY (uid) REFERENCES users(uid)
+        );
+        CREATE INDEX IF NOT EXISTS idx_tickets_uid ON tickets(uid);
+        CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
+    """,
+    'ticket_replies': """
+        CREATE TABLE IF NOT EXISTS ticket_replies (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticket_id   INTEGER NOT NULL,
+            author_uid  TEXT NOT NULL DEFAULT '',
+            author_role TEXT NOT NULL DEFAULT 'user',
+            content     TEXT NOT NULL,
+            is_system   INTEGER NOT NULL DEFAULT 0,
+            created_at  DATETIME DEFAULT (datetime('now')),
+            FOREIGN KEY (ticket_id) REFERENCES tickets(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_ticket_replies_ticket ON ticket_replies(ticket_id);
+    """,
 }
 
 
@@ -491,11 +523,11 @@ ROLE_PERMISSIONS = {
         'papers.view', 'papers.add', 'papers.edit', 'papers.delete',
         'phrases.view', 'phrases.approve',
         'submissions.view', 'submissions.review',
-        'stats.view', 'logs.view'
+        'stats.view', 'logs.view', 'tickets.view', 'tickets.reply'
     ],
     'reviewer': [
         'submissions.view', 'submissions.review',
-        'phrases.view', 'phrases.approve'
+        'phrases.view', 'phrases.approve', 'tickets.view'
     ],
     'operator': [
         'papers.view', 'papers.add', 'papers.edit', 'papers.delete',

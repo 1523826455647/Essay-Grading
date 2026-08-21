@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+{% block title %}我的工单 - 申论帮{% endblock %}
+
+{% block extra_css %}
+<style>
+  .tk-page { width: min(880px, calc(100% - 32px)); margin: 0 auto; padding: 8px 0 48px; }
+  .tk-head { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+  .tk-head h1 { margin: 0; font-size: 22px; font-weight: 800; color: #0f172a; }
+  .tk-head p { margin: 6px 0 0; font-size: 13px; color: #64748b; line-height: 1.6; }
+
+  .tk-list { display: grid; gap: 10px; }
+  .tk-item {
+    background: #fff; border: 1px solid #e3eef9; border-radius: 14px; padding: 14px 16px;
+    cursor: pointer; transition: box-shadow .15s, border-color .15s;
+  }
+  .tk-item:hover { border-color: #0c8ee7; box-shadow: 0 6px 18px rgba(12,142,231,.08); }
+  .tk-item-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .tk-item-title { font-size: 14.5px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px; }
+  .tk-item-snippet { font-size: 13px; color: #64748b; margin-top: 6px; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .tk-item-meta { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 12px; color: #94a3b8; flex-wrap: wrap; }
+
+  .tk-badge { font-size: 11.5px; font-weight: 700; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+  .tk-st-open { background: #eaf4ff; color: #0c8ee7; }
+  .tk-st-replied { background: #dcfce7; color: #15803d; }
+  .tk-st-closed { background: #f1f5f9; color: #64748b; }
+  .tk-new { background: #fee2e2; color: #dc2626; font-weight: 800; padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+  .tk-cat { font-size: 11.5px; color: #7c3aed; background: #f3e8ff; padding: 2px 8px; border-radius: 999px; }
+
+  .tk-empty { text-align: center; padding: 56px 20px; color: #94a3b8; font-size: 14px; }
+  .tk-empty .tk-empty-icon { font-size: 40px; margin-bottom: 10px; }
+  .tk-pagination { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 16px; }
+
+  /* 弹窗 */
+  .tk-overlay {
+    position: fixed; inset: 0; z-index: 1200; background: rgba(15,23,42,.5);
+    display: none; align-items: center; justify-content: center; padding: 18px;
+  }
+  .tk-overlay.open { display: flex; }
+  .tk-modal {
+    background: #fff; border-radius: 16px; max-width: 620px; width: 100%;
+    max-height: 86vh; display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,.22);
+  }
+  .tk-modal-head { padding: 16px 20px; border-bottom: 1px solid #eef2f7; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .tk-modal-head h3 { margin: 0; font-size: 16px; font-weight: 800; color: #0f172a; }
+  .tk-modal-close { border: none; background: none; font-size: 24px; line-height: 1; color: #94a3b8; cursor: pointer; padding: 0 4px; }
+  .tk-modal-close:hover { color: #0f172a; }
+  .tk-modal-body { padding: 18px 20px; overflow-y: auto; }
+  .tk-modal-foot { padding: 14px 20px; border-top: 1px solid #eef2f7; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+
+  .tk-field { margin-bottom: 14px; }
+  .tk-field label { display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 6px; }
+  .tk-select { width: 100%; padding: 9px 12px; border: 1px solid #cfe0f1; border-radius: 10px; font-size: 14px; background: #fff; }
+
+  /* 对话流 */
+  .tk-thread { display: flex; flex-direction: column; gap: 12px; }
+  .tk-msg { max-width: 82%; padding: 10px 14px; border-radius: 12px; font-size: 13.5px; line-height: 1.7; white-space: pre-wrap; }
+  .tk-msg-user { align-self: flex-start; background: #eaf4ff; border: 1px solid #d4e8fb; color: #1e3a5f; }
+  .tk-msg-admin { align-self: flex-end; background: #f0fdf4; border: 1px solid #bbf7d0; color: #14532d; }
+  .tk-msg-sys { align-self: center; background: #f8fafc; border: 1px solid #e2e8f0; color: #64748b; font-size: 12.5px; text-align: center; }
+  .tk-msg-meta { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+  .tk-msg-admin .tk-msg-meta { text-align: right; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div class="tk-page">
+    <div class="tk-head">
+      <div>
+        <h1>我的工单</h1>
+        <p>提交建议或反馈问题，管理员会尽快处理并在下方回复，你可以随时查看回复并追问。</p>
+      </div>
+      <button class="btn btn-primary" type="button" onclick="openCreate()">
+        <i data-lucide="plus" style="width:16px;height:16px;"></i> 新建工单
+      </button>
+    </div>
+
+    <div class="tk-list" id="tk-list">
+      <div class="tk-empty"><div class="tk-empty-icon">📭</div>加载中...</div>
+    </div>
+
+    <div class="tk-pagination" id="tk-pagination" style="display:none;">
+      <button class="btn btn-secondary" type="button" id="tk-prev" onclick="loadList(page - 1)">上一页</button>
+      <span id="tk-page-info" style="font-size:13px;color:#64748b;"></span>
+      <button class="btn btn-secondary" type="button" id="tk-next" onclick="loadList(page + 1)">下一页</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新建工单 -->
+<div id="tk-create-overlay" class="tk-overlay" role="dialog" aria-modal="true">
+  <div class="tk-modal">
+    <div class="tk-modal-head">
+      <h3>新建工单</h3>
+      <button type="button" class="tk-modal-close" onclick="hideOverlay('tk-create-overlay')">&times;</button>
+    </div>
+    <form onsubmit="submitCreate(event)">
+      <div class="tk-modal-body">
+        <div class="tk-field">
+          <label>分类</label>
+          <select id="tk-category" class="tk-select">
+            <option>建议</option>
+            <option>问题反馈</option>
+            <option>投诉</option>
+            <option>其他</option>
+          </select>
+        </div>
+        <div class="tk-field">
+          <label>标题</label>
+          <input type="text" id="tk-title" class="input-field" maxlength="100" placeholder="一句话概括你的建议/问题" required>
+        </div>
+        <div class="tk-field">
+          <label>详细内容</label>
+          <textarea id="tk-content" class="input-field" rows="6" maxlength="5000" placeholder="请尽量描述清楚，方便我们处理..." required></textarea>
+        </div>
+      </div>
+      <div class="tk-modal-foot">
+        <button type="button" class="btn btn-secondary" onclick="hideOverlay('tk-create-overlay')">取消</button>
+        <button type="submit" class="btn btn-primary">提交工单</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 工单详情 -->
+<div id="tk-detail-overlay" class="tk-overlay" role="dialog" aria-modal="true">
+  <div class="tk-modal" style="max-width:720px;">
+    <div class="tk-modal-head">
+      <div>
+        <h3 id="tk-detail-title">工单详情</h3>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap;">
+          <span class="tk-cat" id="tk-detail-no"></span>
+          <span id="tk-detail-status"></span>
+        </div>
+      </div>
+      <button type="button" class="tk-modal-close" onclick="hideOverlay('tk-detail-overlay')">&times;</button>
+    </div>
+    <div class="tk-modal-body">
+      <div id="tk-thread" class="tk-thread"></div>
+    </div>
+    <div class="tk-modal-foot" id="tk-reply-area" style="justify-content:space-between;align-items:center;gap:12px;">
+      <textarea id="tk-reply-text" class="input-field" rows="2" maxlength="5000" placeholder="输入回复内容..." style="flex:1;min-width:220px;"></textarea>
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn btn-secondary" id="tk-close-btn" onclick="closeTicket()">关闭工单</button>
+        <button type="button" class="btn btn-primary" id="tk-reply-btn" onclick="submitReply()">发送</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const API = '/api/tickets';
+  let page = 1;
+  let currentTicket = null;
+
+  function token() { return localStorage.getItem('slb_token') || localStorage.getItem('token') || ''; }
+  function headers() { return { 'Authorization': 'Bearer ' + token(), 'Content-Type': 'application/json' }; }
+  function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function showToast(m, t) { if (typeof SLBToast !== 'undefined') SLBToast[t || 'info'](m); }
+  function fmtTime(s) { return s ? String(s).slice(5, 16).replace('T', ' ').replace(/-/g, '/') : ''; }
+  const STATUS_CLS = { open: 'tk-st-open', replied: 'tk-st-replied', closed: 'tk-st-closed' };
+  const STATUS_LABEL = { open: '待处理', replied: '已回复', closed: '已关闭' };
+
+  function _lockOverlay(overlay, open) {
+    try { if (window.__lenis) open ? window.__lenis.stop() : window.__lenis.start(); } catch (e) {}
+    document.documentElement.style.overflow = open ? 'hidden' : '';
+    document.body.style.overflow = open ? 'hidden' : '';
+    if (open) {
+      overlay.addEventListener('wheel', onWheel, { passive: false });
+      overlay.addEventListener('touchmove', onTouch, { passive: false });
+    } else {
+      overlay.removeEventListener('wheel', onWheel);
+      overlay.removeEventListener('touchmove', onTouch);
+    }
+  }
+  function onWheel(e) {
+    const modal = e.target.closest('.tk-modal');
+    if (modal && modal.scrollHeight > modal.clientHeight) { if (e.target.closest('.tk-modal-body, .tk-modal-head')) return; }
+    e.preventDefault();
+  }
+  function onTouch(e) {
+    const modal = e.target.closest('.tk-modal');
+    if (modal && modal.scrollHeight > modal.clientHeight) return;
+    e.preventDefault();
+  }
+  function showOverlay(id) { const o = document.getElementById(id); o.classList.add('open'); _lockOverlay(o, true); }
+  function hideOverlay(id) { const o = document.getElementById(id); o.classList.remove('open'); _lockOverlay(o, false); }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { hideOverlay('tk-create-overlay'); hideOverlay('tk-detail-overlay'); }
+  });
+
+  async function loadList(p = 1) {
+    const t = token();
+    if (!t) {
+      document.getElementById('tk-list').innerHTML = '<div class="tk-empty"><div class="tk-empty-icon">🔒</div>请先登录查看工单<div style="margin-top:12px;"><button class="btn btn-primary" onclick="window.location.href=\'/login\'">去登录</button></div></div>';
+      return;
+    }
+    try {
+      const res = await fetch(API + '?page=' + p + '&limit=10', { headers: headers() });
+      const { data } = await res.json();
+      page = data.page || 1;
+      renderList(data.tickets || []);
+      const pg = document.getElementById('tk-pagination');
+      if ((data.total || 0) > 10) {
+        pg.style.display = '';
+        document.getElementById('tk-page-info').textContent = `第 ${page} / ${data.pages} 页 · 共 ${data.total} 条`;
+        document.getElementById('tk-prev').disabled = page <= 1;
+        document.getElementById('tk-next').disabled = page >= (data.pages || 1);
+      } else {
+        pg.style.display = 'none';
+      }
+    } catch (e) {
+      console.error(e);
+      document.getElementById('tk-list').innerHTML = '<div class="tk-empty">加载失败，请重试</div>';
+    }
+  }
+
+  function renderList(items) {
+    const box = document.getElementById('tk-list');
+    if (!items.length) {
+      box.innerHTML = '<div class="tk-empty"><div class="tk-empty-icon">📭</div>还没有工单，提交第一个建议或反馈吧</div>';
+      return;
+    }
+    box.innerHTML = items.map(t => `
+      <div class="tk-item" onclick="openDetail(${t.id})">
+        <div class="tk-item-top">
+          <span class="tk-item-title">
+            <span class="tk-cat">${esc(t.category)}</span>
+            ${esc(t.title)}
+            ${t.has_new_reply ? '<span class="tk-new">新回复</span>' : ''}
+          </span>
+          <span class="tk-badge ${STATUS_CLS[t.status] || 'tk-st-closed'}">${esc(t.status_label || STATUS_LABEL[t.status] || t.status)}</span>
+        </div>
+        <div class="tk-item-snippet">${esc(t.content)}</div>
+        <div class="tk-item-meta">
+          <span>${esc(t.ticket_no)}</span>
+          <span>·</span>
+          <span>更新于 ${esc(fmtTime(t.updated_at))}</span>
+        </div>
+      </div>`).join('');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function openCreate() {
+    if (!token()) { showToast('请先登录', 'warning'); if (typeof openAuthModal === 'function') openAuthModal('login'); return; }
+    document.getElementById('tk-title').value = '';
+    document.getElementById('tk-content').value = '';
+    document.getElementById('tk-category').value = '建议';
+    showOverlay('tk-create-overlay');
+  }
+
+  async function submitCreate(e) {
+    e.preventDefault();
+    if (!token()) { showToast('请先登录', 'warning'); return; }
+    const title = document.getElementById('tk-title').value.trim();
+    const content = document.getElementById('tk-content').value.trim();
+    const category = document.getElementById('tk-category').value;
+    if (!title || !content) { showToast('请填写标题和内容', 'warning'); return; }
+    try {
+      const res = await fetch(API, { method: 'POST', headers: headers(), body: JSON.stringify({ category, title, content }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '提交失败');
+      showToast('工单已提交', 'success');
+      hideOverlay('tk-create-overlay');
+      refreshBadge();
+      loadList(1);
+    } catch (err) {
+      showToast(err.message || '提交失败', 'error');
+    }
+  }
+
+  async function openDetail(id) {
+    try {
+      const res = await fetch(API + '/' + id, { headers: headers() });
+      const { data } = await res.json();
+      if (!res.ok) { showToast(data.error || '加载失败', 'error'); return; }
+      currentTicket = data;
+      document.getElementById('tk-detail-title').textContent = data.title;
+      document.getElementById('tk-detail-no').textContent = data.ticket_no;
+      const st = document.getElementById('tk-detail-status');
+      st.className = 'tk-badge ' + (STATUS_CLS[data.status] || 'tk-st-closed');
+      st.textContent = data.status_label || STATUS_LABEL[data.status] || data.status;
+
+      const thread = document.getElementById('tk-thread');
+      thread.innerHTML = (data.replies || []).map(r => {
+        const time = fmtTime(r.created_at);
+        if (r.is_system || r.author_role === 'system') {
+          return `<div class="tk-msg tk-msg-sys">${esc(r.content)}<div class="tk-msg-meta">${esc(time)}</div></div>`;
+        }
+        if (r.author_role === 'admin') {
+          return `<div class="tk-msg tk-msg-admin">${esc(r.content)}<div class="tk-msg-meta">管理员 · ${esc(time)}</div></div>`;
+        }
+        return `<div class="tk-msg tk-msg-user">${esc(r.content)}<div class="tk-msg-meta">我 · ${esc(time)}</div></div>`;
+      }).join('') || '<div class="tk-empty">暂无内容</div>';
+
+      const closed = data.status === 'closed';
+      document.getElementById('tk-reply-text').disabled = closed;
+      document.getElementById('tk-reply-btn').disabled = closed;
+      document.getElementById('tk-close-btn').style.display = closed ? 'none' : '';
+      document.getElementById('tk-reply-area').style.display = closed ? 'none' : '';
+      document.getElementById('tk-reply-text').value = '';
+
+      showOverlay('tk-detail-overlay');
+      refreshBadge();
+      loadList(page);
+    } catch (err) {
+      showToast('加载失败', 'error');
+    }
+  }
+
+  async function submitReply() {
+    if (!currentTicket) return;
+    const content = document.getElementById('tk-reply-text').value.trim();
+    if (!content) { showToast('请输入回复内容', 'warning'); return; }
+    try {
+      const res = await fetch(API + '/' + currentTicket.id + '/reply', { method: 'POST', headers: headers(), body: JSON.stringify({ content }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '回复失败');
+      showToast('已回复', 'success');
+      openDetail(currentTicket.id);
+    } catch (err) {
+      showToast(err.message || '回复失败', 'error');
+    }
+  }
+
+  async function closeTicket() {
+    if (!currentTicket) return;
+    if (!confirm('确定关闭该工单吗？关闭后将无法继续回复。')) return;
+    try {
+      const res = await fetch(API + '/' + currentTicket.id + '/close', { method: 'POST', headers: headers() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '关闭失败');
+      showToast('工单已关闭', 'success');
+      openDetail(currentTicket.id);
+      refreshBadge();
+    } catch (err) {
+      showToast(err.message || '关闭失败', 'error');
+    }
+  }
+
+  async function refreshBadge() {
+    try {
+      const res = await fetch(API + '/unread-count', { headers: headers() });
+      const { data } = await res.json();
+      const badge = document.getElementById('nav-ticket-badge');
+      if (badge) {
+        const c = (data && data.count) || 0;
+        badge.style.display = c > 0 ? '' : 'none';
+        badge.textContent = c > 99 ? '99+' : c;
+      }
+    } catch (e) {}
+  }
+
+  // 弹窗点击遮罩关闭
+  document.getElementById('tk-create-overlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) hideOverlay('tk-create-overlay'); });
+  document.getElementById('tk-detail-overlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) hideOverlay('tk-detail-overlay'); });
+
+  loadList(1);
+  refreshBadge();
+  if (window.lucide) lucide.createIcons();
+</script>
+{% endblock %}
