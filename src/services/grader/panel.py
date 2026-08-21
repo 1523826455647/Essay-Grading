@@ -248,4 +248,10 @@ def run_review_panel(
         "reason": reason,
         "reviews": reviews,
         "arbitration": arbitration,
+        # 仲裁前的初评结果（供前端展示「初评→仲裁」差异）
+        "initial": {
+            "tier": initial.get("tier", ""),
+            "score_rate": initial.get("score_rate"),
+            "tier_reason": initial.get("tier_reason", ""),
+        },
     }

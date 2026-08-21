@@ -4,13 +4,14 @@
 {% block extra_css %}
 <style>
   @media print {
-    .navbar, .footer, .rs-actions, .rs-back, #feedback-form, #regrade-btn { display: none !important; }
+    .navbar, .footer, .rs-actions, .rs-back, #feedback-form, #regrade-btn, .ag-flow, .rv-chips, .rv-diff { display: none !important; }
     .rs-page { width: 100% !important; max-width: none !important; }
-    .rs-card { break-inside: avoid; box-shadow: none !important; border: 1px solid #ddd !important; }
+    .rs-card, .ag-card { break-inside: avoid; box-shadow: none !important; border: 1px solid #ddd !important; }
+    .rv-hero { box-shadow: none !important; border-radius: 8px !important; }
     body { background: white !important; }
   }
 
-  /* 重新批改 - 模型选择弹窗 */
+  /* ===== 重新批改 - 模型选择弹窗 ===== */
   .regrade-modal {
     position: fixed; inset: 0; z-index: 1200;
     background: rgba(15, 23, 42, 0.45);
@@ -21,8 +22,7 @@
   .regrade-modal-content {
     background: #fff; border-radius: 14px; max-width: 520px; width: 100%;
     max-height: 82vh; display: flex; flex-direction: column;
-    box-shadow: 0 24px 60px rgba(0,0,0,.2);
-    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,.2); overflow: hidden;
   }
   .regrade-modal-head {
     padding: 16px 20px; border-bottom: 1px solid #eef2f7;
@@ -43,84 +43,187 @@
   .regrade-model-item.checked { border-color: #0c8ee7; background: #f0f8ff; }
   .regrade-model-item input { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
   .regrade-model-name { font-size: 13.5px; font-weight: 600; color: #0f172a; flex: 1; overflow-wrap: anywhere; }
+  .regrade-deep-row {
+    display: flex; align-items: center; gap: 8px; margin: 12px 0 2px;
+    font-size: 13px; color: #0f172a; cursor: pointer; user-select: none;
+  }
+  .regrade-deep-row input { width: 15px; height: 15px; cursor: pointer; accent-color: #0c8ee7; }
+  .regrade-deep-row span { color: #64748b; font-size: 12px; }
   .regrade-modal-foot {
     padding: 14px 20px; border-top: 1px solid #eef2f7;
     display: flex; justify-content: flex-end; gap: 10px;
   }
   .regrade-model-empty { font-size: 13.5px; color: #64748b; padding: 6px 0; }
+  .regrade-mode-row { display: flex; align-items: center; gap: 12px; margin: 14px 0 2px; flex-wrap: wrap; }
+  .regrade-mode-label { font-size: 13px; font-weight: 700; color: #334155; }
+  .regrade-mode-hint { font-size: 12px; color: #94a3b8; }
 
-  /* ===== 大作文两阶段批改 ===== */
-  .es-banner {
+  /* ===== 批改方式切换（常规 / Agent）===== */
+  .mode-switch {
+    position: relative; display: inline-flex; background: #eef2f7;
+    border-radius: 999px; padding: 3px; border: 1px solid #e2e8f0;
+  }
+  .mode-switch .mode-slider {
+    position: absolute; top: 3px; bottom: 3px; left: 3px; z-index: 0;
+    border-radius: 999px; background: linear-gradient(135deg, #0b6fbe, #0c8ee7);
+    box-shadow: 0 2px 8px rgba(12,142,231,.35);
+    transition: left .28s cubic-bezier(.4,0,.2,1), width .28s cubic-bezier(.4,0,.2,1);
+  }
+  .mode-switch-opt {
+    position: relative; z-index: 1; border: none; background: transparent;
+    padding: 7px 18px; border-radius: 999px; font-size: 12.5px; font-weight: 700;
+    color: #64748b; cursor: pointer; transition: color .2s; white-space: nowrap;
+  }
+  .mode-switch-opt.active { color: #fff; }
+  .ag-upgrade-btn { font-size: 12px; padding: 5px 12px; border-radius: 999px; border: 1px solid #0c8ee7; background: #eaf4ff; color: #0c8ee7; font-weight: 700; cursor: pointer; transition: background .15s; }
+  .ag-upgrade-btn:hover { background: #d7ecff; }
+
+  /* ===== 综合判定卡 ===== */
+  .rv-hero {
+    position: relative; color: #fff; border-radius: 20px; padding: 22px 26px; margin-bottom: 14px;
     background: linear-gradient(135deg, #0b6fbe, #0c8ee7);
-    color: #fff; border-radius: 16px; padding: 22px 26px; margin-bottom: 16px;
-    display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+    box-shadow: 0 10px 30px rgba(12,142,231,.18);
   }
-  .es-tier-name { font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
-  .es-tier-range { font-size: 13px; opacity: .85; margin-top: 4px; }
-  .es-tier-score { text-align: right; }
-  .es-tier-score b { font-size: 2.4rem; font-weight: 800; line-height: 1; }
-  .es-tier-score span { font-size: 13px; opacity: .85; }
-  .es-tier-1 { background: linear-gradient(135deg, #047857, #10b981); }
-  .es-tier-2 { background: linear-gradient(135deg, #0b6fbe, #0c8ee7); }
-  .es-tier-3 { background: linear-gradient(135deg, #b45309, #f59e0b); }
-  .es-tier-4 { background: linear-gradient(135deg, #991b1b, #ef4444); }
-
-  .es-layout { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
-  .es-side { display: grid; gap: 14px; position: sticky; top: 12px; }
-  .es-card {
-    background: #fff; border: 1px solid #e3eef9; border-radius: 14px; padding: 16px 18px;
+  .rv-tier-1 { background: linear-gradient(135deg, #047857, #10b981); box-shadow: 0 10px 30px rgba(16,185,129,.2); }
+  .rv-tier-2 { background: linear-gradient(135deg, #0b6fbe, #0c8ee7); }
+  .rv-tier-3 { background: linear-gradient(135deg, #b45309, #f59e0b); box-shadow: 0 10px 30px rgba(245,158,11,.22); }
+  .rv-tier-4 { background: linear-gradient(135deg, #991b1b, #ef4444); box-shadow: 0 10px 30px rgba(239,68,68,.2); }
+  .rv-plain { background: linear-gradient(135deg, #334155, #475569); box-shadow: 0 10px 30px rgba(51,65,85,.25); }
+  .rv-top { display: grid; grid-template-columns: 1fr auto 1.4fr; gap: 22px; align-items: center; }
+  .rv-tier-name { font-size: 1.75rem; font-weight: 800; line-height: 1.1; }
+  .rv-tier-sub { font-size: 13px; opacity: .85; margin-top: 4px; }
+  .rv-score { text-align: center; padding: 0 26px; border-left: 1px solid rgba(255,255,255,.25); border-right: 1px solid rgba(255,255,255,.25); }
+  .rv-score-label { font-size: 12px; opacity: .8; letter-spacing: 2px; }
+  .rv-score-value { font-size: 3rem; font-weight: 800; line-height: 1.1; }
+  .rv-score-sub { font-size: 12px; opacity: .8; margin-top: 4px; }
+  .rv-verdict-label { font-size: 12px; opacity: .8; letter-spacing: 2px; margin-bottom: 6px; }
+  .rv-verdict-text { font-size: 14px; line-height: 1.7; opacity: .95; }
+  .rv-diff { margin-top: 14px; border-radius: 10px; padding: 9px 14px; font-size: 13px; line-height: 1.6; }
+  .rv-diff-changed { background: rgba(255,255,255,.22); color: #fff; font-weight: 600; }
+  .rv-diff-same { background: rgba(255,255,255,.12); color: #fff; }
+  .rv-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .rv-chip {
+    background: rgba(255,255,255,.16); border-radius: 999px; padding: 4px 12px;
+    font-size: 12px; display: inline-flex; gap: 6px; align-items: center;
   }
-  .es-card h4 { margin: 0 0 12px; font-size: 13px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px; }
-  .es-genre { font-size: 13.5px; color: #334155; line-height: 1.6; }
-  .es-genre .tag { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px; font-weight:700; margin-right:6px; }
-  .tag-ok { background:#dcfce7; color:#15803d; }
-  .tag-bad { background:#fee2e2; color:#b91c1c; }
-  .es-thesis { font-size: 13px; color: #475569; line-height: 1.7; }
-  .es-thesis .label { color:#94a3b8; font-weight:600; }
-  .es-thesis .student { background:#f8fafc; border-left:3px solid #0c8ee7; padding:6px 10px; border-radius:0 6px 6px 0; margin:6px 0; color:#0f172a; }
-  .es-thesis .deviation { font-weight:700; }
-  .dev-准确 { color:#15803d; } .dev-基本准确 { color:#0c8ee7; }
-  .dev-有偏差 { color:#d97706; } .dev-严重偏离 { color:#dc2626; }
+  .rv-chip b { font-weight: 700; opacity: .85; }
 
-  .es-main { display: grid; gap: 14px; min-width: 0; }
-  .es-overall { font-size: 14.5px; line-height: 1.85; color: #334155; white-space: pre-wrap; }
-  .es-para { border:1px solid #eef4fb; border-radius:12px; padding:14px 16px; background:#fcfdff; }
-  .es-para-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
-  .es-para-idx { font-size:12px; font-weight:700; color:#0c8ee7; background:#eaf4ff; padding:2px 9px; border-radius:999px; }
-  .es-para-summary { font-size:13.5px; color:#64748b; margin-bottom:8px; line-height:1.6; }
-  .es-para-row { font-size:13px; line-height:1.65; margin-top:5px; }
-  .es-para-row b { display:inline-block; min-width:54px; color:#0f172a; }
-  .es-good { color:#15803d; } .es-issue { color:#b45309; } .es-suggest { color:#0c8ee7; }
-  .es-anchor { font-size: 13px; line-height: 1.75; color: #475569; }
-  .es-anchor .core { font-weight:700; color:#0f172a; }
-  .es-anchor ul { margin:6px 0 0; padding-left:1.2rem; }
-  .es-anchor li { margin-bottom: 4px; }
-  .es-improve { margin:0; padding-left:1.2rem; }
-  .es-improve li { margin-bottom:6px; font-size:13.5px; line-height:1.7; color:#334155; }
-  .es-structure { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:8px; }
-  .es-struct-item { font-size:12.5px; padding:8px 10px; border-radius:8px; background:#f8fafc; }
-  .es-struct-item.yes { background:#dcfce7; color:#15803d; }
-  .es-struct-item.no { background:#fee2e2; color:#b91c1c; }
-  .es-cache { font-size:11px; color:#94a3b8; }
+  /* ===== 智能体协作流程 stepper ===== */
+  .ag-flow { background: #fff; border: 1px solid #e3eef9; border-radius: 16px; padding: 16px 20px; margin-bottom: 14px; }
+  .ag-flow-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  .ag-flow-title { font-size: 14.5px; font-weight: 800; color: #0f172a; }
+  .ag-flow-meta { font-size: 12px; color: #64748b; font-weight: 500; }
+  .ag-steps { display: flex; align-items: flex-start; }
+  .ag-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; position: relative; padding: 4px; border-radius: 10px; transition: background .15s; text-align: center; }
+  .ag-step:hover { background: #f0f8ff; }
+  .ag-step:not(:last-child)::after {
+    content: ''; position: absolute; top: 17px; left: calc(50% + 22px);
+    width: calc(100% - 44px); height: 2px; background: #e2e8f0; z-index: 0;
+  }
+  .ag-step.done:not(:last-child)::after { background: #0c8ee7; }
+  .ag-step-dot {
+    width: 32px; height: 32px; border-radius: 50%; z-index: 1;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; background: #e2e8f0; color: #64748b;
+    box-shadow: 0 0 0 4px #fff;
+  }
+  .ag-step.done .ag-step-dot { background: #0c8ee7; color: #fff; }
+  .ag-step.degraded .ag-step-dot { background: #f59e0b; color: #fff; }
+  .ag-step-name { font-size: 12.5px; font-weight: 700; color: #334155; }
+  .ag-step-status { font-size: 11px; color: #94a3b8; }
 
-  /* 评审团（P2） */
-  .es-trigger { font-size:12px; color:#b45309; margin-left:6px; font-weight:600; }
-  .es-panel-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; }
-  .es-pv { border:1px solid #eef4fb; border-radius:12px; padding:12px 14px; background:#fcfdff; }
-  .es-pv-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px; }
-  .es-pv-dim { font-size:13px; font-weight:700; color:#0f172a; }
-  .es-pv-score { font-size:15px; font-weight:800; color:#0c8ee7; }
-  .es-pv-tier { font-size:11.5px; padding:1px 8px; border-radius:999px; background:#eaf4ff; color:#0c8ee7; font-weight:700; white-space:nowrap; }
-  .es-pv-row { font-size:12.5px; line-height:1.6; margin-top:6px; }
-  .es-pv-row b { color:#0f172a; }
-  .es-pv-good { color:#15803d; } .es-pv-issue { color:#b45309; } .es-pv-suggest { color:#0c8ee7; } .es-pv-ev { color:#64748b; }
-  .es-arb { border:1px solid #ede9fe; background:#faf8ff; border-radius:12px; padding:14px 16px; margin-top:12px; }
-  .es-arb-tier { font-size:15px; font-weight:800; color:#6d28d9; }
-  .es-arb-reason { font-size:13.5px; line-height:1.75; color:#334155; margin-top:6px; white-space:pre-wrap; }
+  /* ===== 智能体角色卡 ===== */
+  .ag-cards { display: grid; gap: 14px; margin-bottom: 14px; }
+  .ag-card { background: #fff; border: 1px solid #e3eef9; border-radius: 16px; padding: 18px 20px; }
+  .ag-card-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .ag-role { font-size: 14.5px; font-weight: 800; color: #0f172a; display: inline-flex; align-items: center; gap: 8px; }
+  .ag-role-1 { color: #4f46e5; } .ag-role-2 { color: #0c8ee7; }
+  .ag-role-3 { color: #d97706; } .ag-role-4 { color: #7c3aed; }
+  .ag-badge { font-size: 11.5px; padding: 2px 10px; border-radius: 999px; background: #eaf4ff; color: #0c8ee7; font-weight: 700; }
+  .ag-badge.off { background: #f1f5f9; color: #64748b; }
+  .ag-badge.warn { background: #fef3c7; color: #b45309; }
+
+  /* ① 审题官 */
+  .ag-anchor-core { font-size: 16px; font-weight: 800; color: #0f172a; }
+  .ag-anchor-pos { font-size: 13px; color: #475569; margin-top: 6px; line-height: 1.7; }
+  .ag-anchor-sec { margin-top: 12px; }
+  .ag-anchor-label { display: inline-block; font-size: 11.5px; font-weight: 700; color: #4338ca; background: #eef2ff; padding: 2px 10px; border-radius: 999px; margin-bottom: 6px; }
+  .ag-theses { list-style: none; padding: 0; margin: 0; }
+  .ag-theses li { font-size: 13.5px; line-height: 1.7; padding: 8px 12px; background: #f8fafc; border-left: 3px solid #6366f1; border-radius: 0 8px 8px 0; margin-top: 6px; }
+  .ag-theses li span { display: block; color: #64748b; font-size: 12.5px; }
+  .ag-risk { color: #b45309; font-size: 13px; line-height: 1.7; }
+  .ag-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ag-tag { font-size: 12px; padding: 2px 10px; border-radius: 999px; background: #eef2ff; color: #4338ca; }
+  .ag-tag-ok { background: #dcfce7; color: #15803d; }
+  .ag-tag-bad { background: #fee2e2; color: #b91c1c; }
+  .ag-evidence { margin: 6px 0 0; padding-left: 1.2rem; font-size: 13px; color: #475569; line-height: 1.7; }
+  .ag-anchor-note { margin-top: 12px; font-size: 12px; color: #6366f1; }
+
+  /* ② 评分官 */
+  .ag-grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
+  .ag-side { display: grid; gap: 12px; position: sticky; top: 12px; }
+  .ag-main { display: grid; gap: 12px; min-width: 0; }
+  .ag-block { border: 1px solid #eef4fb; border-radius: 12px; padding: 14px 16px; background: #fcfdff; }
+  .ag-block-title { font-size: 12.5px; font-weight: 700; color: #0f172a; margin-bottom: 10px; }
+  .ag-muted { font-size: 12.5px; color: #94a3b8; }
+  .ag-student-thesis { background: #f8fafc; border-left: 3px solid #0c8ee7; padding: 6px 10px; border-radius: 0 6px 6px 0; margin: 6px 0; font-size: 13px; color: #0f172a; }
+  .ag-dev { font-weight: 700; }
+  .ag-dev-准确 { color: #15803d; } .ag-dev-基本准确 { color: #0c8ee7; }
+  .ag-dev-有偏差 { color: #d97706; } .ag-dev-严重偏离 { color: #dc2626; }
+  .ag-struct { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+  .ag-struct-item { font-size: 12.5px; padding: 8px 10px; border-radius: 8px; background: #f8fafc; }
+  .ag-struct-item.yes { background: #dcfce7; color: #15803d; }
+  .ag-struct-item.no { background: #fee2e2; color: #b91c1c; }
+  .ag-para { border: 1px solid #eef4fb; border-radius: 12px; padding: 12px 14px; background: #fff; }
+  .ag-para-head { margin-bottom: 6px; }
+  .ag-para-idx { font-size: 11.5px; font-weight: 700; color: #0c8ee7; background: #eaf4ff; padding: 2px 9px; border-radius: 999px; }
+  .ag-para-sum { font-size: 13px; color: #64748b; margin-bottom: 6px; line-height: 1.6; }
+  .ag-para-row { font-size: 13px; line-height: 1.65; margin-top: 5px; }
+  .ag-para-row b { min-width: 54px; display: inline-block; color: #0f172a; }
+  .ag-para-row.good { color: #15803d; } .ag-para-row.issue { color: #b45309; } .ag-para-row.suggest { color: #0c8ee7; }
+  .ag-overall { font-size: 14.5px; line-height: 1.85; color: #334155; white-space: pre-wrap; }
+
+  /* ③ 评审团 */
+  .ag-pv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+  .ag-pv { border: 1px solid #fde68a; border-radius: 12px; padding: 12px 14px; background: #fffdf5; }
+  .ag-pv-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .ag-pv-dim { font-size: 13px; font-weight: 700; color: #92400e; }
+  .ag-pv-tier { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: #fef3c7; color: #b45309; font-weight: 700; white-space: nowrap; }
+  .ag-pv-meta { display: flex; justify-content: space-between; align-items: baseline; }
+  .ag-pv-score { font-size: 15px; font-weight: 800; color: #b45309; }
+  .ag-pv-meta span { font-size: 11px; color: #94a3b8; }
+  .ag-pv-ev { font-size: 12.5px; color: #64748b; margin-top: 6px; line-height: 1.6; }
+  .ag-pv-row { font-size: 12.5px; line-height: 1.6; margin-top: 6px; }
+  .ag-pv-row b { color: #0f172a; }
+  .ag-pv-row.good { color: #15803d; } .ag-pv-row.issue { color: #b45309; } .ag-pv-row.suggest { color: #0c8ee7; }
+  .ag-note { margin-top: 10px; font-size: 12.5px; color: #94a3b8; }
+
+  /* ④ 仲裁官 */
+  .ag-arb { border: 1px solid #ede9fe; background: #faf8ff; border-radius: 12px; padding: 16px 18px; }
+  .ag-arb-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .ag-arb-label { font-size: 11.5px; color: #7c3aed; font-weight: 700; }
+  .ag-arb-tier { font-size: 20px; font-weight: 800; color: #6d28d9; margin-top: 2px; }
+  .ag-arb-consensus { font-size: 20px; font-weight: 800; color: #6d28d9; margin-top: 2px; }
+  .ag-arb-diff { margin-top: 12px; border-radius: 8px; padding: 8px 12px; font-size: 13px; line-height: 1.6; }
+  .ag-arb-diff.changed { background: #fef3c7; color: #92400e; }
+  .ag-arb-diff.same { background: #f0fdf4; color: #166534; }
+  .ag-arb-reason { font-size: 13.5px; line-height: 1.75; color: #334155; margin-top: 12px; white-space: pre-wrap; }
+  .ag-arb-dissent { margin-top: 10px; font-size: 12.5px; color: #b45309; line-height: 1.6; }
+
+  /* ===== 折叠区块 ===== */
+  .ag-collapse-head { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
+  .ag-caret { transition: transform .2s; }
+  .ag-collapse.open .ag-caret { transform: rotate(180deg); }
+
+  .ag-improve { margin: 0; padding-left: 1.2rem; }
+  .ag-improve li { margin-bottom: 6px; font-size: 13.5px; line-height: 1.7; color: #334155; }
+  .ag-improve li.muted { list-style: none; color: #94a3b8; }
 
   @media (max-width: 920px) {
-    .es-layout { grid-template-columns: 1fr; }
-    .es-side { position: static; }
+    .ag-grid { grid-template-columns: 1fr; }
+    .ag-side { position: static; }
+    .rv-top { grid-template-columns: 1fr; gap: 14px; }
+    .rv-score { border: none; padding: 10px 0; border-top: 1px solid rgba(255,255,255,.2); border-bottom: 1px solid rgba(255,255,255,.2); }
   }
 </style>
 {% endblock %}
@@ -138,13 +241,28 @@
       <p id="question-info"></p>
     </div>
 
-    <div class="rs-score">
-      <div class="rs-score-label">综合得分</div>
-      <div class="rs-score-value" id="total-score">--</div>
-      <div class="rs-score-sub">满分 <span id="max-score">100</span> 分</div>
+    <!-- ★ 综合判定卡（全题型统一） -->
+    <div class="rv-hero" id="verdict-card">
+      <div class="rv-top">
+        <div>
+          <div class="rv-tier-name" id="rv-tier-name">--</div>
+          <div class="rv-tier-sub" id="rv-tier-sub"></div>
+        </div>
+        <div class="rv-score">
+          <div class="rv-score-label">综合得分</div>
+          <div class="rv-score-value" id="rv-score">--</div>
+          <div class="rv-score-sub">满分 <span id="rv-max">100</span> 分</div>
+        </div>
+        <div class="rv-verdict">
+          <div class="rv-verdict-label">评审结论</div>
+          <div class="rv-verdict-text" id="rv-verdict-text">--</div>
+        </div>
+      </div>
+      <div class="rv-diff" id="rv-diff" style="display:none;"></div>
+      <div class="rv-chips" id="rv-chips"></div>
     </div>
 
-    <div id="review-notice" class="rs-notice">
+    <div id="review-notice" class="rs-notice" style="display:none;">
       <i data-lucide="shield-alert" style="width:18px;height:18px;color:#d97706;flex:0 0 18px;"></i>
       <div>
         <strong id="review-notice-title" style="display:block;margin-bottom:4px;">本次结果建议复核</strong>
@@ -152,70 +270,54 @@
       </div>
     </div>
 
-    <!-- 大作文两阶段批改结果 -->
-    <div id="essay-review" class="es-review" style="display:none;">
-      <div id="es-banner" class="es-banner">
-        <div>
-          <div class="es-tier-name" id="es-tier-name">--</div>
-          <div class="es-tier-range" id="es-tier-reason"></div>
-        </div>
-        <div class="es-tier-score">
-          <b id="es-score">--</b><span>/100</span>
-        </div>
+    <!-- 大作文：AI 评卷组协作流程 -->
+    <div id="agent-flow" class="ag-flow" style="display:none;">
+      <div class="ag-flow-head">
+        <span class="ag-flow-title">🤖 AI 评卷组协作流程</span>
+        <span style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span class="ag-flow-meta" id="ag-flow-meta"></span>
+          <span id="ag-flow-cta"></span>
+        </span>
       </div>
-
-      <div class="es-layout">
-        <!-- 左侧：审题锚点 + 文体/立意/结构 -->
-        <aside class="es-side">
-          <div class="es-card">
-            <h4>📌 审题锚点 <span class="es-cache" id="es-anchor-cache"></span></h4>
-            <div id="es-anchor" class="es-anchor"></div>
-          </div>
-          <div class="es-card">
-            <h4>📝 文体判定</h4>
-            <div id="es-genre" class="es-genre"></div>
-          </div>
-          <div class="es-card">
-            <h4>🎯 立意对照</h4>
-            <div id="es-thesis" class="es-thesis"></div>
-          </div>
-          <div class="es-card">
-            <h4>🏗 结构检查</h4>
-            <div id="es-structure" class="es-structure"></div>
-          </div>
-        </aside>
-
-        <!-- 右侧：逐段分析 + 整体评价 + 提分建议 -->
-        <main class="es-main">
-          <div class="es-card">
-            <h4>✍️ 逐段分析</h4>
-            <div id="es-paragraphs" style="display:grid;gap:10px;"></div>
-          </div>
-          <div class="es-card">
-            <h4>💬 整体评价</h4>
-            <div id="es-overall" class="es-overall"></div>
-          </div>
-          <div class="es-card" id="es-panel-card" style="display:none;">
-            <h4>👥 评审团意见 <span class="es-trigger" id="es-panel-trigger"></span></h4>
-            <div id="es-panel" style="display:grid;gap:12px;"></div>
-          </div>
-          <div class="es-card">
-            <h4>🚀 提分路径（最该改的 Top 3）</h4>
-            <ol id="es-improvements" class="es-improve"></ol>
-          </div>
-        </main>
-      </div>
+      <div class="ag-steps" id="ag-steps"></div>
     </div>
 
-    <div id="grading-summary-card" class="rs-card" style="display:none;">
-      <h3 class="rs-card-title"><i data-lucide="git-compare-arrows"></i>综合评审概览</h3>
-      <div class="rs-kpis">
-        <div class="rs-kpi"><span>批改模式</span><strong id="grading-mode">--</strong></div>
-        <div class="rs-kpi"><span>百分制成绩</span><strong id="aggregate-score-rate">--</strong></div>
-        <div class="rs-kpi"><span>一致率</span><strong id="agreement-rate">--</strong></div>
-        <div class="rs-kpi"><span>评分差</span><strong id="score-spread">--</strong></div>
-        <div class="rs-kpi"><span>有效模型</span><strong id="valid-judges">0</strong></div>
-        <div class="rs-kpi"><span>失败模型</span><strong id="failed-judges">0</strong></div>
+    <!-- 大作文：四张智能体角色卡 -->
+    <div id="agent-cards" class="ag-cards" style="display:none;">
+      <div class="ag-card" id="ag-reviewer-card">
+        <div class="ag-card-head">
+          <span class="ag-role ag-role-1">① 审题官 · 审题锚点</span>
+          <span class="ag-badge" id="ag-reviewer-badge"></span>
+        </div>
+        <div class="ag-card-body" id="ag-reviewer-body"></div>
+      </div>
+
+      <div class="ag-card" id="ag-grader-card">
+        <div class="ag-card-head">
+          <span class="ag-role ag-role-2">② 评分官 · 对照评分</span>
+          <span class="ag-badge" id="ag-grader-badge"></span>
+        </div>
+        <div class="ag-grid">
+          <aside class="ag-side" id="ag-grader-side"></aside>
+          <main class="ag-main" id="ag-grader-main"></main>
+        </div>
+      </div>
+
+      <div class="ag-card" id="ag-panel-card" style="display:none;">
+        <div class="ag-card-head">
+          <span class="ag-role ag-role-3">③ 评审团 · 五维独立评审</span>
+          <span class="ag-badge" id="ag-panel-badge"></span>
+        </div>
+        <div class="ag-panel-reviews" id="ag-panel-reviews"></div>
+        <div class="ag-note" id="ag-panel-note"></div>
+      </div>
+
+      <div class="ag-card" id="ag-arbiter-card" style="display:none;">
+        <div class="ag-card-head">
+          <span class="ag-role ag-role-4">④ 仲裁官 · 综合定档</span>
+          <span class="ag-badge" id="ag-arbiter-badge"></span>
+        </div>
+        <div class="ag-arb" id="ag-arb-body"></div>
       </div>
     </div>
 
@@ -229,12 +331,12 @@
       </div>
     </div>
 
-    <div class="rs-card">
+    <div id="reference-card" class="rs-card">
       <h3 class="rs-card-title"><i data-lucide="check-square"></i>参考要点对照</h3>
       <div id="reference-points" style="display:grid;gap:8px;"></div>
     </div>
 
-    <div class="rs-points">
+    <div id="rs-points" class="rs-points">
       <div class="rs-point-card hit">
         <h4>命中要点</h4>
         <ul id="hit-points"></ul>
@@ -251,14 +353,6 @@
       <ul id="disagreement-points" style="margin:0;padding-left:1.1rem;color:#64748b;line-height:1.75;font-size:13.5px;"></ul>
     </div>
 
-    <div id="model-comparison-card" class="rs-card" style="display:none;">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">
-        <h3 class="rs-card-title" style="margin:0;border:0;padding:0;"><i data-lucide="columns-3"></i>逐模型评审</h3>
-        <span id="judgment-count" class="badge badge-info">0 个模型</span>
-      </div>
-      <div id="model-judgments"></div>
-    </div>
-
     <div class="rs-card">
       <h3 class="rs-card-title"><i data-lucide="message-square"></i>AI 批改意见</h3>
       <div id="ai-feedback" class="rs-text">加载中...</div>
@@ -266,14 +360,27 @@
 
     <div class="rs-card">
       <h3 class="rs-card-title"><i data-lucide="lightbulb"></i>改进建议</h3>
-      <div id="improving-suggestions" class="rs-text">加载中...</div>
+      <ol id="improving-suggestions" class="ag-improve">加载中...</ol>
+    </div>
+
+    <div id="model-comparison-card" class="rs-card" style="display:none;">
+      <div class="ag-collapse-head" onclick="toggleCollapse('model-comparison-body', this)">
+        <h3 class="rs-card-title" style="margin:0;border:0;padding:0;"><i data-lucide="columns-3"></i>逐模型评审 <span id="judgment-count" class="badge badge-info" style="margin-left:6px;">0 个模型</span></h3>
+        <i data-lucide="chevron-down" class="ag-caret" style="width:18px;height:18px;color:#94a3b8;"></i>
+      </div>
+      <div id="model-comparison-body" style="display:none;margin-top:14px;">
+        <div id="model-judgments"></div>
+      </div>
     </div>
 
     <div id="reference-answer-card" class="rs-card" style="display:none;">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;">
+      <div class="ag-collapse-head" onclick="toggleCollapse('reference-answer-body', this)">
         <h3 class="rs-card-title" style="margin:0;border:0;padding:0;"><i data-lucide="book-open-check"></i>参考答案</h3>
+        <i data-lucide="chevron-down" class="ag-caret" style="width:18px;height:18px;color:#94a3b8;"></i>
       </div>
-      <div id="reference-answer" class="rs-text" style="white-space:pre-wrap;line-height:1.9;"></div>
+      <div id="reference-answer-body" style="display:none;margin-top:14px;">
+        <div id="reference-answer" class="rs-text" style="white-space:pre-wrap;line-height:1.9;"></div>
+      </div>
     </div>
 
     <div class="rs-card">
@@ -288,14 +395,14 @@
       <button class="btn btn-secondary" type="button" onclick="window.print()"><i data-lucide="download" style="width:16px;height:16px;"></i> 导出报告</button>
       <button class="btn btn-secondary" type="button" onclick="submitFeedback()">认为批改有误？</button>
       <button class="btn btn-secondary" type="button" id="regrade-btn" onclick="regradeSubmission()">重新批改</button>
-      <a href="/custom-grade" class="btn btn-primary">继续批改</a>
-      <a href="/papers" class="btn btn-secondary">返回卷库</a>
+      <a class="btn btn-primary" href="/custom-grade"><i data-lucide="send" style="width:16px;height:16px;"></i> 继续批改</a>
+      <a class="btn btn-secondary" href="/papers">返回卷库</a>
     </div>
 
     <div id="feedback-form" class="rs-card" style="display:none;">
       <h3 class="rs-card-title"><i data-lucide="alert-triangle"></i>提交纠错</h3>
-      <textarea id="feedback-text" class="input-field" style="min-height:110px;" placeholder="请说明你认为批改有误的原因..."></textarea>
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;">
+      <textarea id="feedback-text" class="input-field" rows="3" placeholder="请说明你认为批改有误的原因..."></textarea>
+      <div style="display:flex;gap:10px;margin-top:12px;justify-content:flex-end;">
         <button class="btn btn-secondary" type="button" onclick="document.getElementById('feedback-form').style.display='none'">取消</button>
         <button class="btn btn-primary" type="button" onclick="sendFeedback()">提交反馈</button>
       </div>
@@ -303,22 +410,30 @@
   </div>
 </div>
 
-<!-- 重新批改 - 模型选择弹窗 -->
 <div id="regrade-modal" class="regrade-modal" role="dialog" aria-modal="true">
   <div class="regrade-modal-content">
     <div class="regrade-modal-head">
-      <h3><i data-lucide="refresh-cw" style="width:16px;height:16px;color:#0c8ee7;vertical-align:-2px;"></i> 重新批改 · 选择模型</h3>
-      <button class="regrade-modal-close" type="button" onclick="closeRegradeModal()" aria-label="关闭">&times;</button>
+      <h3><i data-lucide="refresh-cw" style="width:17px;height:17px;margin-right:6px;"></i>重新批改 · 选择模型</h3>
+      <button type="button" class="regrade-modal-close" onclick="closeRegradeModal()">&times;</button>
     </div>
     <div class="regrade-modal-body">
       <p class="regrade-modal-hint">已默认勾选上一次批改使用的模型，可自由调整（最多 4 个）。若取消全部勾选，将沿用上一次的模型重新批改。</p>
       <div id="regrade-model-list" class="regrade-model-list">
         <div class="regrade-model-empty">正在加载可用模型...</div>
       </div>
+      <label class="regrade-mode-row">
+        <span class="regrade-mode-label">批改方式</span>
+        <div class="mode-switch" id="regrade-mode-switch">
+          <span class="mode-slider"></span>
+          <button type="button" class="mode-switch-opt active" data-mode="normal" onclick="setRegradeMode('normal')">常规批改</button>
+          <button type="button" class="mode-switch-opt" data-mode="agent" onclick="setRegradeMode('agent')">Agent 批改</button>
+        </div>
+        <span class="regrade-mode-hint">Agent 批改仅对大作文生效</span>
+      </label>
     </div>
     <div class="regrade-modal-foot">
-      <button class="btn btn-secondary" type="button" onclick="closeRegradeModal()">取消</button>
-      <button class="btn btn-primary" type="button" id="regrade-confirm-btn" onclick="confirmRegrade()">开始重新批改</button>
+      <button type="button" class="btn btn-secondary" onclick="closeRegradeModal()">取消</button>
+      <button type="button" class="btn btn-primary" id="regrade-confirm-btn" onclick="confirmRegrade()">开始重新批改</button>
     </div>
   </div>
 </div>
@@ -331,7 +446,33 @@
   const MAX_REGARDE_MODELS = 4;
   let availableRegradeModels = [];
   let lastUsedModelIds = [];
+  let regradeMode = 'normal';
 
+  function slideModeSwitch(sw) {
+    const active = sw.querySelector('.mode-switch-opt.active');
+    const slider = sw.querySelector('.mode-slider');
+    if (active && slider) {
+      slider.style.left = active.offsetLeft + 'px';
+      slider.style.width = active.offsetWidth + 'px';
+    }
+  }
+  function setRegradeMode(mode) {
+    regradeMode = mode;
+    const sw = document.getElementById('regrade-mode-switch');
+    if (!sw) return;
+    sw.dataset.mode = mode;
+    sw.querySelectorAll('.mode-switch-opt').forEach(o => o.classList.toggle('active', o.dataset.mode === mode));
+    slideModeSwitch(sw);
+  }
+  function upgradeToAgent() {
+    setRegradeMode('agent');
+    openRegradeModal();
+  }
+
+  const TYPE_LABELS = {
+    guina: '归纳概括', zonghe: '综合分析', duice: '提出对策', zhixing: '贯彻执行', zuowen: '大作文'
+  };
+  const MODE_LABELS = { fallback: '主备切换', ensemble: '多模型评审', single: '单模型批改' };
   const DIM_LABELS = {
     point_coverage: '踩点命中', conciseness: '语言简洁', accuracy: '归纳准确', format: '条理清晰',
     logic_chain: '逻辑链', depth: '分析深度', language: '语言规范',
@@ -356,11 +497,6 @@
     if (n === null) return '--';
     const percent = n <= 1 ? n * 100 : n;
     return `${Number.isInteger(percent) ? percent : percent.toFixed(1)}%`;
-  }
-  function formatScoreRate(value) {
-    const n = finiteNumber(value);
-    if (n === null) return '--';
-    return `${Number.isInteger(n) ? n : n.toFixed(1)} / 100`;
   }
   function formatPoint(point) {
     if (typeof point === 'string') return point;
@@ -394,6 +530,16 @@
       '踩点命中': 40, '逻辑结构': 25, '语言规范': 20, '字数控制': 10, '卷面整洁': 5
     };
   }
+  function modeLabel(mode) { return MODE_LABELS[mode] || mode || '单模型批改'; }
+  function toggleCollapse(id, headEl) {
+    const body = document.getElementById(id);
+    if (!body) return;
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : 'block';
+    const wrap = headEl ? headEl.closest('.rs-card') : null;
+    if (wrap) wrap.classList.toggle('open', !open);
+    if (window.lucide) lucide.createIcons();
+  }
 
   async function loadResult() {
     const token = localStorage.getItem('slb_token') || localStorage.getItem('token');
@@ -418,118 +564,368 @@
     }
   }
 
-  function regradeSubmission() {
-    // 打开模型选择弹窗（可自由选择重新批改使用的模型）
-    if (typeof SLBToast !== 'undefined') SLBToast.info('请选择重新批改使用的模型');
-    openRegradeModal();
-  }
+  // ================= 主渲染 =================
+  function renderResult(data) {
+    const scoreMax = finiteNumber(data.score_max) || 100;
+    const aggregate = (data.aggregate && typeof data.aggregate === 'object') ? data.aggregate : data;
+    const essay = aggregate.essay || data.essay || null;
+    const showEssay = Boolean(essay && essay.tier);
 
-  function openRegradeModal() {
-    const modal = document.getElementById('regrade-modal');
-    modal.classList.add('open');
-    loadRegradeModels();
+    document.getElementById('paper-info').textContent = data.paper_title || '批改结果';
+    document.getElementById('question-info').textContent = [
+      data.qid ? `题目 ${data.qid}` : '',
+      TYPE_LABELS[data.question_type] || data.question_type || '',
+      data.grading_mode ? `模式：${modeLabel(data.grading_mode)}` : ''
+    ].filter(Boolean).join(' · ');
+
+    renderVerdict(data, aggregate, essay, scoreMax, showEssay);
+    renderNotice(data, showEssay);
+
+    if (showEssay) {
+      renderAgentFlow(essay);
+      renderReviewerCard(essay);
+      renderGraderCard(essay);
+      renderPanelCard(essay);
+      renderArbiterCard(essay);
+      document.getElementById('agent-flow').style.display = '';
+      document.getElementById('agent-cards').style.display = 'grid';
+      // 大作文为整体评分，无逐条采分点
+      document.getElementById('reference-card').style.display = 'none';
+      document.getElementById('rs-points').style.display = 'none';
+    } else {
+      document.getElementById('agent-flow').style.display = 'none';
+      document.getElementById('agent-cards').style.display = 'none';
+      renderReferencePoints(data.hit_points || [], data.missing_points || []);
+      renderPointList('hit-points', data.hit_points || []);
+      renderPointList('missing-points', data.missing_points || []);
+      document.getElementById('reference-card').style.display = '';
+      document.getElementById('rs-points').style.display = '';
+    }
+
+    renderDimensions(data.dimension_scores || aggregate.dimension_scores || {});
+    renderDisagreement(data, aggregate);
+    renderModelJudgments(data, scoreMax);
+
+    const priorJudgments = Array.isArray(data.judgments) ? data.judgments : [];
+    lastUsedModelIds = priorJudgments.map(j => j.model_id).filter(id => typeof id === 'string' && id);
+
+    // AI 批改意见
+    document.getElementById('ai-feedback').textContent =
+      data.ai_feedback ||
+      (showEssay ? (essay.overall_evaluation || essay.tier_reason || '') : '') ||
+      '暂无批改意见';
+
+    // 改进建议（大作文取仲裁后的 top_improvements）
+    const sugEl = document.getElementById('improving-suggestions');
+    if (showEssay) {
+      const tips = Array.isArray(essay.top_improvements) ? essay.top_improvements : [];
+      sugEl.innerHTML = tips.length
+        ? tips.map(t => `<li>${escapeHtml(typeof t === 'string' ? t : (t.text || t.suggestion || JSON.stringify(t)))}</li>`).join('')
+        : '<li class="muted">继续保持，无明显短板</li>';
+    } else {
+      sugEl.textContent = formatSuggestions(data.improving_suggestions);
+    }
+
+    const refAnswer = data.reference_answer || '';
+    const refCard = document.getElementById('reference-answer-card');
+    if (refAnswer) {
+      refCard.style.display = 'block';
+      document.getElementById('reference-answer').textContent = refAnswer;
+    } else {
+      refCard.style.display = 'none';
+    }
+
+    document.getElementById('user-answer').textContent = data.user_answer || '';
+    const wc = (data.user_answer || '').replace(/\s/g, '').length;
+    document.getElementById('answer-word-count').textContent = wc ? `${wc} 字` : '';
     if (window.lucide) lucide.createIcons();
   }
 
-  function closeRegradeModal() {
-    document.getElementById('regrade-modal').classList.remove('open');
+  // ================= 综合判定卡 =================
+  function renderVerdict(data, aggregate, essay, scoreMax, showEssay) {
+    const hero = document.getElementById('verdict-card');
+    const score = finiteNumber(data.score);
+    document.getElementById('rv-score').textContent = score === null ? '--' : score;
+    document.getElementById('rv-max').textContent = scoreMax;
+
+    if (showEssay) {
+      const tnum = { '一类文': 1, '二类文': 2, '三类文': 3, '四类文': 4 }[essay.tier] || 2;
+      hero.className = 'rv-hero rv-tier-' + tnum;
+      document.getElementById('rv-tier-name').textContent = essay.tier || '--';
+      document.getElementById('rv-tier-sub').textContent = essay.tier_score_range || '';
+      document.getElementById('rv-verdict-text').textContent =
+        essay.tier_reason || essay.overall_evaluation || '暂无判定结论';
+    } else {
+      hero.className = 'rv-hero rv-plain';
+      document.getElementById('rv-tier-name').textContent =
+        TYPE_LABELS[data.question_type] || data.question_type || '单题批改';
+      document.getElementById('rv-tier-sub').textContent =
+        data.grading_mode ? `模式：${modeLabel(data.grading_mode)}` : '';
+      const fb = data.ai_feedback || aggregate.ai_feedback || '';
+      document.getElementById('rv-verdict-text').textContent =
+        fb.length > 160 ? fb.slice(0, 160) + '…' : (fb || '暂无评审结论');
+    }
+
+    renderVerdictDiff(essay);
+    renderVerdictChips(data, aggregate, essay);
   }
 
-  async function loadRegradeModels() {
-    const token = localStorage.getItem('slb_token') || localStorage.getItem('token');
-    const list = document.getElementById('regrade-model-list');
-    list.innerHTML = '<div class="regrade-model-empty">正在加载可用模型...</div>';
-    if (!token) { availableRegradeModels = []; renderRegradeModels(); return; }
-    try {
-      const res = await fetch('/api/models', { headers: { 'Authorization': 'Bearer ' + token } });
-      if (!res.ok) throw new Error('model list unavailable');
-      const payload = await res.json();
-      availableRegradeModels = Array.isArray(payload.data?.models) ? payload.data.models : [];
-    } catch (e) {
-      console.error('Failed to load regrade models:', e);
-      availableRegradeModels = [];
-    }
-    renderRegradeModels();
+  function renderVerdictDiff(essay) {
+    const box = document.getElementById('rv-diff');
+    const panel = essay && essay.panel && essay.panel.triggered ? essay.panel : null;
+    const arb = panel && panel.arbitration ? panel.arbitration : null;
+    const init = panel && panel.initial ? panel.initial : null;
+    if (!panel || !arb || !arb.tier) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    const initTier = init && init.tier ? init.tier : '--';
+    const initScore = finiteNumber(init && init.score_rate);
+    const finalTier = arb.tier;
+    const finalScore = finiteNumber(arb.score_rate);
+    const changed = initTier !== finalTier;
+    box.className = 'rv-diff ' + (changed ? 'rv-diff-changed' : 'rv-diff-same');
+    box.innerHTML = '⚖ 智能体复核：初评 <b>' + escapeHtml(initTier) +
+      (initScore !== null ? ' · ' + initScore : '') + '</b> ' + (changed ? '→' : '＝') +
+      ' 仲裁 <b>' + escapeHtml(finalTier) + (finalScore !== null ? ' · ' + finalScore : '') + '</b>' +
+      (changed ? '（评审团与仲裁已调整档次）' : '（评审团与仲裁确认初评无误）');
+    box.style.display = '';
   }
 
-  function renderRegradeModels() {
-    const list = document.getElementById('regrade-model-list');
-    list.replaceChildren();
-    if (!availableRegradeModels.length) {
-      const empty = document.createElement('div');
-      empty.className = 'regrade-model-empty';
-      empty.textContent = '暂无可用模型，将沿用上一次批改使用的模型。';
-      list.appendChild(empty);
-      return;
-    }
-    availableRegradeModels.forEach(model => {
-      const label = document.createElement('label');
-      label.className = 'regrade-model-item';
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.value = model.model_id;
-      cb.checked = lastUsedModelIds.includes(model.model_id);
-      cb.addEventListener('change', () => {
-        const checked = list.querySelectorAll('input:checked');
-        if (checked.length > MAX_REGARDE_MODELS) {
-          cb.checked = false;
-          if (typeof SLBToast !== 'undefined') SLBToast.warning('一次最多选择 4 个模型');
-          return;
-        }
-        label.classList.toggle('checked', cb.checked);
-      });
-      if (cb.checked) label.classList.add('checked');
-      const name = document.createElement('span');
-      name.className = 'regrade-model-name';
-      name.textContent = model.model_name || model.name || '未命名模型';
-      label.append(cb, name);
-      list.appendChild(label);
-    });
+  function renderVerdictChips(data, aggregate, essay) {
+    const box = document.getElementById('rv-chips');
+    const chips = [];
+    if (data.grading_mode) chips.push(['批改模式', modeLabel(data.grading_mode)]);
+    const agr = aggregate.agreement_rate ?? data.agreement_rate;
+    if (agr != null) chips.push(['一致率', formatPercentage(agr)]);
+    if (aggregate.score_spread != null) chips.push(['评分差', aggregate.score_spread]);
+    if (aggregate.valid_judges != null) chips.push(['有效模型', aggregate.valid_judges]);
+    if (aggregate.failed_judges != null) chips.push(['失败模型', aggregate.failed_judges]);
+    if (data.needs_review) chips.push(['状态', '建议复核']);
+    const panel = essay && essay.panel && essay.panel.triggered ? essay.panel : null;
+    if (panel) chips.push(['评审团', `${(panel.reviews || []).length}/5 维度`]);
+    box.innerHTML = chips.map(([k, v]) => `<span class="rv-chip"><b>${escapeHtml(k)}</b>${escapeHtml(v)}</span>`).join('');
   }
 
-  function confirmRegrade() {
-    const checked = Array.from(document.querySelectorAll('#regrade-model-list input:checked'))
-      .map(i => i.value);
-    if (checked.length > MAX_REGARDE_MODELS) {
-      if (typeof SLBToast !== 'undefined') SLBToast.warning('一次最多选择 4 个模型');
-      return;
-    }
-    closeRegradeModal();
-    doRegrade(checked);
-  }
-
-  async function doRegrade(modelIds) {
-    const btn = document.getElementById('regrade-btn');
-    const token = localStorage.getItem('slb_token') || localStorage.getItem('token');
-    if (!token) {
-      if (typeof SLBToast !== 'undefined') SLBToast.warning('请先登录');
-      window.location.href = '/login';
-      return;
-    }
-    const origText = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = '重新批改中…约1-3分钟';
-    if (typeof SLBToast !== 'undefined') SLBToast.info('已提交重新批改，请耐心等待…');
-    try {
-      const res = await fetch(`/api/submissions/${sid}/regrade`, {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify(modelIds.length ? { model_ids: modelIds } : {})
-      });
-      if (res.ok) {
-        if (typeof SLBToast !== 'undefined') SLBToast.success('重新批改完成');
-      } else {
-        const err = await res.json().catch(() => ({}));
-        if (typeof SLBToast !== 'undefined') SLBToast.error('重新批改可能未完成：' + (err.error || res.status) + '，正在刷新结果…');
+  function renderNotice(data, showEssay) {
+    const score = finiteNumber(data.score);
+    const isPending = data.status === 'pending_review' || (data.needs_review && score === null);
+    const notice = document.getElementById('review-notice');
+    if (isPending || data.needs_review) {
+      notice.style.display = 'flex';
+      if (isPending) {
+        document.getElementById('review-notice-title').textContent = '批改已转入待复核';
+        document.getElementById('review-notice-text').textContent = data.ai_feedback || '当前没有可用的有效模型成绩，系统未生成综合分数。';
       }
-    } catch (e) {
-      console.error(e);
-      if (typeof SLBToast !== 'undefined') SLBToast.error('请求超时或网络异常，正在刷新结果…');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = origText;
-      await loadResult();
+    } else {
+      notice.style.display = 'none';
     }
+  }
+
+  // ================= 智能体流程 stepper =================
+  function renderAgentFlow(essay) {
+    const box = document.getElementById('ag-steps');
+    const panel = essay.panel && essay.panel.triggered ? essay.panel : null;
+    const arb = panel && panel.arbitration ? panel.arbitration : null;
+    const reviews = panel ? (Array.isArray(panel.reviews) ? panel.reviews : []) : [];
+    const steps = [
+      { n: '①', name: '审题官', status: essay.anchor_from_cache ? '已缓存' : '已完成', done: true, target: 'ag-reviewer-card' },
+      { n: '②', name: '评分官', status: '已完成', done: true, target: 'ag-grader-card' },
+      { n: '③', name: '评审团', status: panel ? (reviews.length ? `${reviews.length}/5 维度` : '已触发') : '未触发', done: !!panel, degraded: !!(panel && reviews.length && reviews.length < 5), target: 'ag-panel-card' },
+      { n: '④', name: '仲裁官', status: arb && arb.tier ? '已定档' : (panel ? '未完成' : '未触发'), done: !!(arb && arb.tier), degraded: !!(panel && (!arb || !arb.tier)), target: 'ag-arbiter-card' }
+    ];
+    box.innerHTML = steps.map(s => `
+      <div class="ag-step ${s.done ? 'done' : ''} ${s.degraded ? 'degraded' : ''}" data-target="${s.target}">
+        <div class="ag-step-dot">${s.done ? '✓' : s.n}</div>
+        <div class="ag-step-name">${s.n} ${s.name}</div>
+        <div class="ag-step-status">${escapeHtml(s.status)}</div>
+      </div>`).join('');
+    box.querySelectorAll('.ag-step').forEach(el => {
+      el.addEventListener('click', () => {
+        const t = document.getElementById(el.dataset.target);
+        if (t && t.style.display !== 'none') t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+    let count = 2;
+    if (panel) count += 1 + (arb && arb.tier ? 1 : 0);
+    document.getElementById('ag-flow-meta').textContent = `${count} 个智能体协作完成本次批改`;
+
+    // 常规批改结果（未走评审团）时，提供「升级 Agent 批改」入口
+    const cta = document.getElementById('ag-flow-cta');
+    if (!panel) {
+      cta.innerHTML = '<button type="button" class="ag-upgrade-btn" onclick="upgradeToAgent()">✨ 升级 Agent 批改（评审团）</button>';
+    } else {
+      cta.innerHTML = '';
+    }
+  }
+
+  // ================= ① 审题官 =================
+  function renderReviewerCard(essay) {
+    const a = essay.anchor || {};
+    const meta = a._meta || {};
+    const badge = document.getElementById('ag-reviewer-badge');
+    if (essay.anchor_from_cache) { badge.textContent = '已缓存'; badge.className = 'ag-badge off'; }
+    else if (meta.revised) { badge.textContent = '本次生成 · 已自检修订'; badge.className = 'ag-badge warn'; }
+    else { badge.textContent = '本次生成 · 自检通过'; badge.className = 'ag-badge'; }
+
+    let html = '';
+    if (a.core_topic) html += `<div class="ag-anchor-core">${escapeHtml(a.core_topic)}</div>`;
+    if (a.material_position) html += `<div class="ag-anchor-pos">${escapeHtml(a.material_position)}</div>`;
+    if (Array.isArray(a.intended_theses) && a.intended_theses.length) {
+      html += '<div class="ag-anchor-sec"><span class="ag-anchor-label">可选立意</span><ul class="ag-theses">' +
+        a.intended_theses.map(t => `<li><b>${escapeHtml((t.rank ? '立意' + t.rank + '：' : '') + (t.thesis || ''))}</b>${t.depth ? '<span>' + escapeHtml(t.depth) + '</span>' : ''}</li>`).join('') + '</ul></div>';
+    }
+    if (Array.isArray(a.offtopic_risks) && a.offtopic_risks.length) {
+      html += `<div class="ag-anchor-sec"><span class="ag-anchor-label">易写偏</span><div class="ag-risk">⚠ ${a.offtopic_risks.map(escapeHtml).join('；')}</div></div>`;
+    }
+    if (Array.isArray(a.key_concepts) && a.key_concepts.length) {
+      html += `<div class="ag-anchor-sec"><span class="ag-anchor-label">核心概念</span><div class="ag-tags">${a.key_concepts.map(escapeHtml).map(t => `<span class="ag-tag">${t}</span>`).join('')}</div></div>`;
+    }
+    if (Array.isArray(a.evidence_pool) && a.evidence_pool.length) {
+      html += `<div class="ag-anchor-sec"><span class="ag-anchor-label">可用论据</span><ul class="ag-evidence">${a.evidence_pool.map(escapeHtml).map(t => `<li>${t}</li>`).join('')}</ul></div>`;
+    }
+    if (meta.check) html += `<div class="ag-anchor-note">🔎 ${escapeHtml(meta.check)}</div>`;
+    document.getElementById('ag-reviewer-body').innerHTML = html || '<div class="ag-muted">暂无审题锚点</div>';
+  }
+
+  // ================= ② 评分官 =================
+  function renderGraderCard(essay) {
+    document.getElementById('ag-grader-badge').textContent = '已完成';
+    const side = [];
+
+    const g = essay.genre_judgment || {};
+    const genreOk = g.is_correct_genre !== false;
+    side.push(`<div class="ag-block"><div class="ag-block-title">文体判定</div>` +
+      `<span class="ag-tag ${genreOk ? 'ag-tag-ok' : 'ag-tag-bad'}">${escapeHtml(g.genre || '议论文')}</span>` +
+      (g.analysis_ratio ? `<div class="ag-muted" style="margin-top:6px;">分析占比约 ${escapeHtml(g.analysis_ratio)}</div>` : '') +
+      (g.is_correct_genre === false ? '<div style="margin-top:8px;color:#b91c1c;font-size:12.5px;">⚠ 体裁不符要求，已影响定档</div>' : '') +
+      `</div>`);
+
+    const tc = essay.thesis_comparison || {};
+    let tHtml = '';
+    if (tc.student_thesis) tHtml += `<div class="ag-student-thesis">${escapeHtml(tc.student_thesis)}</div>`;
+    if (tc.deviation) tHtml += `<div style="margin-top:6px;">偏差判定：<span class="ag-dev ag-dev-${escapeHtml(tc.deviation)}">${escapeHtml(tc.deviation)}</span></div>`;
+    if (tc.explanation) tHtml += `<div class="ag-muted" style="margin-top:6px;">${escapeHtml(tc.explanation)}</div>`;
+    side.push(`<div class="ag-block"><div class="ag-block-title">立意对照</div>${tHtml || '<div class="ag-muted">暂无</div>'}</div>`);
+
+    const s = essay.structure_analysis || {};
+    const items = [
+      ['有标题', s.has_title], ['标题点题', s.title_on_topic], ['开头亮论点', s.has_opening_thesis],
+      ['有结尾', s.has_conclusion], ['结尾升华', s.has_sublimation], ['分论点平行', s.sub_theses_parallel]
+    ];
+    side.push(`<div class="ag-block"><div class="ag-block-title">结构检查</div><div class="ag-struct">` +
+      items.map(([label, val]) => {
+        const yes = val === true, no = val === false;
+        return `<div class="ag-struct-item ${yes ? 'yes' : no ? 'no' : ''}">${yes ? '✓ ' : no ? '✗ ' : '· '}${escapeHtml(label)}</div>`;
+      }).join('') +
+      (s.sub_thesis_count != null ? `<div class="ag-struct-item">分论点 ${escapeHtml(s.sub_thesis_count)} 个</div>` : '') +
+      '</div></div>');
+    document.getElementById('ag-grader-side').innerHTML = side.join('');
+
+    const main = [];
+    const paras = Array.isArray(essay.paragraph_analysis) ? essay.paragraph_analysis : [];
+    main.push('<div class="ag-block"><div class="ag-block-title">逐段分析</div>' +
+      (paras.length ? paras.map(p => `
+        <div class="ag-para">
+          <div class="ag-para-head"><span class="ag-para-idx">第 ${escapeHtml(p.para_index || '?')} 段</span></div>
+          ${p.summary ? `<div class="ag-para-sum">${escapeHtml(p.summary)}</div>` : ''}
+          ${p.strengths ? `<div class="ag-para-row good"><b>✓ 优点：</b>${escapeHtml(p.strengths)}</div>` : ''}
+          ${p.issues ? `<div class="ag-para-row issue"><b>! 问题：</b>${escapeHtml(p.issues)}</div>` : ''}
+          ${p.suggestion ? `<div class="ag-para-row suggest"><b>→ 修改：</b>${escapeHtml(p.suggestion)}</div>` : ''}
+        </div>`).join('') : '<div class="ag-muted">暂无逐段分析</div>') + '</div>');
+    main.push(`<div class="ag-block"><div class="ag-block-title">整体评价</div><div class="ag-overall">${escapeHtml(essay.overall_evaluation || essay.tier_reason || '暂无整体评价')}</div></div>`);
+    document.getElementById('ag-grader-main').innerHTML = main.join('');
+  }
+
+  // ================= ③ 评审团 =================
+  function renderPanelCard(essay) {
+    const card = document.getElementById('ag-panel-card');
+    const panel = essay.panel && essay.panel.triggered ? essay.panel : null;
+    if (!panel) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    const badge = document.getElementById('ag-panel-badge');
+    badge.textContent = panel.reason ? `已触发 · ${panel.reason}` : '已触发';
+    badge.className = 'ag-badge warn';
+
+    const reviews = Array.isArray(panel.reviews) ? panel.reviews : [];
+    document.getElementById('ag-panel-reviews').innerHTML = reviews.length
+      ? '<div class="ag-pv-grid">' + reviews.map(r => {
+          const score = finiteNumber(r.score);
+          return '<div class="ag-pv">' +
+            '<div class="ag-pv-head"><span class="ag-pv-dim">' + escapeHtml(r.dimension_label || r.dimension || '') + '</span><span class="ag-pv-tier">' + escapeHtml(r.tier_vote || '') + '</span></div>' +
+            '<div class="ag-pv-meta"><span class="ag-pv-score">' + (score === null ? '--' : score) + '</span><span>自信度 ' + escapeHtml(r.confidence || '中') + '</span></div>' +
+            (r.evidence ? '<div class="ag-pv-ev">「' + escapeHtml(r.evidence) + '」</div>' : '') +
+            (r.strengths ? '<div class="ag-pv-row good"><b>✓ 亮点：</b>' + escapeHtml(r.strengths) + '</div>' : '') +
+            (r.issues ? '<div class="ag-pv-row issue"><b>! 问题：</b>' + escapeHtml(r.issues) + '</div>' : '') +
+            (r.suggestion ? '<div class="ag-pv-row suggest"><b>→ 建议：</b>' + escapeHtml(r.suggestion) + '</div>' : '') +
+            '</div>';
+        }).join('') + '</div>'
+      : '<div class="ag-muted">评审团未产出有效意见（已降级回常规结果）</div>';
+
+    const arb = panel.arbitration;
+    document.getElementById('ag-panel-note').innerHTML =
+      (!arb || !arb.tier) && reviews.length
+        ? '<div>仲裁未完成，以下为各维度独立评审意见，请结合常规批改参考。</div>'
+        : '';
+  }
+
+  // ================= ④ 仲裁官 =================
+  function renderArbiterCard(essay) {
+    const card = document.getElementById('ag-arbiter-card');
+    const panel = essay.panel && essay.panel.triggered ? essay.panel : null;
+    const arb = panel && panel.arbitration ? panel.arbitration : null;
+    if (!panel) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    const badge = document.getElementById('ag-arbiter-badge');
+    if (arb && arb.tier) { badge.textContent = '已定档'; badge.className = 'ag-badge'; }
+    else { badge.textContent = '未完成'; badge.className = 'ag-badge warn'; }
+
+    let html = '';
+    if (arb && arb.tier) {
+      const init = panel.initial || {};
+      const initTier = init.tier || '--';
+      const initScore = finiteNumber(init.score_rate);
+      const finalScore = finiteNumber(arb.score_rate);
+      const changed = initTier !== arb.tier;
+      html += `<div class="ag-arb-head">
+        <div><div class="ag-arb-label">最终定档</div><div class="ag-arb-tier">${escapeHtml(arb.tier)}${arb.tier_score_range ? '（' + escapeHtml(arb.tier_score_range) + '）' : ''}</div></div>
+        <div style="text-align:right;"><div class="ag-arb-label">一致度</div><div class="ag-arb-consensus">${escapeHtml(arb.consensus || '中')}</div></div>
+      </div>`;
+      html += `<div class="ag-arb-diff ${changed ? 'changed' : 'same'}">初评 <b>${escapeHtml(initTier)}</b>${initScore !== null ? ' · ' + initScore : ''} ${changed ? '→' : '＝'} 仲裁 <b>${escapeHtml(arb.tier)}</b>${finalScore !== null ? ' · ' + finalScore : ''}${changed ? '（档次已调整）' : ''}</div>`;
+      if (arb.tier_reason) html += `<div class="ag-arb-reason">${escapeHtml(arb.tier_reason)}</div>`;
+      if (Array.isArray(arb.dissent_notes) && arb.dissent_notes.length) {
+        html += `<div class="ag-arb-dissent"><b>分歧说明：</b>${arb.dissent_notes.map(escapeHtml).join('；')}</div>`;
+      }
+    } else {
+      html = '<div class="ag-muted">仲裁未完成，已保留常规批改结果。</div>';
+    }
+    document.getElementById('ag-arb-body').innerHTML = html;
+  }
+
+  // ================= 通用区块 =================
+  function renderDisagreement(data, aggregate) {
+    const dcard = document.getElementById('disagreement-points-card');
+    const da = Array.isArray(aggregate.disagreement_analysis) ? aggregate.disagreement_analysis : [];
+    const allPoints = [
+      ...(Array.isArray(aggregate.hit_points) ? aggregate.hit_points : []),
+      ...(Array.isArray(aggregate.missing_points) ? aggregate.missing_points : [])
+    ];
+    const disagreement = allPoints.filter(p => p && p.disagreement === true);
+    dcard.style.display = (da.length > 0 || disagreement.length > 0) ? 'block' : 'none';
+    if (da.length > 0) {
+      document.getElementById('disagreement-analysis').innerHTML = da.map(d => {
+        const modelsHit = Array.isArray(d.models_hit) ? d.models_hit.join(', ') : '';
+        const modelsMiss = Array.isArray(d.models_miss) ? d.models_miss.join(', ') : '';
+        return '<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;">' +
+          '<div style="font-size:13.5px;color:#92400e;font-weight:500;margin-bottom:4px;">' + escapeHtml(d.point || '') + '</div>' +
+          '<div style="font-size:12px;color:#b45309;display:flex;gap:12px;flex-wrap:wrap;">' +
+          '<span>命中: ' + escapeHtml(modelsHit || '--') + '</span>' +
+          '<span>遗漏: ' + escapeHtml(modelsMiss || '--') + '</span>' +
+          '<span style="color:#64748b;">' + escapeHtml(d.resolution || '') + '</span>' +
+          '</div></div>';
+      }).join('');
+    } else {
+      document.getElementById('disagreement-analysis').innerHTML = '';
+    }
+    document.getElementById('disagreement-points').innerHTML =
+      disagreement.map(p => '<li>' + escapeHtml(formatPoint(p)) + '</li>').join('');
   }
 
   function renderDimensions(dimensions) {
@@ -565,13 +961,12 @@
       const max = maxMap[k] || 100;
       return Math.round((finiteNumber(v) || 0) / max * 100);
     });
-    const maxData = entries.map(() => 100);
     window._radarInstance = new Chart(ctx, {
       type: 'radar',
       data: {
         labels: labels,
         datasets: [
-          { label: '满分', data: maxData, borderColor: 'rgba(148,163,184,0.3)', backgroundColor: 'rgba(148,163,184,0.05)', borderWidth: 1, pointRadius: 0 },
+          { label: '满分', data: entries.map(() => 100), borderColor: 'rgba(148,163,184,0.3)', backgroundColor: 'rgba(148,163,184,0.05)', borderWidth: 1, pointRadius: 0 },
           { label: '得分', data: data, borderColor: 'rgba(12,142,231,0.8)', backgroundColor: 'rgba(12,142,231,0.15)', borderWidth: 2, pointRadius: 3, pointBackgroundColor: 'rgba(12,142,231,1)' }
         ]
       },
@@ -587,15 +982,12 @@
     const box = document.getElementById('reference-points');
     const hits = Array.isArray(hitPoints) ? hitPoints : [];
     const misses = Array.isArray(missingPoints) ? missingPoints : [];
-    const all = [
-      ...hits.map(p => ({ ...p, _hit: true })),
-      ...misses.map(p => ({ ...p, _hit: false }))
-    ];
+    const all = [...hits.map(p => ({ ...p, _hit: true })), ...misses.map(p => ({ ...p, _hit: false }))];
     if (!all.length) {
       box.innerHTML = '<div style="color:#94a3b8;font-size:13.5px;">暂无参考要点</div>';
       return;
     }
-    box.innerHTML = all.map((p, i) => {
+    box.innerHTML = all.map(p => {
       const label = p.point || p.description || '';
       const hit = p._hit;
       const score = finiteNumber(p.score);
@@ -623,280 +1015,146 @@
   }
 
   function renderPointList(id, points) {
-    const el = document.getElementById(id);
+    const list = document.getElementById(id);
     const arr = Array.isArray(points) ? points : [];
-    el.innerHTML = arr.length
+    list.innerHTML = arr.length
       ? arr.map(p => `<li>${escapeHtml(formatPoint(p))}</li>`).join('')
       : '<li>无</li>';
   }
 
   function renderModelJudgments(data, maxScore) {
-    const judgments = Array.isArray(data.judgments) ? data.judgments : [];
     const card = document.getElementById('model-comparison-card');
-    card.style.display = judgments.length ? 'block' : 'none';
-    if (!judgments.length) return;
+    const judgments = Array.isArray(data.judgments) ? data.judgments : [];
+    if (!judgments.length) { card.style.display = 'none'; return; }
+    card.style.display = 'block';
     document.getElementById('judgment-count').textContent = `${judgments.length} 个模型`;
-    document.getElementById('model-judgments').innerHTML = judgments.map(j => {
-      const scoreRate = finiteNumber(j.score_rate);
-      const modelScore = scoreRate === null ? finiteNumber(j.score) : Number((scoreRate * maxScore / 100).toFixed(1));
-      const ok = j.status === 'completed' && modelScore !== null;
-      const label = j.model_name || j.name || j.model_id || '未命名模型';
-      return `
-        <div class="rs-judge">
-          <div class="rs-judge-head">
-            <div>
-              <div class="rs-judge-name">${escapeHtml(label)}</div>
-              <div class="rs-judge-meta">${escapeHtml(j.protocol || '')} · ${ok ? '已完成' : publicErrorLabel(j.error_code || j.error_category || 'internal')}</div>
-            </div>
-            <div class="rs-judge-score">${ok ? `${escapeHtml(modelScore)}/${escapeHtml(maxScore)}` : '--'}</div>
-          </div>
-          ${ok ? `<div class="rs-text" style="margin-top:8px;">${escapeHtml(j.ai_feedback || '暂无评语')}</div>` : ''}
-        </div>`;
+    const box = document.getElementById('model-judgments');
+    box.innerHTML = judgments.map(j => {
+      const failed = j.status !== 'completed';
+      const score = failed ? null : (finiteNumber(j.score_rate) ?? finiteNumber(j.score));
+      const name = j.model_name || j.name || j.model_id;
+      const error = j.error_code || j.error_category;
+      return `<div class="rs-judge">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <div class="rs-judge-name">${escapeHtml(name)} <span style="font-size:11px;color:#94a3b8;">${escapeHtml(j.protocol || '')}</span></div>
+          <div class="rs-judge-score" style="color:${failed ? '#dc2626' : 'var(--ui-primary)'};">${failed ? publicErrorLabel(error) : (score === null ? '--' : score + ' / 100')}</div>
+        </div>
+        ${j.ai_feedback ? `<div style="font-size:12.5px;color:#64748b;margin-top:6px;line-height:1.6;">${escapeHtml(String(j.ai_feedback).slice(0, 220))}${String(j.ai_feedback).length > 220 ? '…' : ''}</div>` : ''}
+      </div>`;
     }).join('');
   }
 
-  function renderEssayReview(essay) {
-    const box = document.getElementById('essay-review');
-    if (!essay || !essay.tier) { if (box) box.style.display = 'none'; return; }
-    box.style.display = 'block';
-
-    // 顶部档次横幅
-    const tierMap = { '一类文': 1, '二类文': 2, '三类文': 3, '四类文': 4 };
-    const tnum = tierMap[essay.tier] || 2;
-    const banner = document.getElementById('es-banner');
-    banner.className = 'es-banner es-tier-' + tnum;
-    document.getElementById('es-tier-name').textContent = essay.tier;
-    document.getElementById('es-tier-reason').textContent = essay.tier_reason || '';
-    const score = finiteNumber(essay.score_rate ?? essay.score);
-    document.getElementById('es-score').textContent = score === null ? '--' : score;
-
-    // 审题锚点
-    const a = essay.anchor || {};
-    let anchorHtml = '';
-    if (a.core_topic) anchorHtml += `<div class="core">${escapeHtml(a.core_topic)}</div>`;
-    if (a.material_position) anchorHtml += `<div style="margin-top:6px;">${escapeHtml(a.material_position)}</div>`;
-    if (Array.isArray(a.intended_theses) && a.intended_theses.length) {
-      anchorHtml += '<ul>' + a.intended_theses.map(t =>
-        `<li><b style="color:#0c8ee7;">${escapeHtml((t.rank ? '立意' + t.rank + '：' : '') + (t.thesis || ''))}</b>${t.depth ? '<br><span style="color:#64748b;">' + escapeHtml(t.depth) + '</span>' : ''}</li>`
-      ).join('') + '</ul>';
-    }
-    if (Array.isArray(a.offtopic_risks) && a.offtopic_risks.length) {
-      anchorHtml += '<div style="margin-top:6px;color:#b45309;">⚠ 易写偏：' + a.offtopic_risks.map(escapeHtml).join('；') + '</div>';
-    }
-    if (Array.isArray(a.key_concepts) && a.key_concepts.length) {
-      anchorHtml += '<div style="margin-top:6px;font-size:12px;color:#64748b;">核心概念：' + a.key_concepts.map(escapeHtml).join('、') + '</div>';
-    }
-    document.getElementById('es-anchor').innerHTML = anchorHtml;
-    document.getElementById('es-anchor-cache').textContent = essay.anchor_from_cache ? '（已缓存）' : '（本次生成）';
-
-    // 文体判定
-    const g = essay.genre_judgment || {};
-    const genreOk = g.is_correct_genre !== false;
-    document.getElementById('es-genre').innerHTML =
-      `<span class="tag ${genreOk ? 'tag-ok' : 'tag-bad'}">${escapeHtml(g.genre || '议论文')}</span>` +
-      (g.analysis_ratio ? `分析占比约 ${escapeHtml(g.analysis_ratio)}` : '') +
-      (g.is_correct_genre === false ? '<div style="margin-top:6px;color:#b91c1c;">⚠ 体裁不符要求，已影响定档</div>' : '');
-
-    // 立意对照
-    const tc = essay.thesis_comparison || {};
-    let thesisHtml = '';
-    if (tc.student_thesis) thesisHtml += `<div class="student">${escapeHtml(tc.student_thesis)}</div>`;
-    if (tc.deviation) thesisHtml += `<div><span class="label">偏差判定：</span><span class="deviation dev-${escapeHtml(tc.deviation)}">${escapeHtml(tc.deviation)}</span></div>`;
-    if (tc.explanation) thesisHtml += `<div style="margin-top:4px;color:#475569;">${escapeHtml(tc.explanation)}</div>`;
-    document.getElementById('es-thesis').innerHTML = thesisHtml;
-
-    // 结构检查
-    const s = essay.structure_analysis || {};
-    const structItems = [
-      ['有标题', s.has_title], ['标题点题', s.title_on_topic],
-      ['开头亮论点', s.has_opening_thesis], ['有结尾', s.has_conclusion],
-      ['结尾升华', s.has_sublimation], ['分论点平行', s.sub_theses_parallel]
-    ];
-    document.getElementById('es-structure').innerHTML = structItems.map(([label, val]) => {
-      const yes = val === true; const no = val === false;
-      const cls = yes ? 'yes' : (no ? 'no' : '');
-      const mark = yes ? '✓ ' : (no ? '✗ ' : '· ');
-      return `<div class="es-struct-item ${cls}">${mark}${escapeHtml(label)}</div>`;
-    }).join('') + (s.sub_thesis_count != null ? `<div class="es-struct-item">分论点 ${escapeHtml(s.sub_thesis_count)} 个</div>` : '');
-
-    // 逐段分析
-    const paras = Array.isArray(essay.paragraph_analysis) ? essay.paragraph_analysis : [];
-    document.getElementById('es-paragraphs').innerHTML = paras.length
-      ? paras.map(p => `
-        <div class="es-para">
-          <div class="es-para-head"><span class="es-para-idx">第 ${escapeHtml(p.para_index || '?')} 段</span></div>
-          ${p.summary ? `<div class="es-para-summary">${escapeHtml(p.summary)}</div>` : ''}
-          ${p.strengths ? `<div class="es-para-row es-good"><b>✓ 优点：</b>${escapeHtml(p.strengths)}</div>` : ''}
-          ${p.issues ? `<div class="es-para-row es-issue"><b>! 问题：</b>${escapeHtml(p.issues)}</div>` : ''}
-          ${p.suggestion ? `<div class="es-para-row es-suggest"><b>→ 修改：</b>${escapeHtml(p.suggestion)}</div>` : ''}
-        </div>`).join('')
-      : '<div style="color:#94a3b8;font-size:13px;">暂无逐段分析</div>';
-
-    // 整体评价
-    document.getElementById('es-overall').textContent = essay.overall_evaluation || essay.tier_reason || '暂无整体评价';
-
-    // 提分路径
-    const tips = Array.isArray(essay.top_improvements) ? essay.top_improvements : [];
-    document.getElementById('es-improvements').innerHTML = tips.length
-      ? tips.map(t => `<li>${escapeHtml(typeof t === 'string' ? t : (t.text || t.suggestion || JSON.stringify(t)))}</li>`).join('')
-      : '<li style="list-style:none;color:#94a3b8;">继续保持，无明显短板</li>';
-
-    // 评审团意见（P2）
-    renderEssayPanel(essay);
+  // ================= 重新批改 =================
+  function regradeSubmission() {
+    if (typeof SLBToast !== 'undefined') SLBToast.info('请选择重新批改使用的模型');
+    openRegradeModal();
   }
-
-  function renderEssayPanel(essay) {
-    const pcard = document.getElementById('es-panel-card');
-    const pbox = document.getElementById('es-panel');
-    const panel = (essay && essay.panel && essay.panel.triggered) ? essay.panel : null;
-    if (!panel) {
-      if (pcard) pcard.style.display = 'none';
-      if (pbox) pbox.innerHTML = '';
-      return;
-    }
-    pcard.style.display = '';
-    document.getElementById('es-panel-trigger').textContent = panel.reason ? '触发：' + panel.reason : '';
-    const reviews = Array.isArray(panel.reviews) ? panel.reviews : [];
-    let html = '';
-    if (reviews.length) {
-      html += '<div class="es-panel-grid">' + reviews.map(r => {
-        const dim = escapeHtml(r.dimension_label || r.dimension || '');
-        const tier = escapeHtml(r.tier_vote || '');
-        const score = finiteNumber(r.score);
-        const conf = escapeHtml(r.confidence || '中');
-        return '<div class="es-pv">' +
-          '<div class="es-pv-head"><span class="es-pv-dim">' + dim + '</span><span class="es-pv-tier">' + tier + '</span></div>' +
-          '<div style="display:flex;justify-content:space-between;align-items:baseline;">' +
-            '<span class="es-pv-score">' + (score === null ? '--' : score) + '</span>' +
-            '<span style="font-size:11px;color:#94a3b8;">自信度：' + conf + '</span>' +
-          '</div>' +
-          (r.evidence ? '<div class="es-pv-row es-pv-ev">「' + escapeHtml(r.evidence) + '」</div>' : '') +
-          (r.strengths ? '<div class="es-pv-row es-pv-good"><b>✓ 亮点：</b>' + escapeHtml(r.strengths) + '</div>' : '') +
-          (r.issues ? '<div class="es-pv-row es-pv-issue"><b>! 问题：</b>' + escapeHtml(r.issues) + '</div>' : '') +
-          (r.suggestion ? '<div class="es-pv-row es-pv-suggest"><b>→ 建议：</b>' + escapeHtml(r.suggestion) + '</div>' : '') +
-        '</div>';
-      }).join('') + '</div>';
-    }
-    const arb = panel.arbitration || null;
-    if (arb && arb.tier) {
-      const arbScore = finiteNumber(arb.score_rate);
-      html += '<div class="es-arb">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
-          '<span style="font-size:12px;color:#7c3aed;font-weight:700;">⚖ 仲裁定档</span>' +
-          '<span class="es-arb-tier">' + escapeHtml(arb.tier) + (arb.tier_score_range ? '（' + escapeHtml(arb.tier_score_range) + '）' : '') + '</span>' +
-          '<span style="font-size:11.5px;color:#94a3b8;">一致度：' + escapeHtml(arb.consensus || '中') + ' · 最终分 ' + (arbScore === null ? '--' : arbScore) + '</span>' +
-        '</div>' +
-        (arb.tier_reason ? '<div class="es-arb-reason">' + escapeHtml(arb.tier_reason) + '</div>' : '') +
-        (Array.isArray(arb.dissent_notes) && arb.dissent_notes.length
-          ? '<div style="margin-top:8px;font-size:12.5px;color:#b45309;line-height:1.6;"><b>分歧说明：</b>' + arb.dissent_notes.map(escapeHtml).join('；') + '</div>'
-          : '') +
-      '</div>';
-    } else if (reviews.length) {
-      html += '<div style="font-size:12.5px;color:#94a3b8;">仲裁未完成，以下为各维度独立评审意见，请结合常规批改参考。</div>';
-    }
-    pbox.innerHTML = html;
-  }
-
-  function renderResult(data) {
-    const scoreMax = finiteNumber(data.score_max) || 100;
-    const score = finiteNumber(data.score);
-    document.getElementById('paper-info').textContent = data.paper_title || '批改结果';
-    document.getElementById('question-info').textContent = [
-      data.qid ? `题目 ${data.qid}` : '',
-      data.question_type || '',
-      data.grading_mode ? `模式：${data.grading_mode}` : ''
-    ].filter(Boolean).join(' · ');
-    document.getElementById('total-score').textContent = score === null ? '--' : score;
-    document.getElementById('max-score').textContent = scoreMax;
-
-    const isPending = data.status === 'pending_review' || (data.needs_review && score === null);
-    const notice = document.getElementById('review-notice');
-    if (isPending || data.needs_review) {
-      notice.style.display = 'flex';
-      if (isPending) {
-        document.getElementById('review-notice-title').textContent = '批改已转入待复核';
-        document.getElementById('review-notice-text').textContent = data.ai_feedback || '当前没有可用的有效模型成绩，系统未生成综合分数。';
-      }
-    } else {
-      notice.style.display = 'none';
-    }
-
-    const aggregate = (data.aggregate && typeof data.aggregate === 'object') ? data.aggregate : data;
-    const summaryCard = document.getElementById('grading-summary-card');
-    const hasSummary = Boolean(data.grading_mode || (data.judgments || []).length || data.aggregate);
-    summaryCard.style.display = hasSummary ? 'block' : 'none';
-    if (hasSummary) {
-      const modeLabels = { fallback: '主备切换', ensemble: '多模型评审', single: '单模型批改' };
-      document.getElementById('grading-mode').textContent = modeLabels[data.grading_mode] || data.grading_mode || '单模型批改';
-      document.getElementById('aggregate-score-rate').textContent = formatScoreRate(aggregate.score_rate ?? data.score_rate);
-      document.getElementById('agreement-rate').textContent = formatPercentage(aggregate.agreement_rate ?? data.agreement_rate);
-      document.getElementById('score-spread').textContent = aggregate.score_spread ?? data.score_spread ?? '--';
-      document.getElementById('valid-judges').textContent = aggregate.valid_judges ?? data.valid_judges ?? 0;
-      document.getElementById('failed-judges').textContent = aggregate.failed_judges ?? data.failed_judges ?? 0;
-    }
-
-    renderDimensions(data.dimension_scores || aggregate.dimension_scores || {});
-    renderPointList('hit-points', data.hit_points || []);
-    renderPointList('missing-points', data.missing_points || []);
-    renderReferencePoints(data.hit_points || [], data.missing_points || []);
-
-    // disagreement analysis from summary LLM
-    const dcard = document.getElementById('disagreement-points-card');
-    const da = Array.isArray(aggregate.disagreement_analysis) ? aggregate.disagreement_analysis : [];
-    // Legacy point-level disagreement
-    const allPoints = [
-      ...(Array.isArray(aggregate.hit_points) ? aggregate.hit_points : []),
-      ...(Array.isArray(aggregate.missing_points) ? aggregate.missing_points : [])
-    ];
-    const disagreement = allPoints.filter(p => p && p.disagreement === true);
-    const hasLegacyDisagree = disagreement.length > 0;
-
-    dcard.style.display = (da.length > 0 || hasLegacyDisagree || (data.hit_points || []).length + (data.missing_points || []).length === 0) ? 'block' : 'none';
-
-    if (da.length > 0) {
-      document.getElementById('disagreement-analysis').innerHTML = da.map(d => {
-        const modelsHit = Array.isArray(d.models_hit) ? d.models_hit.join(', ') : '';
-        const modelsMiss = Array.isArray(d.models_miss) ? d.models_miss.join(', ') : '';
-        return '<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;">' +
-          '<div style="font-size:13.5px;color:#92400e;font-weight:500;margin-bottom:4px;">' + escapeHtml(d.point || '') + '</div>' +
-          '<div style="font-size:12px;color:#b45309;display:flex;gap:12px;flex-wrap:wrap;">' +
-          '<span>命中: ' + escapeHtml(modelsHit || '--') + '</span>' +
-          '<span>遗漏: ' + escapeHtml(modelsMiss || '--') + '</span>' +
-          '<span style="color:#64748b;">' + escapeHtml(d.resolution || '') + '</span>' +
-          '</div></div>';
-      }).join('');
-    } else {
-      document.getElementById('disagreement-analysis').innerHTML = '';
-    }
-    document.getElementById('disagreement-points').innerHTML = disagreement.map(p => '<li>' + escapeHtml(formatPoint(p)) + '</li>').join('');
-
-    renderModelJudgments(data, scoreMax);
-    renderEssayReview(aggregate.essay || data.essay || null);
-
-    // 记录上一次批改使用的模型，用于重新批改弹窗预选
-    const priorJudgments = Array.isArray(data.judgments) ? data.judgments : [];
-    lastUsedModelIds = priorJudgments
-      .map(j => j.model_id)
-      .filter(id => typeof id === 'string' && id);
-
-    document.getElementById('ai-feedback').textContent = data.ai_feedback || '暂无批改意见';
-    document.getElementById('improving-suggestions').textContent = formatSuggestions(data.improving_suggestions);
-
-    const refAnswer = data.reference_answer || '';
-    const refCard = document.getElementById('reference-answer-card');
-    if (refAnswer) {
-      refCard.style.display = 'block';
-      document.getElementById('reference-answer').textContent = refAnswer;
-    } else {
-      refCard.style.display = 'none';
-    }
-
-    document.getElementById('user-answer').textContent = data.user_answer || '';
-    const wc = (data.user_answer || '').replace(/\s/g, '').length;
-    document.getElementById('answer-word-count').textContent = wc ? `${wc} 字` : '';
+  function openRegradeModal() {
+    const modal = document.getElementById('regrade-modal');
+    modal.classList.add('open');
+    loadRegradeModels();
     if (window.lucide) lucide.createIcons();
   }
+  function closeRegradeModal() {
+    document.getElementById('regrade-modal').classList.remove('open');
+  }
+  async function loadRegradeModels() {
+    const token = localStorage.getItem('slb_token') || localStorage.getItem('token');
+    const list = document.getElementById('regrade-model-list');
+    list.innerHTML = '<div class="regrade-model-empty">正在加载可用模型...</div>';
+    if (!token) { availableRegradeModels = []; renderRegradeModels(); return; }
+    try {
+      const res = await fetch('/api/models', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (!res.ok) throw new Error('model list unavailable');
+      const payload = await res.json();
+      availableRegradeModels = Array.isArray(payload.data?.models) ? payload.data.models : [];
+    } catch (e) {
+      console.error('Failed to load regrade models:', e);
+      availableRegradeModels = [];
+    }
+    renderRegradeModels();
+  }
+  function renderRegradeModels() {
+    const list = document.getElementById('regrade-model-list');
+    list.replaceChildren();
+    if (!availableRegradeModels.length) {
+      const empty = document.createElement('div');
+      empty.className = 'regrade-model-empty';
+      empty.textContent = '暂无可用模型，将沿用上一次批改使用的模型。';
+      list.appendChild(empty);
+      return;
+    }
+    availableRegradeModels.forEach(model => {
+      const label = document.createElement('label');
+      label.className = 'regrade-model-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = model.model_id;
+      cb.checked = lastUsedModelIds.includes(model.model_id);
+      cb.addEventListener('change', () => {
+        const checked = list.querySelectorAll('input:checked');
+        if (checked.length > MAX_REGARDE_MODELS) {
+          cb.checked = false;
+          if (typeof SLBToast !== 'undefined') SLBToast.warning('一次最多选择 4 个模型');
+          return;
+        }
+        label.classList.toggle('checked', cb.checked);
+      });
+      if (cb.checked) label.classList.add('checked');
+      const name = document.createElement('span');
+      name.className = 'regrade-model-name';
+      name.textContent = model.model_name || model.name || '未命名模型';
+      label.append(cb, name);
+      list.appendChild(label);
+    });
+  }
+  function confirmRegrade() {
+    const checked = Array.from(document.querySelectorAll('#regrade-model-list input:checked')).map(i => i.value);
+    if (checked.length > MAX_REGARDE_MODELS) {
+      if (typeof SLBToast !== 'undefined') SLBToast.warning('一次最多选择 4 个模型');
+      return;
+    }
+    closeRegradeModal();
+    doRegrade(checked, regradeMode === 'agent');
+  }
+  async function doRegrade(modelIds, deep) {
+    const btn = document.getElementById('regrade-btn');
+    const token = localStorage.getItem('slb_token') || localStorage.getItem('token');
+    if (!token) {
+      if (typeof SLBToast !== 'undefined') SLBToast.warning('请先登录');
+      window.location.href = '/login';
+      return;
+    }
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '重新批改中…约1-3分钟';
+    if (typeof SLBToast !== 'undefined') SLBToast.info('已提交重新批改，请耐心等待…');
+    try {
+      const body = {};
+      if (modelIds.length) body.model_ids = modelIds;
+      if (deep) body.deep = true;
+      const res = await fetch(`/api/submissions/${sid}/regrade`, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (res.ok) {
+        if (typeof SLBToast !== 'undefined') SLBToast.success('重新批改完成');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        if (typeof SLBToast !== 'undefined') SLBToast.error('重新批改可能未完成：' + (err.error || res.status) + '，正在刷新结果…');
+      }
+    } catch (e) {
+      console.error(e);
+      if (typeof SLBToast !== 'undefined') SLBToast.error('请求超时或网络异常，正在刷新结果…');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = origText;
+      await loadResult();
+    }
+  }
 
+  // ================= 纠错反馈 =================
   function submitFeedback() {
     document.getElementById('feedback-form').style.display = 'block';
     document.getElementById('feedback-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
