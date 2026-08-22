@@ -51,7 +51,9 @@ def get_trend(current_user):
 @token_required
 def generate_report(current_user):
     """手动生成诊断报告"""
-    sid = request.json.get('sid') if request.is_json else None
+    # 前端可能不带 body 调用，空 body 不应报 400
+    data = request.get_json(silent=True) or {}
+    sid = data.get('sid')
     report = diagnosis_service.generate_diagnostic_report(current_user['uid'], sid)
     if not report:
         return api_error("数据不足，无法生成报告", 400)

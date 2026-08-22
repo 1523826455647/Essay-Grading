@@ -103,7 +103,7 @@
         <h1>能力诊断报告</h1>
         <p id="reportTime">基于你的练习记录自动生成</p>
       </div>
-      <button class="btn btn-primary" onclick="generateReport()" style="background:#fff;color:#0b6fbe;">
+      <button id="regen-btn" class="btn btn-primary" onclick="generateReport()" style="background:#fff;color:#0b6fbe;">
         <i data-lucide="refresh-cw" style="width:15px;height:15px;"></i> 重新诊断
       </button>
     </div>
@@ -282,11 +282,25 @@ function drawTrend(trend) {
 }
 
 async function generateReport() {
-  if (!token) { showToast('请先登录', 'error'); return; }
-  const res = await fetch(API + '/generate', { method: 'POST', headers: headers() });
-  const data = await res.json();
-  if (data.data) renderReport(data.data);
-  else showToast(data.error || '生成失败，请先完成一次练习', 'error');
+  if (!token) { if (typeof showToast === 'function') showToast('请先登录', 'error'); return; }
+  const btn = document.getElementById('regen-btn');
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.textContent = '诊断中...'; }
+  try {
+    const res = await fetch(API + '/generate', { method: 'POST', headers: headers(), body: JSON.stringify({}) });
+    const data = await res.json();
+    if (data.data) {
+      if (typeof showToast === 'function') showToast('诊断报告已更新', 'success');
+      renderReport(data.data);
+    } else {
+      if (typeof showToast === 'function') showToast(data.error || '生成失败，请先完成一次练习', 'error');
+    }
+  } catch (e) {
+    console.error(e);
+    if (typeof showToast === 'function') showToast('生成失败，请重试', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = orig; if (window.lucide) lucide.createIcons(); }
+  }
 }
 
 loadReport();
