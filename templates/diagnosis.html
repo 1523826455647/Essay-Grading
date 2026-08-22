@@ -8,6 +8,7 @@
     background: linear-gradient(135deg, #0b6fbe, #0c8ee7 55%, #12a8c9);
     border-radius: 18px; color: #fff; padding: 28px; margin-bottom: 20px;
     box-shadow: 0 10px 28px rgba(12,142,231,.18);
+    display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap;
   }
   .dx-hero h1 { margin: 0 0 8px; font-size: 1.5rem; color: #fff; }
   .dx-hero p { margin: 0; color: rgba(255,255,255,.88); font-size: 14px; }
@@ -98,8 +99,13 @@
 <div class="page-container">
   <div class="dx-page">
     <div class="dx-hero">
-      <h1>能力诊断报告</h1>
-      <p id="reportTime">基于你的练习记录自动生成</p>
+      <div>
+        <h1>能力诊断报告</h1>
+        <p id="reportTime">基于你的练习记录自动生成</p>
+      </div>
+      <button class="btn btn-primary" onclick="generateReport()" style="background:#fff;color:#0b6fbe;">
+        <i data-lucide="refresh-cw" style="width:15px;height:15px;"></i> 重新诊断
+      </button>
     </div>
 
     <div id="loadingState" class="dx-card" style="text-align:center;padding:40px;">
@@ -165,9 +171,9 @@
 const API = '/api/diagnosis';
 const token = localStorage.getItem('slb_token') || localStorage.getItem('token') || '';
 const headers = () => ({'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'});
-const dimNames = {point_coverage:'踩点命中',logic_structure:'逻辑结构',language:'语言表达',format:'格式规范',word_count:'字数控制'};
+const dimNames = {content:'内容覆盖',logic:'逻辑分析',language:'语言表达',format:'格式规范',essay:'立意论证'};
 const typeNames = {guina:'归纳概括',zonghe:'综合分析',duice:'提出对策',zhixing:'贯彻执行',zuowen:'大作文'};
-const dimMax = {point_coverage:40,logic_structure:25,language:20,format:5,word_count:10};
+const dimMax = {content:100,logic:100,language:100,format:100,essay:100};
 
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
@@ -201,11 +207,13 @@ function renderReport(r) {
 
   const dims = r.dimension_scores || {};
   document.getElementById('dimGrid').innerHTML = Object.entries(dimNames).map(([k, label]) => {
-    const val = Number(dims[k] || 0);
-    const max = dimMax[k] || 20;
-    const pct = Math.min(100, (val / max) * 100);
-    const color = pct >= 75 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
-    return `<div class="dx-dim"><div class="dx-dim-top"><span class="dx-dim-label">${label}</span><span class="dx-dim-val">${val}/${max}</span></div><div class="dx-bar"><div class="dx-fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+    const raw = dims[k];
+    const has = raw != null;
+    const val = has ? Number(raw) : null;
+    const max = dimMax[k] || 100;
+    const pct = has ? Math.min(100, Math.max(0, val)) : 0;
+    const color = has ? (pct >= 75 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444') : '#e2e8f0';
+    return `<div class="dx-dim"><div class="dx-dim-top"><span class="dx-dim-label">${label}</span><span class="dx-dim-val">${has ? val + '/' + max : '--'}</span></div><div class="dx-bar"><div class="dx-fill" style="width:${pct}%;background:${color}"></div></div></div>`;
   }).join('');
 
   const types = r.type_scores || {};
@@ -222,7 +230,11 @@ function renderReport(r) {
   document.getElementById('recList').innerHTML = recs.length
     ? recs.map(rec => {
         const p = rec.priority || 'medium';
-        return `<div class="dx-rec-item"><span class="dx-badge ${esc(p)}">${esc(String(p).toUpperCase())}</span><span class="dx-rec-text">${esc(rec.action || '')}</span></div>`;
+        const link = rec.link ? esc(rec.link) : '';
+        return `<a class="dx-rec-item" href="${link}" ${link ? '' : 'style="pointer-events:none;cursor:default;"'}>
+          <span class="dx-badge ${esc(p)}">${esc(String(p).toUpperCase())}</span>
+          <span class="dx-rec-text">${esc(rec.action || '')}${link ? ' →' : ''}</span>
+        </a>`;
       }).join('')
     : '<div class="dx-item">暂无建议</div>';
 

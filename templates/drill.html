@@ -205,5 +205,11 @@ async function loadHistory(type) {
 }
 
 loadStats().catch(() => { showStaticCards(); });
+
+// 支持从能力诊断等入口深链：/drill?type=guina 自动选中对应题型
+const _urlType = new URLSearchParams(location.search).get('type');
+if (_urlType && ['guina', 'zonghe', 'duice', 'zhixing', 'zuowen'].includes(_urlType) && token) {
+  selectType(_urlType);
+}
 </script>
 {% endblock %}

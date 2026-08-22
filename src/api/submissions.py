@@ -22,6 +22,35 @@ from src.services import exchange_code_service
 submissions_bp = Blueprint('submissions', __name__, url_prefix='/api/submissions')
 logger = logging.getLogger(__name__)
 
+# 本次批改小结用：维度中文名 + 满分
+_DIM_META = {
+    'point_coverage': ('踩点命中', 70), 'conciseness': ('语言简洁', 15), 'accuracy': ('归纳准确', 10),
+    'logic_chain': ('逻辑链', 30), 'logic_structure': ('逻辑结构', 25), 'depth': ('分析深度', 20),
+    'language': ('语言规范', 20), 'format': ('条理清晰', 10),
+    'problem_identification': ('问题定位', 20), 'targeting': ('针对性', 25),
+    'feasibility': ('可行性', 25), 'specificity': ('具体性', 20),
+    'format_correctness': ('格式正确', 20), 'purpose_achievement': ('目的达成', 25),
+    'content_completeness': ('内容完整', 30), 'language_appropriateness': ('语言得体', 15),
+    'word_count': ('字数控制', 10),
+    'thesis_accuracy': ('立意准确', 25), 'argument_richness': ('论据丰富', 25),
+    'structure': ('结构完整', 20), 'innovation': ('创新性', 10),
+}
+# 维度 → 推荐练习题型（闭环深链）
+_DIM_TO_TYPE = {
+    'point_coverage': 'guina', 'content_completeness': 'zhixing',
+    'purpose_achievement': 'zhixing', 'problem_identification': 'duice',
+    'logic_chain': 'zonghe', 'logic_structure': 'zonghe', 'depth': 'zonghe',
+    'structure': 'zuowen', 'targeting': 'duice', 'specificity': 'duice', 'feasibility': 'duice',
+    'language': 'guina', 'language_appropriateness': 'zhixing',
+    'conciseness': 'guina', 'accuracy': 'guina',
+    'format': 'guina', 'format_correctness': 'zhixing', 'word_count': 'zhixing',
+    'thesis_accuracy': 'zuowen', 'argument_richness': 'zuowen', 'innovation': 'zuowen',
+}
+_TYPE_NAMES = {
+    'guina': '归纳概括', 'zonghe': '综合分析', 'duice': '提出对策',
+    'zhixing': '贯彻执行', 'zuowen': '大作文',
+}
+
 
 def _multi_model_enabled() -> bool:
     return str(os.getenv('MULTI_MODEL_ENABLED', 'false')).strip().lower() in {
@@ -516,6 +545,96 @@ def get_submission(current_user, sid):
     result['judgments'] = submission_service.get_submission_judgments(sid)
 
     return api_success(result)
+
+
+def _find_prev_same_type(uid: str, current_sid: str, qtype: str) -> dict | None:
+    """找同题型上一次提交（严格早于本次）的得分，用于「本次批改小结」对比。
+
+    用 (created_at, rowid) 升序定位当前提交，再向前找最近一次同题型，
+    避免同一秒内多次提交时 created_at 相等导致的乱序。
+    """
+    db = get_db()
+    rows = db.execute(
+        """SELECT sid, pid, qid, score, created_at FROM submissions
+           WHERE uid = ? AND score IS NOT NULL
+           ORDER BY created_at ASC, rowid ASC LIMIT 100""",
+        (uid,),
+    ).fetchall()
+    idx = next((i for i, r in enumerate(rows) if r['sid'] == current_sid), None)
+    if idx is None:
+        return None
+    cache = {}
+    for row in reversed(rows[:idx]):
+        key = (row['pid'], row['qid'])
+        if key not in cache:
+            q = paper_service.get_question_by_qid(row['pid'], row['qid']) or {}
+            cache[key] = normalize_question_type(q.get('type'), q.get('stem', ''))
+        if cache[key] == qtype:
+            return {'score_rate': round(float(row['score']), 1), 'created_at': row['created_at']}
+    return None
+
+
+@submissions_bp.route('/<sid>/summary', methods=['GET'])
+@token_required
+def get_submission_summary(current_user, sid):
+    """本次批改小结：本次得分 + 较上次同题型进退 + 最强/最弱维度 + 下一步建议。"""
+    submission = submission_service.get_submission(sid)
+    if not submission or submission['uid'] != current_user['uid']:
+        return api_error("提交记录不存在", 404)
+
+    question = paper_service.get_question_by_qid(submission['pid'], submission['qid']) or {}
+    qtype = normalize_question_type(question.get('type'), question.get('stem', ''))
+    score_rate = round(float(submission['score']), 1) if submission['score'] is not None else None
+    paper_title = submission.get('paper_title') or ''
+
+    # 上次同题型
+    prev = _find_prev_same_type(current_user['uid'], sid, qtype)
+    delta = None
+    if prev and score_rate is not None:
+        delta = round(score_rate - prev['score_rate'], 1)
+
+    # 最强/最弱维度（本次）
+    dims = {}
+    try:
+        dims = json.loads(submission['dimension_scores']) if submission['dimension_scores'] else {}
+    except (json.JSONDecodeError, TypeError):
+        dims = {}
+    ranked = []
+    for k, v in dims.items():
+        meta = _DIM_META.get(k)
+        if not meta or not isinstance(v, (int, float)):
+            continue
+        name, max_val = meta
+        ranked.append({'key': k, 'name': name, 'score': round(float(v), 1), 'max': max_val})
+    ranked.sort(key=lambda x: (x['score'] / x['max']) if x['max'] > 0 else -1)
+    strongest = ranked[-1] if ranked else None
+    weakest = ranked[0] if ranked else None
+
+    # 下一步建议
+    next_step = ''
+    next_link = None
+    if weakest:
+        practice_type = _DIM_TO_TYPE.get(weakest['key'], qtype)
+        next_step = f"重点提升「{weakest['name']}」（{weakest['score']}/{weakest['max']}）"
+        next_link = f"/drill?type={practice_type}"
+    elif qtype in _TYPE_NAMES:
+        next_step = f"继续保持，多练{_TYPE_NAMES[qtype]}题型巩固优势"
+        next_link = f"/drill?type={qtype}"
+
+    return api_success({
+        'sid': sid,
+        'score_rate': score_rate,
+        'question_type': qtype,
+        'type_name': _TYPE_NAMES.get(qtype, qtype),
+        'paper_title': paper_title,
+        'qid': submission.get('qid'),
+        'prev_same_type': prev,
+        'delta': delta,
+        'strongest_dim': strongest,
+        'weakest_dim': weakest,
+        'next_step': next_step,
+        'next_link': next_link,
+    })
 
 
 @submissions_bp.route('/history', methods=['GET'])

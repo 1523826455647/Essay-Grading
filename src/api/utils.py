@@ -49,6 +49,9 @@ SCHEMA_COLUMN_MIGRATIONS = {
         'daily_used': 'ALTER TABLE user_packages ADD COLUMN "daily_used" INTEGER NOT NULL DEFAULT 0',
         'daily_date': 'ALTER TABLE user_packages ADD COLUMN "daily_date" TEXT',
     },
+    'diagnostic_reports': {
+        'dimension_scores_json': 'ALTER TABLE diagnostic_reports ADD COLUMN "dimension_scores_json" TEXT',
+    },
 }
 
 NEW_TABLES = {

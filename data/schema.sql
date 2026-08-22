@@ -273,6 +273,7 @@ CREATE TABLE IF NOT EXISTS diagnostic_reports (
     weaknesses            TEXT,                -- JSON
     recommendations       TEXT,                -- JSON
     score_trend           TEXT,                -- JSON: 近10次得分序列
+    dimension_scores_json TEXT,                -- JSON: 统一能力画像 {content/logic/language/format/essay: 0-100}
 
     created_at            DATETIME DEFAULT (datetime('now')),
     FOREIGN KEY (uid) REFERENCES users(uid)

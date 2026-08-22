@@ -266,6 +266,23 @@
   .ag-improve li { margin-bottom: 6px; font-size: 13.5px; line-height: 1.7; color: #334155; }
   .ag-improve li.muted { list-style: none; color: #94a3b8; }
 
+  /* ===== 本次批改小结 ===== */
+  .sum-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .sum-main { font-size: 14.5px; color: #334155; }
+  .sum-main b { font-size: 22px; color: #0c8ee7; margin-left: 4px; }
+  .sum-type { margin-left: 8px; font-size: 12px; color: #94a3b8; }
+  .sum-chip { font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; white-space: nowrap; }
+  .sum-up { background: #dcfce7; color: #15803d; }
+  .sum-down { background: #fee2e2; color: #b91c1c; }
+  .sum-eq { background: #f1f5f9; color: #64748b; }
+  .sum-first { background: #eaf4ff; color: #0c8ee7; }
+  .sum-dims { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .sum-dim-block { background: #f8fafc; border: 1px solid #eef4fb; border-radius: 10px; padding: 8px 12px; font-size: 13px; color: #64748b; display: flex; align-items: center; gap: 8px; }
+  .sum-dim-label { font-size: 11px; font-weight: 700; color: #94a3b8; }
+  .sum-dim b { color: #0f172a; }
+  .sum-dim.muted { color: #cbd5e1; }
+  .sum-next { margin-top: 12px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; background: #f0f8ff; border: 1px solid #d4e8fb; border-radius: 10px; padding: 10px 14px; font-size: 13.5px; color: #1e3a5f; }
+
   @media (max-width: 920px) {
     .ag-grid { grid-template-columns: 1fr; }
     .ag-side { position: static; }
@@ -315,6 +332,12 @@
         <strong id="review-notice-title" style="display:block;margin-bottom:4px;">本次结果建议复核</strong>
         <span id="review-notice-text" style="font-size:13px;color:#64748b;line-height:1.55;">模型结果存在分歧，请结合逐模型明细判断。</span>
       </div>
+    </div>
+
+    <!-- 本次批改小结 -->
+    <div id="summary-card" class="rs-card" style="display:none;">
+      <h3 class="rs-card-title"><i data-lucide="clipboard-list"></i>本次批改小结</h3>
+      <div id="summary-body"></div>
     </div>
 
     <!-- 大作文：AI 评卷组协作流程 -->
@@ -629,10 +652,61 @@
       }
       const { data } = await res.json();
       renderResult(data || {});
+      loadSummary();
     } catch (e) {
       console.error(e);
       if (typeof SLBToast !== 'undefined') SLBToast.error('加载失败，请刷新重试');
     }
+  }
+
+  // ================= 本次批改小结 =================
+  async function loadSummary() {
+    const token = localStorage.getItem('slb_token') || localStorage.getItem('token');
+    const card = document.getElementById('summary-card');
+    if (!card || !token) return;
+    try {
+      const res = await fetch(`/api/submissions/${sid}/summary`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!res.ok) { card.style.display = 'none'; return; }
+      const { data } = await res.json();
+      if (!data || data.score_rate == null) { card.style.display = 'none'; return; }
+      card.style.display = 'block';
+      renderSummary(data);
+    } catch (e) {
+      card.style.display = 'none';
+    }
+  }
+
+  function renderSummary(s) {
+    const score = finiteNumber(s.score_rate);
+    let trendHtml = '';
+    if (s.delta == null) {
+      trendHtml = '<span class="sum-chip sum-first">首次练习</span>';
+    } else if (s.delta > 0.5) {
+      trendHtml = `<span class="sum-chip sum-up">较上次同题型 ▲ +${s.delta}</span>`;
+    } else if (s.delta < -0.5) {
+      trendHtml = `<span class="sum-chip sum-down">较上次同题型 ▼ ${s.delta}</span>`;
+    } else {
+      trendHtml = '<span class="sum-chip sum-eq">较上次同题型 ＝ 持平</span>';
+    }
+    const dimHtml = (d) => d && d.name != null
+      ? `<span class="sum-dim">${escapeHtml(d.name)} <b>${escapeHtml(d.score)}/${escapeHtml(d.max)}</b></span>`
+      : '<span class="sum-dim muted">--</span>';
+    const nextHtml = s.next_step
+      ? `<div class="sum-next"><span>${escapeHtml(s.next_step)}</span>${s.next_link ? `<a class="btn btn-sm btn-primary" href="${escapeHtml(s.next_link)}">去练题 →</a>` : ''}</div>`
+      : '';
+    document.getElementById('summary-body').innerHTML =
+      '<div class="sum-row">' +
+        '<div class="sum-main">本次得分 <b>' + (score === null ? '--' : score) + '</b><span class="sum-type">' + escapeHtml(s.type_name || '') + ' · ' + escapeHtml(s.paper_title || '') + '</span></div>' +
+        trendHtml +
+      '</div>' +
+      '<div class="sum-dims">' +
+        '<div class="sum-dim-block"><span class="sum-dim-label">最强</span>' + dimHtml(s.strongest_dim) + '</div>' +
+        '<div class="sum-dim-block"><span class="sum-dim-label">最弱</span>' + dimHtml(s.weakest_dim) + '</div>' +
+      '</div>' +
+      nextHtml;
+    if (window.lucide) lucide.createIcons();
   }
 
   // ================= 主渲染 =================

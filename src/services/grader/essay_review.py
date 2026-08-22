@@ -111,7 +111,11 @@ def _model_call(
     sid: str | None = None,
     max_tokens_cap: int | None = None,
 ) -> tuple[dict, int]:
-    """调用模型并解析 JSON，返回 (payload, latency_ms)。"""
+    """调用模型并解析 JSON，返回 (payload, latency_ms)。
+
+    response_format 失败时重试一次（推理模型如 LongCat 常返回不完整的
+    reasoning_content），与主评分链路的 2 次尝试保持一致。
+    """
     adapter = adapter_for_protocol(model_config.get("protocol"))
     runtime = dict(model_config)
     runtime["max_attempts"] = 1
@@ -123,12 +127,25 @@ def _model_call(
         runtime["max_tokens"] = max(
             256, min(mt if mt > 0 else max_tokens_cap, max_tokens_cap)
         )
-    response = adapter.complete(messages, runtime)
-    _record_usage(model_config, response, sid)
-    payload = _parse_provider_json(response.content)
-    if not isinstance(payload, dict):
-        raise ProviderError("response_format", "模型返回的不是 JSON 对象")
-    return payload, response.latency_ms
+    last_error = None
+    for attempt in range(2):
+        response = adapter.complete(messages, runtime)
+        _record_usage(model_config, response, sid)
+        try:
+            payload = _parse_provider_json(response.content)
+        except ProviderError as exc:
+            if exc.code == "response_format" and attempt == 0:
+                last_error = exc
+                logger.warning("大作文模型 JSON 解析失败，重试一次（model=%s）", model_config.get("model_name"))
+                continue
+            raise
+        if not isinstance(payload, dict):
+            if attempt == 0:
+                last_error = ProviderError("response_format", "模型返回的不是 JSON 对象")
+                continue
+            raise last_error
+        return payload, response.latency_ms
+    raise last_error if last_error else ProviderError("response_format", "模型返回的不是 JSON 对象")
 
 
 def _self_check_anchor(
