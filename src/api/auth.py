@@ -51,10 +51,23 @@ def login():
     if not username or not password:
         return api_error("用户名和密码不能为空", 400)
 
+    # 暴力破解防护：IP 与用户名任一锁定即拒绝
+    from src.services import rate_limiter
+    ip = request.remote_addr or 'unknown'
+    for scope_key in ((ip, 'ip'), (username.lower(), 'user')):
+        remaining = rate_limiter.is_locked('login', scope_key[0])
+        if remaining:
+            return api_error(f"尝试次数过多，请 {remaining // 60 + 1} 分钟后再试", 429)
+
     result, err = login_user(username, password)
     if err:
+        # 失败计数：IP 维度与用户名维度
+        rate_limiter.register_failure('login', ip, max_fails=10, lock_seconds=900)
+        rate_limiter.register_failure('login', username.lower(), max_fails=5, lock_seconds=900)
         return api_error(err, 401)
 
+    rate_limiter.reset('login', ip)
+    rate_limiter.reset('login', username.lower())
     return api_success(result)
 
 

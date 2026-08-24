@@ -131,6 +131,12 @@ def get_question(pid, qid):
 @papers_bp.route('/demo/grade', methods=['POST'])
 def demo_grade():
     """免登录试用批改接口"""
+    # 免登录接口按 IP 限流，防止恶意刷接口烧模型额度
+    from src.services import rate_limiter
+    ip = request.remote_addr or 'unknown'
+    if not rate_limiter.rate_allow('demo-grade', ip, limit=5, window_seconds=3600):
+        return api_error("试用次数已达上限（每小时 5 次），请注册后继续使用", 429)
+
     data = request.get_json()
     if not data:
         return api_error("请提供答案", 400)

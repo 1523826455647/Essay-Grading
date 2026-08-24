@@ -261,6 +261,17 @@ def create_app():
         response.headers['X-XSS-Protection'] = '1; mode=block'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+        # CSP：限制脚本/样式来源（自身 + CDN 字体/图标/图表），禁外部对象嵌入
+        if response.content_type and 'text/html' in response.content_type:
+            response.headers['Content-Security-Policy'] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' unpkg.com; "
+                "style-src 'self' 'unsafe-inline' unpkg.com fonts.googleapis.com; "
+                "font-src 'self' unpkg.com fonts.gstatic.com data:; "
+                "img-src 'self' data: blob:; "
+                "connect-src 'self'; "
+                "object-src 'none'; frame-ancestors 'none'"
+            )
         if request.is_secure:
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         return response

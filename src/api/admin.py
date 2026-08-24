@@ -241,12 +241,27 @@ def admin_login():
     if not username or not password:
         return api_error("请输入用户名和密码", 400)
 
+    # 暴力破解防护：管理后台登录阈值更严（IP 5 次 / 用户名 5 次锁 15 分钟）
+    from src.services import rate_limiter
+    ip = request.remote_addr or 'unknown'
+    for key in (ip, username.lower()):
+        remaining = rate_limiter.is_locked('admin-login', key)
+        if remaining:
+            return api_error(f"尝试次数过多，请 {remaining // 60 + 1} 分钟后再试", 429)
+
     result, error = login_user(username, password)
     if error:
+        rate_limiter.register_failure('admin-login', ip, max_fails=5, lock_seconds=900)
+        rate_limiter.register_failure('admin-login', username.lower(), max_fails=5, lock_seconds=900)
         return api_error(error, 401)
 
     if result.get('role') not in ('super_admin', 'admin', 'reviewer', 'operator'):
+        # 非管理账号尝试登录后台同样计入失败
+        rate_limiter.register_failure('admin-login', ip, max_fails=5, lock_seconds=900)
         return api_error("无管理权限", 403)
+
+    rate_limiter.reset('admin-login', ip)
+    rate_limiter.reset('admin-login', username.lower())
 
     # Keep a compact session payload so page guards survive reloads.
     session.permanent = True
