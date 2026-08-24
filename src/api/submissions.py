@@ -303,9 +303,12 @@ def create_submission(current_user):
     material = json.loads(paper['material']) if paper and paper['material'] else None
 
     if uses_model_registry:
+        # 请求级批改截止时间：保证整个批改在 gunicorn worker 超时前返回并持久化
+        from src.services.grader.deadline import make_deadline
+        deadline = make_deadline()
         if grading_backend.name == 'internal':
             judge_fn = lambda config: grade_with_model(
-                config, question, user_answer, material, sid=sid
+                config, question, user_answer, material, sid=sid, deadline=deadline
             )
         else:
             judge_fn = lambda config: grade_with_backend(
@@ -318,7 +321,7 @@ def create_submission(current_user):
         if grading_mode == 'ensemble':
             judgments = run_ensemble(model_configs, judge_fn)
         else:
-            judgments = run_fallback(model_configs, judge_fn)
+            judgments = run_fallback(model_configs, judge_fn, deadline=deadline)
 
         weights = {
             model['model_id']: float(model.get('weight', 1.0))
@@ -752,14 +755,16 @@ def regrade_submission(current_user, sid):
                     config, question, user_answer, material, backend=grading_backend
                 )
             else:
+                from src.services.grader.deadline import make_deadline
+                deadline = make_deadline()
                 judge_fn = lambda config: grade_with_model(
-                    config, question, user_answer, material, sid=sid
+                    config, question, user_answer, material, sid=sid, deadline=deadline
                 )
 
             if grading_mode == 'ensemble':
                 judgments = run_ensemble(model_configs, judge_fn)
             else:
-                judgments = run_fallback(model_configs, judge_fn)
+                judgments = run_fallback(model_configs, judge_fn, deadline=deadline)
 
             weights = {
                 model['model_id']: float(model.get('weight', 1.0))

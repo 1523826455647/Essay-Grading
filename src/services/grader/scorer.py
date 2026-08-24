@@ -315,8 +315,13 @@ def grade_with_model(
     user_answer: str,
     material: list | None,
     sid: str | None = None,
+    deadline: float | None = None,
 ) -> JudgeResult:
-    """Grade one answer through a registered provider model."""
+    """Grade one answer through a registered provider model.
+
+    deadline：请求级截止时间（monotonic）。单次模型调用超时被压缩到
+    剩余预算内，临近截止不再重试/继续，保证请求不会被 gunicorn 超时杀掉。
+    """
     # 大作文走两阶段批改（先独立审题生成锚点，再对照评分+逐段分析）
     qtype = normalize_question_type(question.get('type'), question.get('stem', ''))
     if qtype == 'zuowen':
@@ -327,6 +332,7 @@ def grade_with_model(
             qid=str(question.get('qid') or question.get('id') or ''),
             sid=sid,
             deep=bool(question.get('_deep_review')),
+            deadline=deadline,
         )
         return JudgeResult(
             model_id=str(model_config.get('model_id') or ''),
@@ -353,8 +359,9 @@ def grade_with_model(
         )
 
     messages = build_grading_prompt(question, user_answer, material)
-    adapter = adapter_for_protocol(model_config.get('protocol'))
+    adapter = adapter_for_protocol(model_config.get("protocol"))
     runtime_config = dict(model_config)
+    from src.services.grader.deadline import budget_timeout, expired
     try:
         requested_timeout = int(
             runtime_config.get(
@@ -363,8 +370,9 @@ def grade_with_model(
         )
     except (TypeError, ValueError):
         raise ProviderError('configuration', 'Invalid model timeout') from None
+    # 单次调用超时不超过截止剩余预算，避免被 gunicorn worker 超时杀死
     runtime_config['timeout_seconds'] = max(
-        5, min(requested_timeout, MAX_MODEL_TIMEOUT_SECONDS)
+        5, min(budget_timeout(requested_timeout, deadline), MAX_MODEL_TIMEOUT_SECONDS)
     )
     runtime_config['max_attempts'] = 1
     # Single adapter attempt: a slow/hanging model fails within one timeout
@@ -376,6 +384,8 @@ def grade_with_model(
     last_error = None
     response = None
     for _attempt in range(2):
+        if expired(deadline):
+            raise ProviderError('deadline', '批改超时，请稍后重试或更换模型')
         try:
             response = adapter.complete(messages, runtime_config)
             # 记录 token 消耗（从响应 usage 提取，按模型价格计算成本）

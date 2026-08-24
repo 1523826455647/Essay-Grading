@@ -35,9 +35,13 @@ def _call(judge_fn, config: dict) -> JudgeResult:
         return _failed_result(model_id, "internal")
 
 
-def run_fallback(model_configs: list[dict], judge_fn) -> list[JudgeResult]:
+def run_fallback(model_configs: list[dict], judge_fn, deadline: float | None = None) -> list[JudgeResult]:
+    from src.services.grader.deadline import expired
     judgments = []
     for config in sorted(model_configs, key=lambda item: int(item.get("priority", 100))):
+        if expired(deadline):
+            # 预算不足，不再尝试下一个模型，尽快返回已得结果
+            break
         judgment = _call(judge_fn, config)
         judgments.append(judgment)
         if judgment.status == "completed" and judgment.score_rate is not None:

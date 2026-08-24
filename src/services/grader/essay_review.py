@@ -110,15 +110,23 @@ def _model_call(
     messages: list,
     sid: str | None = None,
     max_tokens_cap: int | None = None,
+    deadline: float | None = None,
 ) -> tuple[dict, int]:
     """调用模型并解析 JSON，返回 (payload, latency_ms)。
 
     response_format 失败时重试一次（推理模型如 LongCat 常返回不完整的
-    reasoning_content），与主评分链路的 2 次尝试保持一致。
+    reasoning_content），与主评分链路的 2 次尝试保持一致；
+    临近 deadline 时跳过重试，保证请求不会超过 gunicorn worker 超时。
     """
+    from src.services.grader.deadline import budget_timeout, expired
+    if expired(deadline):
+        raise ProviderError("deadline", "批改超时，请稍后重试或更换模型")
     adapter = adapter_for_protocol(model_config.get("protocol"))
     runtime = dict(model_config)
     runtime["max_attempts"] = 1
+    runtime["timeout_seconds"] = budget_timeout(
+        runtime.get("timeout_seconds", 120), deadline
+    )
     if max_tokens_cap:
         try:
             mt = int(runtime.get("max_tokens") or 0)
@@ -129,23 +137,26 @@ def _model_call(
         )
     last_error = None
     for attempt in range(2):
+        if expired(deadline) and attempt > 0:
+            # 剩余预算不足以再试一次，直接失败（外层会优雅持久化）
+            break
         response = adapter.complete(messages, runtime)
         _record_usage(model_config, response, sid)
         try:
             payload = _parse_provider_json(response.content)
         except ProviderError as exc:
-            if exc.code == "response_format" and attempt == 0:
+            if exc.code == "response_format" and attempt == 0 and not expired(deadline):
                 last_error = exc
                 logger.warning("大作文模型 JSON 解析失败，重试一次（model=%s）", model_config.get("model_name"))
                 continue
             raise
         if not isinstance(payload, dict):
-            if attempt == 0:
+            if attempt == 0 and not expired(deadline):
                 last_error = ProviderError("response_format", "模型返回的不是 JSON 对象")
                 continue
-            raise last_error
+            raise last_error or ProviderError("response_format", "模型返回的不是 JSON 对象")
         return payload, response.latency_ms
-    raise last_error if last_error else ProviderError("response_format", "模型返回的不是 JSON 对象")
+    raise last_error if last_error else ProviderError("deadline", "批改超时，请稍后重试或更换模型")
 
 
 def _self_check_anchor(
@@ -154,15 +165,16 @@ def _self_check_anchor(
     material,
     anchor: dict,
     sid: str | None = None,
+    deadline: float | None = None,
 ) -> tuple[dict, bool]:
-    """P1：审题官自检循环——让复核官批判性复核刚生成的锚点，产出修订版。
+    """P1：审题官自检循环--让复核官批判性复核刚生成的锚点，产出修订版。
 
     只做一轮（控制成本与时延）；自检失败时保留原锚点，不阻断批改。
     返回 (修订后锚点, 是否发生修订)。
     """
     try:
         messages = build_zuowen_anchor_check_prompt(question, material, anchor)
-        payload, _ = _model_call(model_config, messages, sid=sid)
+        payload, _ = _model_call(model_config, messages, sid=sid, deadline=deadline)
         revised = payload.get("revised_anchor")
         if not isinstance(revised, dict):
             return anchor, False
@@ -184,6 +196,7 @@ def get_or_create_anchor(
     pid: str = "",
     qid: str = "",
     sid: str | None = None,
+    deadline: float | None = None,
 ) -> tuple[dict, bool]:
     """获取审题锚点：优先缓存，未命中则调用阶段一模型生成，自检后缓存。
 
@@ -197,14 +210,14 @@ def get_or_create_anchor(
         return cached, True
 
     messages = build_zuowen_analyze_prompt(question, material)
-    anchor, _ = _model_call(model_config, messages, sid=sid)
+    anchor, _ = _model_call(model_config, messages, sid=sid, deadline=deadline)
 
     # 锚点最小健全性校验
     if not anchor.get("core_topic") and not anchor.get("intended_theses"):
         raise ProviderError("response_format", "审题锚点缺少核心字段")
 
     # P1：审题官自检循环
-    revised, changed = _self_check_anchor(model_config, question, material, anchor, sid=sid)
+    revised, changed = _self_check_anchor(model_config, question, material, anchor, sid=sid, deadline=deadline)
     revised = dict(revised)
     revised["_meta"] = {
         "revised": changed,
@@ -229,6 +242,7 @@ def grade_essay_two_stage(
     qid: str = "",
     sid: str | None = None,
     deep: bool = False,
+    deadline: float | None = None,
 ) -> dict:
     """大作文批改主入口：审题(自检) → 两阶段评分 → （可选）评审团仲裁。
 
@@ -238,7 +252,7 @@ def grade_essay_two_stage(
     """
     # 阶段一：审题锚点（带缓存 + P1 自检）
     anchor, anchor_from_cache = get_or_create_anchor(
-        model_config, question, material, pid, qid, sid=sid
+        model_config, question, material, pid, qid, sid=sid, deadline=deadline
     )
 
     # 阶段二：拿锚点评分（可选携带原始材料，严格核对「结合材料」）
@@ -247,7 +261,7 @@ def grade_essay_two_stage(
         question, user_answer, anchor,
         material=material if grade_with_material else None,
     )
-    payload, latency_ms = _model_call(model_config, messages, sid=sid)
+    payload, latency_ms = _model_call(model_config, messages, sid=sid, deadline=deadline)
 
     # 维度分归一
     dims = payload.get("dimension_scores") or {}
@@ -283,7 +297,7 @@ def grade_essay_two_stage(
 
     panel = run_review_panel(
         model_config, question, user_answer, anchor, result,
-        deep=deep, sid=sid,
+        deep=deep, sid=sid, deadline=deadline,
     )
     if panel and panel.get("arbitration"):
         arb = panel["arbitration"]
