@@ -22,6 +22,7 @@ grading_chat_bp = Blueprint('grading_chat', __name__, url_prefix='/api/chat')
 
 RECORD_LIMIT = 50          # 近期记录上限
 MAX_CONTEXT_CHARS = 6000   # 用户答案/参考答案注入上限，避免超长上下文
+MAX_MATERIAL_CHARS = 9000  # 给定材料注入上限（材料较长时截断，保留开头）
 
 
 def _loads(value, default):
@@ -85,6 +86,55 @@ def list_records(current_user):
             'created_at': r['created_at'] or r['graded_at'] or '',
         })
     return api_success({'records': records})
+
+
+
+# ---------------------------------------------------------------------------
+# 1.2 删除批改记录（含关联数据，不可恢复）
+# ---------------------------------------------------------------------------
+@grading_chat_bp.route('/records/<sid>', methods=['DELETE'])
+@token_required
+def delete_record(current_user, sid):
+    """删除一条批改记录及其关联数据。
+
+    级联清理：
+    - chat_messages：该记录的对话历史
+    - submission_judgments：多模型评委明细
+    - question_type_drills：题型训练记录（不 JOIN 查询，可安全清理）
+    保留 token_usage_logs（平台成本账，属运营数据，不随用户删除而消失）。
+    """
+    db = get_db()
+    row = db.execute(
+        "SELECT sid, pid, qid, score FROM submissions WHERE sid = ? AND uid = ?",
+        (sid, current_user['uid']),
+    ).fetchone()
+    if not row:
+        return api_error('批改记录不存在或无权删除', 404)
+
+    try:
+        db.execute(
+            "DELETE FROM chat_messages WHERE uid = ? AND sid = ?",
+            (current_user['uid'], sid),
+        )
+        db.execute("DELETE FROM submission_judgments WHERE sid = ?", (sid,))
+        db.execute(
+            "DELETE FROM question_type_drills WHERE uid = ? AND sid = ?",
+            (current_user['uid'], sid),
+        )
+        db.execute(
+            "DELETE FROM submissions WHERE sid = ? AND uid = ?",
+            (sid, current_user['uid']),
+        )
+        db.commit()
+    except Exception:
+        logger.exception("delete submission failed: sid=%s", sid)
+        return api_error('删除失败，请稍后重试', 500)
+
+    logger.info(
+        "submission deleted: sid=%s pid=%s qid=%s uid=%s",
+        sid, row['pid'], row['qid'], current_user['uid'],
+    )
+    return api_success({'deleted': True, 'sid': sid})
 
 
 # ---------------------------------------------------------------------------
@@ -164,15 +214,36 @@ def clear_messages(current_user, sid):
 # ---------------------------------------------------------------------------
 # 2. 流式对话
 # ---------------------------------------------------------------------------
-def _build_context(record: dict, question: dict, answer_keys: dict) -> str:
-    """把批改记录组装成给模型的上下文文本。"""
+def _build_context(record: dict, question: dict, answer_keys: dict, material: list = None) -> str:
+    """把批改记录组装成给模型的上下文文本（含材料、题目、答案、批改结果）。"""
     parts = []
     parts.append(f"【试卷】{record.get('title') or ''}")
     parts.append(f"【题目类型】{question.get('type') or '未分类'}")
 
     score_max = record.get('score_max') or question.get('score_max') or 100
     parts.append(f"【题目】{question.get('stem') or ''}")
+    # 题目附加要求（字数、文种、作答范围等），模型需要这些才能准确讲解
+    if question.get('word_limit'):
+        parts.append(f"【字数要求】{question.get('word_limit')}")
+    if question.get('requirement'):
+        parts.append(f"【作答要求】{question.get('requirement')}")
+    if question.get('document_type'):
+        parts.append(f"【文种】{question.get('document_type')}")
+    material_scope = question.get('material_scope')
+    if material_scope and material_scope != '全部材料':
+        parts.append(f"【材料范围】{material_scope}")
     parts.append(f"【本题分值】{score_max}分")
+
+    # 给定材料：材料类题型讲解必须看到材料，否则无法说明"哪些点在材料里"
+    if material:
+        mat_text = []
+        for i, seg in enumerate(material, 1):
+            seg = str(seg or '').strip()
+            if seg:
+                mat_text.append(f"[材料{i}] {seg}")
+        if mat_text:
+            joined = "\n".join(mat_text)
+            parts.append(f"【给定材料】\n{joined[:MAX_MATERIAL_CHARS]}")
 
     ref = answer_keys.get(record['qid']) if isinstance(answer_keys, dict) else None
     if isinstance(ref, (list, dict)):
@@ -231,18 +302,18 @@ def _build_context(record: dict, question: dict, answer_keys: dict) -> str:
     return "\n\n".join(parts)
 
 
-SYSTEM_TEMPLATE = """你是「申论帮」的批改讲解助手。下面是用户最近一次申论作答的完整批改记录，请基于这份记录回答用户的提问，帮助用户真正理解自己答案的问题、为什么扣分、如何改进，以及参考答案为什么要这样写。
+SYSTEM_TEMPLATE = """你是「申论帮」的批改讲解助手。下面是用户一次申论作答的完整批改记录，包含给定材料、题目要求、参考答案、用户答案与得分，请基于这份记录回答用户的提问，帮助用户真正理解材料要点、自己答案的问题、为什么扣分、如何改进。
 
 【批改记录开始】
 {context}
 【批改记录结束】
 
 回答要求：
-1. 紧扣这份批改记录回答，引用用户答案中的原句和采分点，具体指出错误点与扣分原因；
-2. 结合参考答案说明这类题的正确作答思路（结构、逻辑、采分点），解释"为什么答案要这样写"；
-3. 给出可操作的改进建议，最好附带修改示例；
+1. 紧扣给定材料和题目要求回答；讲解时引用材料原句/原词和用户答案原句，具体指出哪些采分点来自材料哪部分、用户是否踩到；
+2. 结合参考答案说明这类题的正确作答思路（结构、逻辑、采分点），解释"为什么答案要这样写、这些点在材料里怎么找"；
+3. 给出可操作的改进建议，最好附带结合材料的修改示例；
 4. 使用 Markdown 排版（加粗、列表、必要时分点），语气友好专业；
-5. 若用户的问题超出这份记录的范围，基于你的申论知识回答，并简要说明与本题的关联。"""
+5. 若用户的问题超出这份记录的范围，基于你的申论知识回答，并简要说明与本题材料的关联。"""
 
 
 def _chat_model_config():
@@ -356,7 +427,7 @@ def stream_chat(current_user):
         SELECT s.sid, s.pid, s.qid, s.user_answer, s.score, s.dimension_scores,
                s.ai_feedback, s.hit_points, s.missing_points, s.improving_suggestions,
                s.aggregate_json, s.created_at,
-               p.title, p.questions, p.answer_keys
+               p.title, p.questions, p.answer_keys, p.material
         FROM submissions s
         LEFT JOIN papers p ON s.pid = p.pid
         WHERE s.sid = ? AND s.uid = ?
@@ -375,9 +446,13 @@ def stream_chat(current_user):
                 question = q
                 break
 
+    # 本题给定材料（小作文/综合分析等材料类题型需要，便于模型结合材料讲解）
+    material = _loads(row['material'], [])
+    material = material if isinstance(material, list) else []
+
     answer_keys = _loads(row['answer_keys'], {})
     record = dict(row)
-    context = _build_context(record, question, answer_keys)
+    context = _build_context(record, question, answer_keys, material=material)
 
     system_prompt = SYSTEM_TEMPLATE.format(context=context)
     model_cfg = _chat_model_config()
