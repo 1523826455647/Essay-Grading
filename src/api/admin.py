@@ -617,6 +617,76 @@ def get_user(uid):
     return api_success(user)
 
 
+@admin_bp.route('/users/<uid>/submissions', methods=['GET'])
+@admin_required('users.view')
+def get_user_submissions(uid):
+    """按用户查看批改记录（分页 + 统计）。"""
+    try:
+        page = max(1, int(request.args.get('page', 1)))
+        per_page = min(max(1, int(request.args.get('per_page', 20))), 100)
+    except (TypeError, ValueError):
+        page, per_page = 1, 20
+
+    db = get_db()
+    user = db.execute(
+        "SELECT uid, username, nickname FROM users WHERE uid = ?", (uid,)
+    ).fetchone()
+    if not user:
+        return api_error("用户不存在", 404)
+    user = dict(user)
+
+    total = db.execute(
+        "SELECT COUNT(*) FROM submissions WHERE uid = ?", (uid,)
+    ).fetchone()[0]
+    stats = db.execute(
+        "SELECT COUNT(score), AVG(score), MAX(score), MIN(score) "
+        "FROM submissions WHERE uid = ? AND score IS NOT NULL", (uid,)
+    ).fetchone()
+    stats = stats if stats else (0, None, None, None)
+
+    rows = db.execute(
+        """SELECT s.sid, s.qid, s.score, s.created_at, s.graded_at, s.grading_mode,
+                  p.title AS paper_title,
+                  (SELECT d.question_type FROM question_type_drills d
+                    WHERE d.sid = s.sid LIMIT 1) AS qtype
+           FROM submissions s
+           LEFT JOIN papers p ON s.pid = p.pid
+           WHERE s.uid = ?
+           ORDER BY COALESCE(s.graded_at, s.created_at) DESC
+           LIMIT ? OFFSET ?""",
+        (uid, per_page, (page - 1) * per_page),
+    ).fetchall()
+
+    TYPE_NAMES = {'guina': '归纳概括', 'zonghe': '综合分析', 'duice': '提出对策',
+                  'zhixing': '贯彻执行', 'zuowen': '大作文'}
+    items = []
+    for r in rows:
+        r = dict(r)
+        qtype = r.get('qtype')
+        items.append({
+            'sid': r.get('sid'),
+            'paper_title': r.get('paper_title') or '自定义批改',
+            'qid': r.get('qid'),
+            'score': r.get('score'),
+            'qtype': TYPE_NAMES.get(qtype, qtype) if qtype else '-',
+            'grading_mode': r.get('grading_mode'),
+            'time': ((r.get('graded_at') or r.get('created_at') or '')[:19]).replace('T', ' '),
+        })
+
+    return api_success({
+        'user': {'uid': user.get('uid'), 'username': user.get('username'),
+                 'nickname': user.get('nickname')},
+        'total': total,
+        'graded': stats[0] or 0,
+        'avg_score': round(stats[1], 1) if stats[1] is not None else None,
+        'max_score': round(stats[2], 1) if stats[2] is not None else None,
+        'min_score': round(stats[3], 1) if stats[3] is not None else None,
+        'page': page,
+        'per_page': per_page,
+        'items': items,
+    })
+
+
 @admin_bp.route('/users/<uid>', methods=['PUT'])
 @admin_required('users.edit')
 def update_user(uid):

@@ -998,14 +998,118 @@
         document.getElementById('week-avg-change').textContent = '基于本周已批改记录';
       }
 
-      renderCharts(subs);
+      // 优先用后端聚合档案（含题型训练数据）；接口不可用时回退本地渲染
+      const profileOk = await loadProfileStats();
+      if (!profileOk) renderCharts(subs);
     } catch (e) {
       console.error('loadStats', e);
     }
   }
 
+  // ===== 个人档案：接入后端聚合统计（含题型训练数据，图表更完整） =====
+  function showChartEmpty(canvasId, msg) {
+    const c = document.getElementById(canvasId);
+    if (!c) return;
+    const box = c.parentElement;
+    if (!box) return;
+    const d = document.createElement('div');
+    d.className = 'pf-empty';
+    d.style.cssText = 'display:flex;align-items:center;justify-content:center;'
+      + 'height:100%;min-height:140px;text-align:center;padding:16px;line-height:1.7;';
+    d.textContent = msg;
+    box.replaceChild(d, c);
+  }
+
+  function renderProfileCharts(st) {
+    if (typeof SLBCharts === 'undefined' || !st) return false;
+    const enough = st.has_enough_data || {};
+    const th = st.thresholds || {};
+
+    // 1) 练习趋势
+    if (enough.trend && st.trend && st.trend.length) {
+      SLBCharts.line('chart-score-trend', {
+        labels: st.trend.map(d => String(d.date || '').slice(5)),
+        datasets: [{
+          label: '均分',
+          data: st.trend.map(d => Number(d.avg_score) || 0),
+          color: '#0c8ee7'
+        }],
+        max: 100
+      });
+    } else {
+      showChartEmpty('chart-score-trend',
+        '练习满 ' + (th.trend || 3) + ' 天后生成趋势曲线');
+    }
+
+    // 2) 五维能力雷达（后端聚合）
+    const ab = st.abilities || {};
+    const abLabels = Object.keys(ab);
+    if (enough.radar && abLabels.length) {
+      SLBCharts.radar('chart-ability-radar', {
+        labels: abLabels,
+        data: abLabels.map(k => Number(ab[k]) || 0)
+      });
+    } else {
+      showChartEmpty('chart-ability-radar',
+        '完成 ' + (th.radar || 5) + ' 次练习后生成能力雷达');
+    }
+
+    // 3) 题型分布
+    const td = st.type_distribution || {};
+    const tLabels = Object.keys(td);
+    if (enough.type_matrix && tLabels.length) {
+      SLBCharts.doughnut('chart-type-doughnut', {
+        labels: tLabels,
+        data: tLabels.map(k => Number(td[k].count) || 0)
+      });
+      const legend = document.getElementById('doughnut-legend');
+      if (legend) {
+        const colors = (SLBCharts.colors && SLBCharts.colors.palette)
+          || ['#0c8ee7', '#0891b2', '#10b981', '#f59e0b', '#8b5cf6'];
+        legend.innerHTML = tLabels.map((l, i) =>
+          '<div class="chart-legend-item">'
+          + '<span class="chart-legend-dot" style="background:'
+          + colors[i % colors.length] + '"></span>'
+          + esc(l) + ' ' + (td[l].count || 0) + '题 · 均分' + (td[l].avg_score || 0)
+          + '</div>'
+        ).join('');
+      }
+    } else {
+      showChartEmpty('chart-type-doughnut',
+        '完成 ' + (th.type_matrix || 10) + ' 次练习后生成题型分布');
+    }
+
+    // 4) 连续练习天数
+    const streakEl = document.getElementById('stat-streak');
+    if (streakEl) streakEl.textContent = st.streak_days || 0;
+    return true;
+  }
+
+  async function loadProfileStats() {
+    try {
+      const token = authToken();
+      if (!token) return false;
+      const res = await fetch('/api/profile/stats', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!res.ok) return false;
+      const payload = await res.json();
+      const st = payload.data || payload;
+      return renderProfileCharts(st);
+    } catch (e) {
+      console.error('loadProfileStats', e);
+      return false;
+    }
+  }
+
   function renderCharts(subs) {
-    if (typeof SLBCharts === 'undefined' || !subs.length) return;
+    if (typeof SLBCharts === 'undefined') return;
+    if (!subs.length) {
+      showChartEmpty('chart-score-trend', '暂无练习记录，完成批改后生成趋势');
+      showChartEmpty('chart-ability-radar', '完成 5 次练习后生成能力雷达');
+      showChartEmpty('chart-type-doughnut', '完成 10 次练习后生成题型分布');
+      return;
+    }
     const recent = [...subs].reverse().slice(-30);
     SLBCharts.line('chart-score-trend', {
       labels: recent.map((_, i) => String(i + 1)),

@@ -4,6 +4,7 @@
 # 的训练统计、推荐、历史和进步趋势
 
 import json
+import re
 from datetime import datetime
 from src.api.utils import get_db, generate_uuid
 from src.services.grader.rubric import normalize_question_type
@@ -147,6 +148,18 @@ def record_drill(uid, question_type, pid, qid, sid, score, dimension_scores=None
              new_level)
         )
 
+    # 同步个人档案统计（打通题型训练 -> 学习概况）
+    # 统计写入 user_dimension_trends / daily_practice / user_weak_points，
+    # 与本次练习记录在同一事务中提交。
+    try:
+        from src.services.profile_stats_service import rebuild_user_stats
+        rebuild_user_stats(uid, db=db)
+    except Exception as _e:  # 统计失败绝不能影响主流程
+        try:
+            print(f"[drill] 档案统计同步失败: {_e}")
+        except Exception:
+            pass
+
     db.commit()
 
 
@@ -226,43 +239,177 @@ def get_drill_progress(uid, question_type, limit=10):
     return [{'score': row['score'], 'created_at': row['created_at']} for row in reversed(rows)]
 
 
-def get_recommended_questions(uid, question_type, limit=5):
-    """推荐练习题
-
-    优先推荐用户未做过的、难度适中的题目
-    """
+def _reco_user_weakness(uid):
+    """用户五维能力薄弱度 {ability: 0~1}，1 为最弱。无数据返回 {}。"""
     db = get_db()
+    try:
+        rows = db.execute(
+            "SELECT dim_name, avg_score FROM user_dimension_trends WHERE uid=?",
+            (uid,)).fetchall()
+    except Exception:
+        return {}
+    scores = {}
+    for r in rows:
+        try:
+            scores[r["dim_name"]] = float(r["avg_score"] or 0)
+        except (TypeError, ValueError):
+            continue
+    if not scores:
+        return {}
+    lo, hi = min(scores.values()), max(scores.values())
+    span = (hi - lo) or 1.0
+    return {k: round(1.0 - (v - lo) / span, 3) for k, v in scores.items()}
 
-    # 获取用户已做过的题目
+
+def _reco_year_of(pid, title):
+    m = re.search(r"(20\d{2})", str(pid or "") + str(title or ""))
+    return int(m.group(1)) if m else None
+
+
+def _reco_year_score(y, current=2026):
+    if not y:
+        return 0.3
+    age = max(0, current - y)
+    if age <= 1:
+        return 1.0
+    if age <= 3:
+        return 0.9
+    if age <= 5:
+        return 0.75
+    if age <= 8:
+        return 0.5
+    return 0.25
+
+
+def get_recommended_questions_v2(uid, question_type, limit=5, sub_filter=None):
+    """基于侧重标签的针对性推荐（question_tags 由 LongCat-2.0 批量分析生成）。"""
+    db = get_db()
+    weakness = _reco_user_weakness(uid)
+
+    done = db.execute(
+        "SELECT DISTINCT pid, qid FROM question_type_drills "
+        "WHERE uid = ? AND question_type = ?",
+        (uid, question_type)).fetchall()
+    done_set = {(r["pid"], r["qid"]) for r in done}
+
+    # 用户各二级细分练习次数（覆盖均衡用）
+    sub_count = {}
+    try:
+        rows = db.execute(
+            """SELECT t.sub_type AS st, COUNT(*) AS n
+               FROM question_type_drills d
+               JOIN question_tags t ON t.pid = d.pid AND t.qid = d.qid
+               WHERE d.uid = ? GROUP BY t.sub_type""", (uid,)).fetchall()
+        sub_count = {r["st"]: r["n"] for r in rows}
+    except Exception:
+        pass
+    max_sub = max(sub_count.values()) if sub_count else 0
+
+    papers = db.execute(
+        "SELECT pid, title, questions, difficulty FROM papers "
+        "WHERE status = 'published'").fetchall()
+    cands = []
+    for paper in papers:
+        try:
+            qs = json.loads(paper["questions"]) if paper["questions"] else []
+        except Exception:
+            continue
+        ys = _reco_year_score(_reco_year_of(paper["pid"], paper["title"]))
+        for q in qs:
+            qtype = normalize_question_type(
+                q.get("type"), q.get("stem", q.get("question_text", "")))
+            if qtype != question_type:
+                continue
+            cands.append({
+                "pid": paper["pid"],
+                "qid": str(q.get("qid", "")),
+                "paper_title": paper["title"],
+                "question_text": q.get("stem", q.get("question_text", "")),
+                "difficulty": paper["difficulty"],
+                "word_limit": q.get("word_limit", ""),
+                "year_score": ys,
+                "done": (paper["pid"], str(q.get("qid", ""))) in done_set,
+            })
+    if not cands:
+        return []
+
+    # 批量取标签
+    tag_map = {}
+    try:
+        pids = list({c["pid"] for c in cands})
+        for i in range(0, len(pids), 200):
+            chunk = pids[i:i + 200]
+            ph = ",".join("?" * len(chunk))
+            rows = db.execute(
+                "SELECT pid, qid, sub_type, focus_ability FROM question_tags "
+                f"WHERE pid IN ({ph})", chunk).fetchall()
+            for r in rows:
+                tag_map[(r["pid"], r["qid"])] = (r["sub_type"], r["focus_ability"])
+    except Exception:
+        pass
+
+    for c in cands:
+        tag = tag_map.get((c["pid"], c["qid"]))
+        if tag:
+            sub, ab = tag
+            c["sub_type"] = sub
+            if sub_filter and sub != sub_filter:
+                c["_drop"] = True
+                continue
+            ability_s = weakness.get(ab, 0.5) if weakness else 0.5
+            cover_s = (1.0 - sub_count.get(sub, 0) / max_sub) if max_sub else 1.0
+        else:
+            c["sub_type"] = None
+            if sub_filter:
+                c["_drop"] = True
+                continue
+            ability_s, cover_s = 0.5, 0.5
+        novelty = 0.0 if c["done"] else 1.0
+        c["score"] = round(0.40 * ability_s + 0.25 * cover_s
+                           + 0.20 * c["year_score"] + 0.15 * novelty, 4)
+
+    cands = [c for c in cands if not c.get("_drop")]
+    cands.sort(key=lambda x: (-x["score"],
+                              abs((x["difficulty"] or 3) - 3)))
+    return cands[:limit]
+
+
+def get_recommended_questions(uid, question_type, limit=5, sub_filter=None):
+    """推荐练习题（v2：侧重标签针对性；异常时回退旧逻辑保底）。"""
+    try:
+        result = get_recommended_questions_v2(uid, question_type, limit,
+                                              sub_filter=sub_filter)
+        if result:
+            return result
+    except Exception as _e:
+        try:
+            print(f"[drill] v2 推荐异常，回退旧逻辑: {_e}")
+        except Exception:
+            pass
+    # ---- 旧逻辑兜底 ----
+    db = get_db()
     done = db.execute(
         "SELECT DISTINCT pid, qid FROM question_type_drills WHERE uid = ? AND question_type = ?",
-        (uid, question_type)
-    ).fetchall()
-    done_set = set((r['pid'], r['qid']) for r in done)
-
-    # 获取所有该题型的题目
+        (uid, question_type)).fetchall()
+    done_set = set((r["pid"], r["qid"]) for r in done)
     papers = db.execute(
         "SELECT pid, title, questions, difficulty FROM papers WHERE status = 'published'"
     ).fetchall()
-
     candidates = []
     for paper in papers:
-        questions = json.loads(paper['questions']) if paper['questions'] else []
+        questions = json.loads(paper["questions"]) if paper["questions"] else []
         for q in questions:
             qtype = normalize_question_type(
-                q.get('type'), q.get('stem', q.get('question_text', ''))
-            )
+                q.get("type"), q.get("stem", q.get("question_text", "")))
             if qtype == question_type:
-                if (paper['pid'], q.get('qid', '')) not in done_set:
+                if (paper["pid"], q.get("qid", "")) not in done_set:
                     candidates.append({
-                        'pid': paper['pid'],
-                        'qid': q.get('qid', ''),
-                        'paper_title': paper['title'],
-                        'question_text': q.get('stem', q.get('question_text', '')),
-                        'difficulty': paper['difficulty'],
-                        'word_limit': q.get('word_limit', '')
+                        "pid": paper["pid"],
+                        "qid": q.get("qid", ""),
+                        "paper_title": paper["title"],
+                        "question_text": q.get("stem", q.get("question_text", "")),
+                        "difficulty": paper["difficulty"],
+                        "word_limit": q.get("word_limit", "")
                     })
-
-    # 按难度排序，优先推荐中等难度
-    candidates.sort(key=lambda x: abs(x['difficulty'] - 3))
+    candidates.sort(key=lambda x: abs(x["difficulty"] - 3))
     return candidates[:limit]

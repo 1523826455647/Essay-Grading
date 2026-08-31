@@ -172,6 +172,35 @@
       });
     } catch(e) { /* lenis 加载失败时静默降级 */ }
 
+    // 自动为内部滚动容器标记 data-lenis-prevent
+    // Lenis 会吞掉滚轮事件，导致 overflow:auto 的容器滚轮失效（拖拽可用但滚轮不动）。
+    // 静态容器已在模板里手写了该属性，这里兜底处理动态生成的内容（弹窗、异步列表等）。
+    (function () {
+      if (!window.__lenis) return;
+      function mark(root) {
+        var els = (root || document).querySelectorAll('div, section, aside, main, ul, ol, pre, textarea');
+        for (var i = 0; i < els.length; i++) {
+          var el = els[i];
+          if (el.hasAttribute('data-lenis-prevent')) continue;
+          var st;
+          try { st = getComputedStyle(el); } catch (e) { continue; }
+          if (st.overflowY === 'auto' || st.overflowY === 'scroll') {
+            el.setAttribute('data-lenis-prevent', '');
+          }
+        }
+      }
+      var timer = null;
+      function schedule() {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(function () { mark(document); }, 400);
+      }
+      schedule();
+      window.addEventListener('load', schedule);
+      if (window.MutationObserver) {
+        new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+      }
+    })();
+
     // 滚动进场 —— 由 GSAP ScrollTrigger 处理 (见 gsap-animations.js)
     // 旧 IntersectionObserver 已禁用，避免与 GSAP 冲突
 

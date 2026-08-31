@@ -96,7 +96,7 @@
       <button type="button" class="tk-modal-close" onclick="hideOverlay('tk-create-overlay')">&times;</button>
     </div>
     <form onsubmit="submitCreate(event)">
-      <div class="tk-modal-body">
+      <div class="tk-modal-body" data-lenis-prevent">
         <div class="tk-field">
           <label>分类</label>
           <select id="tk-category" class="tk-select">
@@ -136,7 +136,7 @@
       </div>
       <button type="button" class="tk-modal-close" onclick="hideOverlay('tk-detail-overlay')">&times;</button>
     </div>
-    <div class="tk-modal-body">
+    <div class="tk-modal-body" data-lenis-prevent>
       <div id="tk-thread" class="tk-thread"></div>
     </div>
     <div class="tk-modal-foot" id="tk-reply-area" style="justify-content:space-between;align-items:center;gap:12px;">

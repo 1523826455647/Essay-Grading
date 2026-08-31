@@ -23,6 +23,7 @@ from src.api.topic import topic_bp
 from src.api.grading_chat import grading_chat_bp
 from src.api.community import community_bp
 from src.api.tickets import tickets_bp
+from src.api.profile import profile_bp
 
 
 def create_app():
@@ -49,6 +50,7 @@ def create_app():
     app.register_blueprint(grading_chat_bp)
     app.register_blueprint(community_bp)
     app.register_blueprint(tickets_bp)
+    app.register_blueprint(profile_bp)
 
     # Initialize database
     with app.app_context():
@@ -187,8 +189,14 @@ def create_app():
 
     # Admin routes
     def _admin_guard():
+        # token + session 双通道判定（与登录接口写入 session 的设计配套）。
+        # 注意：不要删 session 兜底——页面导航不带 Authorization 头，
+        # 删了它登录成功后跳 /admin 也会被 302 弹回，后台将无法进入。
         from src.api.utils import _resolve_admin_user
-        user, _err = _resolve_admin_user()
+        try:
+            user, _err = _resolve_admin_user()
+        except Exception:
+            return False
         return bool(user)
 
     def _admin_page(template_name: str):
@@ -202,6 +210,15 @@ def create_app():
 
     @app.route('/admin/login')
     def admin_login():
+        # 进入登录页即清除残留的管理员 session（打破死循环的关键）：
+        # token 过期时 API 返回 401、前端跳登录页；若旧 session 仍有效，
+        # guard 会判定"已登录"把人踢回 /admin 造成循环。此处清掉 session，
+        # 保证登录页总是可达；重新登录后写入全新 session + token。
+        from flask import session as _sess
+        try:
+            _sess.pop('admin_user', None)
+        except Exception:
+            pass
         if _admin_guard():
             return redirect('/admin')
         return render_template('admin/login.html')
@@ -233,6 +250,10 @@ def create_app():
     @app.route('/admin/logs')
     def admin_logs():
         return _admin_page('admin/logs.html')
+
+    @app.route('/admin/phrases')
+    def admin_phrases():
+        return _admin_page('admin/phrases.html')
 
     @app.route('/admin/settings')
     def admin_settings():

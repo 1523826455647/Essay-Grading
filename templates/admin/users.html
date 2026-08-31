@@ -118,6 +118,7 @@
         </td>
         <td>
           <button class="action-btn action-btn-view" onclick="viewUser('${user.uid}')">查看</button>
+          <button class="action-btn action-btn-view" onclick="viewSubmissions('${user.uid}')">批改</button>
           <button class="action-btn action-btn-edit" onclick="editUser('${user.uid}')">编辑</button>
           ${user.status === 'active' ?
             '<button class="action-btn action-btn-delete" onclick="banUser(\x27' + user.uid + '\x27)">封禁</button>' :
@@ -286,6 +287,51 @@
       loadUsers(currentPage);
     } catch (e) {
       showToast('操作失败', 'error');
+    }
+  }
+
+  async function viewSubmissions(uid) {
+    try {
+      const data = await adminFetch(`/users/${uid}/submissions?per_page=50`);
+      const d = data.data || {};
+      const items = d.items || [];
+      const esc2 = s => String(s == null ? '' : s).replace(/[&<>"]/g,
+        c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+      const uname = esc2(d.user && (d.user.nickname || d.user.username) || uid);
+      const stat = `<div class="admin-form-row">
+        <div class="admin-form-group"><label class="admin-form-label">总提交</label><p>${d.total || 0}</p></div>
+        <div class="admin-form-group"><label class="admin-form-label">已批改</label><p>${d.graded || 0}</p></div>
+        <div class="admin-form-group"><label class="admin-form-label">平均分</label><p>${d.avg_score ?? '-'}</p></div>
+        <div class="admin-form-group"><label class="admin-form-label">最高 / 最低</label><p>${d.max_score ?? '-'} / ${d.min_score ?? '-'}</p></div>
+      </div>`;
+      let tbl;
+      if (!items.length) {
+        tbl = '<p style="color:#6b7785;">该用户还没有批改记录</p>';
+      } else {
+        const rows = items.map(it => {
+          const scoreHtml = it.score == null
+            ? '<span style="color:#e67e22;">批改中</span>'
+            : `<b style="color:${it.score >= 75 ? '#16a085' : it.score >= 60 ? '#0c8ee7' : '#e74c3c'}">${it.score}</b>`;
+          return `<tr>
+            <td style="padding:6px 8px;white-space:nowrap;">${esc2(it.time)}</td>
+            <td style="padding:6px 8px;">${esc2(it.paper_title)}</td>
+            <td style="padding:6px 8px;">${esc2(it.qtype)}</td>
+            <td style="padding:6px 8px;">${scoreHtml}</td>
+            <td style="padding:6px 8px;"><a href="/result/${esc2(it.sid)}" target="_blank" rel="noopener">详情</a></td>
+          </tr>`;
+        }).join('');
+        tbl = '<div style="max-height:400px;overflow:auto;">'
+          + '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+          + '<thead><tr><th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e4e9f2;">时间</th>'
+          + '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e4e9f2;">试卷</th>'
+          + '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e4e9f2;">题型</th>'
+          + '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e4e9f2;">得分</th>'
+          + '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e4e9f2;">详情</th></tr></thead>'
+          + '<tbody>' + rows + '</tbody></table></div>';
+      }
+      openModal('批改记录 - ' + uname + '（' + (d.total || 0) + ' 条）', stat + tbl);
+    } catch (e) {
+      showToast('加载失败', 'error');
     }
   }
 
