@@ -45,19 +45,18 @@
   .sb-empty { padding: 40px 20px; text-align: center; color: #9ca3af; font-size: 13px; line-height: 1.7; }
   .sb-empty a { color: #2563eb; }
 
-  /* 删除按钮：常显半透明（一眼可见），hover 记录项/按钮时加深 */
+  /* 删除按钮（默认隐藏，hover 才显示，防误触） */
   .sb-item { position: relative; }
   .sb-item-title { padding-right: 26px; }
   .sb-item-del {
     position: absolute; top: 8px; right: 8px;
-    width: 24px; height: 24px; border: none; border-radius: 7px;
-    background: #fff; color: #dc2626; cursor: pointer;
+    width: 22px; height: 22px; border: none; border-radius: 6px;
+    background: transparent; color: #9ca3af; cursor: pointer;
     font-size: 13px; line-height: 1; display: flex; align-items: center; justify-content: center;
-    border: 1px solid #fecaca;
-    opacity: .55; transition: opacity .15s, background .15s, color .15s;
+    opacity: 0; transition: opacity .15s, background .15s, color .15s;
   }
   .sb-item:hover .sb-item-del { opacity: 1; }
-  .sb-item-del:hover { background: #fee2e2; color: #b91c1c; opacity: 1; }
+  .sb-item-del:hover { background: #fee2e2; color: #dc2626; }
   .sb-item-del:focus { opacity: 1; }
 
   /* 确认弹窗 */
@@ -215,8 +214,6 @@
     .sidebar-mask.show { display: block; }
     .chat-header .btn-ghost-sm.mobile-only { display: inline-block; }
     .msg-bubble { max-width: 88%; }
-    /* 触屏无 hover：删除按钮常显 */
-    .sb-item-del { opacity: 1; }
   }
   .btn-ghost-sm.mobile-only { display: none; }
 </style>
@@ -311,6 +308,18 @@
 
 {% block extra_js %}
 <script>
+  function fmtScoreText(score, scoreMax) {
+    if (score == null) return '批改中';
+    var s = typeof score === 'number' ? score.toFixed(0) : score;
+    var sm = Number(scoreMax);
+    if (Number.isFinite(sm) && sm > 0 && sm < 100 && typeof score === 'number') {
+      var orig = Math.round(score / 100 * sm * 10) / 10;
+      return s + '分（折合' + orig + '/' + sm + '）';
+    }
+    return s + '分';
+  }
+
+
 (function () {
   'use strict';
 
@@ -519,7 +528,7 @@
         '<div class="sb-item-title">' + escapeHtml(r.title || '未知试卷') + '</div>' +
         '<div class="sb-item-meta">' +
           '<span class="badge-type ' + typeClass(r.question_type) + '">' + escapeHtml(r.question_type || '未分类') + '</span>' +
-          '<span class="badge-score' + scoreCls + '">' + scoreTxt + (r.score_max ? '/' + r.score_max : '') + '分</span>' +
+          '<span class="badge-score' + scoreCls + '">' + fmtScoreText(r.score, r.score_max) + '</span>' +
           '<span class="sb-item-time">' + fmtTime(r.created_at) + '</span>' +
         '</div>' +
         '<button class="sb-item-del" title="删除这条记录" aria-label="删除">\u2715</button>';
@@ -542,9 +551,8 @@
     if (!r || streaming) return;
     pendingDelete = r;
     $('cfTitle').textContent = (r.title || '未知试卷') + ' \u00b7 第' + (r.qid || '').replace('q', '') + '题';
-    var scoreTxt = typeof r.score === 'number' ? r.score.toFixed(1) : r.score;
-    $('cfMeta').textContent = (r.question_type || '未分类') + ' \u00b7 ' + scoreTxt +
-      (r.score_max ? '/' + r.score_max : '') + '分 \u00b7 ' + fmtTime(r.created_at);
+    $('cfMeta').textContent = (r.question_type || '未分类') + ' \u00b7 ' +
+      fmtScoreText(r.score, r.score_max) + ' \u00b7 ' + fmtTime(r.created_at);
     $('cfMask').classList.add('show');
   }
 

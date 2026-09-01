@@ -1278,13 +1278,23 @@ function renderHistoryList(subs) {
   const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   })[c]);
+  // 分数展示：小满分题（如 40 分）把 100 分制折合回原分值，如「85分（折合34/40）」
+  const fmtScoreText = (score, scoreMax) => {
+    if (score == null) return '批改中';
+    const sm = Number(scoreMax);
+    if (Number.isFinite(sm) && sm > 0 && sm < 100 && typeof score === 'number') {
+      const orig = Math.round(score / 100 * sm * 10) / 10;
+      return score + '分（折合' + orig + '/' + sm + '）';
+    }
+    return score + '分';
+  };
   if (!subs.length) {
     box.innerHTML = '<div class="pf-empty">暂无批改记录，去智能批改试试</div>';
     return;
   }
   box.innerHTML = subs.map(s => {
     const title = s.paper_title || s.pid || '自定义批改';
-    const score = s.score == null ? '批改中' : `${s.score}${s.score_max ? '/' + s.score_max : ''}`;
+    const score = fmtScoreText(s.score, s.score_max);
     const when = s.created_at || s.graded_at || '';
     const href = s.sid ? `/result/${s.sid}` : '#';
     return `
