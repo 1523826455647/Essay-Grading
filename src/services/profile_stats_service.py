@@ -155,17 +155,29 @@ def _is_valid(dims: dict, score) -> bool:
 
 
 def dim_rate(score: float, question_type: str, dim_key: str) -> float | None:
-    """把维度绝对分转为得分率（0~1）。
+    """把维度分转为得分率（0~1）。
 
-    维度满分 = 100 × 该维度在所属题型中的权重。
+    新口径：维度分已统一归一为 0-100 百分比（见 scorer.normalize_dimensions_to_percent），
+    故得分率 = score/100；旧数据若为按题型满分的绝对分（如踩点命中 0-70），
+    用 100×维度权重 兜底折算。
     """
+    if score is None:
+        return None
+    try:
+        score = float(score)
+    except (TypeError, ValueError):
+        return None
+    # 新口径：已是 0-100 百分比
+    if 0 <= score <= 100:
+        return max(0.0, min(1.0, score / 100.0))
+    # 旧数据兜底：绝对分按权重折算
     w = QUESTION_TYPE_DIMENSIONS.get(question_type, {}).get(dim_key)
     if not w:
         return None
     full = 100.0 * w
     if full <= 0:
         return None
-    return max(0.0, min(1.0, float(score) / full))
+    return max(0.0, min(1.0, score / full))
 
 
 # ============================================================

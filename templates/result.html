@@ -1092,23 +1092,27 @@
 
   function renderDimensions(dimensions) {
     const box = document.getElementById('dimension-scores');
+    // 后端已将维度分归一为 0-100 百分比（跨题型可比）
     const maxMap = dimMaxMap();
     if (!dimensions || typeof dimensions !== 'object' || !Object.keys(dimensions).length) {
       box.innerHTML = '<div style="color:#94a3b8;font-size:13.5px;">暂无维度分</div>';
       return;
     }
     box.innerHTML = Object.entries(dimensions).map(([key, value]) => {
-      const max = maxMap[key] || 100;
-      const num = finiteNumber(value) || 0;
-      const pct = Math.max(0, Math.min(100, (num / max) * 100));
+      const num = finiteNumber(value);
+      const isPercent = num !== null && num <= 100;
+      // 新数据为 0-100 百分比；兼容旧数据（绝对分）时按题型满分折算
+      const raw = num || 0;
+      const pct = isPercent ? raw : (maxMap[key] ? Math.min(100, raw / maxMap[key] * 100) : raw);
       return `
         <div class="rs-dim-row">
           <div class="rs-dim-label">${escapeHtml(DIM_LABELS[key] || key)}</div>
-          <div class="rs-dim-bar"><div class="rs-dim-fill" style="width:${pct}%"></div></div>
-          <div class="rs-dim-val">${escapeHtml(num)}/${escapeHtml(max)}</div>
+          <div class="rs-dim-bar"><div class="rs-dim-fill" style="width:${Math.max(0, Math.min(100, pct))}%"></div></div>
+          <div class="rs-dim-val">${Math.round(pct)}<span style="color:#94a3b8;font-weight:400;">/100</span></div>
         </div>`;
     }).join('');
-    renderRadarChart(dimensions, maxMap);
+    // 雷达按百分比（0-100），不再用原始满分折算
+    renderRadarChart(dimensions, null);
   }
 
   function renderRadarChart(dimensions, maxMap) {

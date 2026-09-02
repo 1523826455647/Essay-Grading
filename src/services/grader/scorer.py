@@ -469,7 +469,7 @@ def grade_with_model(
     return JudgeResult(
         model_id=str(model_config.get('model_id') or ''),
         score_rate=score_rate,
-        dimension_scores=dimensions,
+        dimension_scores=normalize_dimensions_to_percent(dimensions, qtype),
         hit_points=hit_points,
         missing_points=missing_points,
         ai_feedback=str(payload.get('ai_feedback') or ''),
@@ -502,6 +502,29 @@ def _normalize_llm_scores(llm_scores: dict, dimension_max: dict) -> dict:
         else:
             normalized[dim] = 0
     return normalized
+
+
+def normalize_dimensions_to_percent(raw_dimensions: dict, question_type: str) -> dict:
+    """把维度绝对分（按题型满分，如归纳题踩点命中满 70、综合题满 30）
+    统一归一为 0-100 百分比，使跨题型维度可比、雷达/诊断画像口径一致。
+
+    修复"踩点命中"等维度跨题型满分不同（70/30）导致显示普遍偏低、
+    跨题型不可比的问题。
+    """
+    max_map = TYPE_DIMENSION_MAX.get(question_type)
+    if not max_map:
+        return {k: v for k, v in (raw_dimensions or {}).items()
+                if isinstance(v, (int, float)) and not isinstance(v, bool)}
+    out = {}
+    for key, val in (raw_dimensions or {}).items():
+        if not isinstance(val, (int, float)) or isinstance(val, bool):
+            continue
+        max_val = max_map.get(key)
+        if not max_val or max_val <= 0:
+            continue
+        pct = max(0.0, min(100.0, float(val) / max_val * 100.0))
+        out[key] = round(pct, 1)
+    return out
 
 
 def grade_answer(pid: str, qid: str, question: dict,
@@ -603,7 +626,7 @@ def grade_answer(pid: str, qid: str, question: dict,
     # 7. 构建最终结果
     result = {
         'score': final_score,
-        'dimension_scores': merged_scores,
+        'dimension_scores': normalize_dimensions_to_percent(merged_scores, question_type),
         'hit_points': llm_result.get('hit_points', []),
         'missing_points': llm_result.get('missing_points', []),
         'ai_feedback': llm_result.get('ai_feedback', ''),
