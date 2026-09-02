@@ -586,6 +586,21 @@ def get_profile_stats(uid: str, db=None) -> dict:
         # 薄弱项
         weak = sync_weak_points(db, uid) if total >= THRESHOLDS["weakness"] else []
 
+        # 本周做题量（按题型统计）。以最近 7 个自然日为窗口。
+        from datetime import datetime as _dt, timedelta as _td
+        week_ago = (_dt.now() - _td(days=7)).date().isoformat()
+        week_total = 0
+        week_by_type: dict[str, int] = {}
+        for p in practices:
+            d = (p.get("created_at") or "")[:10]
+            if not d or d < week_ago:
+                continue
+            qt = p.get("qtype") or (_guess_type(p["dims"]) if p.get("dims") else "")
+            week_total += 1
+            if qt:
+                week_by_type[qt] = week_by_type.get(qt, 0) + 1
+        week_by_type = {TYPE_LABELS.get(k, k): v for k, v in week_by_type.items()}
+
         # 连续天数
         streak_row = db.execute(
             "SELECT streak FROM daily_practice_streaks WHERE uid=?", (uid,)
@@ -613,6 +628,10 @@ def get_profile_stats(uid: str, db=None) -> dict:
                 } for k, v in type_dist.items()
             },
             "weak_points": weak,
+            "week_practice": {
+                "total": week_total,
+                "by_type": week_by_type,
+            },
             "has_enough_data": has_enough,
             "thresholds": THRESHOLDS,
         }

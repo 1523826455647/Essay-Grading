@@ -504,10 +504,10 @@
     });
   </script>
 
-  {% block extra_js %}{% endblock %}
-
-  <!-- 组件库 JS -->
+  <!-- 组件库 JS（须在页面 extra_js 之前加载，供各页图表直接调用 SLBCharts/Chart） -->
   <script src="{{ url_for('static', filename='js/components.js', v=8) }}"></script>
+
+  {% block extra_js %}{% endblock %}
 
   <!-- GSAP 动画 -->
   <script src="{{ url_for('static', filename='js/gsap-animations.js', v=3) }}"></script>
