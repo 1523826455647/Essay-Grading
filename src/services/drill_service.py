@@ -18,13 +18,17 @@ QUESTION_TYPE_NAMES = {
     'zuowen': '大作文'
 }
 
-# 段位升级规则
+# 段位体系（六大段位：青铜→白银→黄金→铂金→钻石→王者）
+# 每个段位按段位内练习量细分 I / II / III 子段位（I 最高），
+# 0 次练习返回 None（未定级），不再把未练过的题型显示成青铜。
 LEVEL_THRESHOLDS = [
-    ('diamond', 50, 90),
-    ('platinum', 30, 85),
-    ('gold', 15, 75),
-    ('silver', 5, 60),
-    ('bronze', 0, 0)
+    # (段位代码, 最低练习次数, 最低均分)，从高到低
+    ('king',     50, 90),
+    ('diamond',  20, 85),
+    ('platinum', 10, 80),
+    ('gold',      5, 70),
+    ('silver',    3, 60),
+    ('bronze',    1, 0),
 ]
 
 LEVEL_NAMES = {
@@ -32,16 +36,53 @@ LEVEL_NAMES = {
     'silver': '白银',
     'gold': '黄金',
     'platinum': '铂金',
-    'diamond': '钻石'
+    'diamond': '钻石',
+    'king': '王者',
 }
+
+SUB_LEVEL_NAMES = {3: 'III', 2: 'II', 1: 'I'}
 
 
 def _calculate_level(avg_score, total_attempts):
-    """根据均分和练习次数计算段位"""
+    """根据均分和练习次数计算段位代码；0 次练习返回 None（未定级）。"""
+    if not total_attempts or total_attempts < 1:
+        return None
     for level, min_attempts, min_score in LEVEL_THRESHOLDS:
         if total_attempts >= min_attempts and avg_score >= min_score:
             return level
     return 'bronze'
+
+
+def _sub_level(tier: str, total_attempts: int) -> int:
+    """段位内子段位：按段位内练习量推进 III → II → I。"""
+    if tier == 'king':
+        # 王者段按额外练习量细分：50+ → III，70+ → II，90+ → I
+        if total_attempts >= 90:
+            return 1
+        if total_attempts >= 70:
+            return 2
+        return 3
+    order = [t for t, _, _ in LEVEL_THRESHOLDS]
+    idx = order.index(tier)
+    cur_min = LEVEL_THRESHOLDS[idx][1]
+    next_min = LEVEL_THRESHOLDS[idx - 1][1]  # 上一级段位的最低练习次数
+    span = next_min - cur_min
+    if span <= 1:
+        return 3
+    pos = total_attempts - cur_min
+    if pos >= span * 2 / 3:
+        return 1
+    if pos >= span / 3:
+        return 2
+    return 3
+
+
+def _level_display(tier, total_attempts: int) -> str:
+    """段位展示名，如 白银II；未定级返回 '未定级'。"""
+    if not tier:
+        return '未定级'
+    base = LEVEL_NAMES.get(tier, tier)
+    return f"{base}{SUB_LEVEL_NAMES[_sub_level(tier, total_attempts)]}"
 
 
 def get_user_type_stats(uid):
@@ -63,7 +104,7 @@ def get_user_type_stats(uid):
             'avg_score': round(row['avg_score'], 1),
             'best_score': round(row['best_score'], 1),
             'level': row['level'],
-            'level_name': LEVEL_NAMES.get(row['level'], '青铜'),
+            'level_name': _level_display(row['level'], row['total_attempts']),
             'dimension_breakdown': json.loads(row['dimension_breakdown']) if row['dimension_breakdown'] else {},
             'last_attempt_at': row['last_attempt_at']
         }
@@ -75,8 +116,8 @@ def get_user_type_stats(uid):
                 'total_attempts': 0,
                 'avg_score': 0,
                 'best_score': 0,
-                'level': 'bronze',
-                'level_name': '青铜',
+                'level': None,
+                'level_name': '未定级',
                 'dimension_breakdown': {},
                 'last_attempt_at': None
             }

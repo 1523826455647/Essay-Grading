@@ -8,6 +8,9 @@
 [![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/flask-3.0-green.svg)](https://flask.palletsprojects.com/)
 [![Docker](https://img.shields.io/badge/docker-supported-blue.svg)](https://www.docker.com/)
+[![GitHub stars](https://img.shields.io/github/stars/1523826455647/Essay-Grading?style=social)](https://github.com/1523826455647/Essay-Grading)
+
+> 觉得不错？点个 ⭐ Star 支持一下开源！
 
 ---
 
@@ -18,6 +21,7 @@
 - [系统架构](#系统架构)
 - [技术栈](#技术栈)
 - [快速部署](#快速部署)
+- [交给 AI Agent 一键部署（提示词）](#-交给-ai-agent-一键部署提示词)
 - [项目结构](#项目结构)
 - [更新日志](#更新日志)
 - [许可证](#许可证)
@@ -459,6 +463,24 @@ TENCENT_OCR_SECRET_KEY=你的SECRET_KEY
 pip install -r requirements.txt
 python -m src.app
 ```
+
+---
+
+## 🤖 交给 AI Agent 一键部署（提示词）
+
+不想自己动手？把下面这段提示词复制给你的 AI Agent（Cursor / Claude Code / Gemini CLI / 通义灵码等），让它照着部署整个项目：
+
+> 请帮我部署 GitHub 开源项目「申论帮 Essay-Grading」（https://github.com/1523826455647/Essay-Grading），这是一个 Flask + SQLite + Docker 的 AI 申论批改平台。
+>
+> 部署步骤：
+> 1. 克隆仓库到服务器，阅读 README.md 与 AGENTS.md 了解项目结构与启动方式。
+> 2. 复制 `.env.example` 为 `.env`，按注释填写必填项：管理员账号密码、LLM API Key（DeepSeek 等至少配置一个）、以及用 `openssl rand -hex 32` 生成的安全密钥。
+> 3. 执行 `docker compose up -d` 启动服务，确认健康检查通过（`curl -f http://localhost:8790/health`），并确认 18004 端口映射正常。
+> 4. 启动后自测：访问首页、注册/登录、提交一道题完成一次批改、查看排行榜与能力诊断页面是否正常。
+> 5. ⚠️ 题库种子数据（真题试卷、好词好句、时政热点等 seed 数据文件）**不在仓库里**，由项目作者提供。请提醒我先向作者索取数据文件，拿到后按作者说明放入 `data/` 目录再执行导入，卷库才能显示真题。
+> 6. 把部署结果、访问地址和遇到的问题汇报给我。
+
+> 📦 **数据文件说明**：为保证题库内容质量并控制仓库体积，真题试卷与素材等种子数据文件不放在 GitHub 仓库中。需要完整题库数据的朋友，请通过 GitHub Issue 联系作者获取。
 
 ---
 

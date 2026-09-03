@@ -101,14 +101,17 @@ async function loadStats() {
   grid.innerHTML = '';
   const order = ['guina','zonghe','duice','zhixing','zuowen'];
   const names = {guina:'归纳概括',zonghe:'综合分析',duice:'提出对策',zhixing:'贯彻执行',zuowen:'大作文'};
-  const levels = {bronze:'青铜',silver:'白银',gold:'黄金',platinum:'铂金',diamond:'钻石'};
+  // 段位配色：按大段位代码区分颜色（未定级灰色）
+  const tierColors = {bronze:'#b45309',silver:'#64748b',gold:'#b7791f',platinum:'#0891b2',diamond:'#2563eb',king:'#7c3aed'};
   for (const t of order) {
-    const s = types[t] || {total_attempts:0, avg_score:0, level:'bronze'};
+    const s = types[t] || {total_attempts:0, avg_score:0, level:null, level_name:'未定级'};
     const card = document.createElement('div');
     card.className = 'card type-card' + (currentType === t ? ' active' : '');
     card.onclick = () => selectType(t);
+    const lv = s.level_name || '未定级';
+    const lvColor = (s.level && tierColors[s.level]) || '#94a3b8';
     card.innerHTML = '<div class="type-name">' + names[t] + '</div>' +
-      '<div class="type-level">' + (levels[s.level]||'青铜') + '段位</div>' +
+      '<div class="type-level" style="color:' + lvColor + ';font-weight:600;">' + lv + '</div>' +
       '<div class="type-score">' + (s.avg_score || '--') + '</div>' +
       '<div class="type-attempts">练习' + s.total_attempts + '次</div>';
     grid.appendChild(card);
