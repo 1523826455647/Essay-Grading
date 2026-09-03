@@ -1120,7 +1120,10 @@
           <div class="rs-dim-val">${Math.round(pct)}<span style="color:#94a3b8;font-weight:400;">/100</span></div>
         </div>`;
     }).join('');
-    renderRadarChart(normalized, null);
+    // 雷达图为辅助展示，渲染失败不能阻断后续 AI 意见/建议等文字结果
+    try {
+      renderRadarChart(normalized, null);
+    } catch (e) { console.error('radar render failed:', e); }
   }
 
   function renderRadarChart(dimensions, maxMap) {
@@ -1132,7 +1135,8 @@
     if (!entries.length) return;
     const labels = entries.map(([k]) => DIM_LABELS[k] || k);
     const data = entries.map(([k, v]) => {
-      const max = maxMap[k] || 100;
+      // 入参 dimensions 已是 0-100 百分比时 maxMap 传 null；旧绝对分数据才传满分表
+      const max = (maxMap && maxMap[k]) || 100;
       return Math.round((finiteNumber(v) || 0) / max * 100);
     });
     window._radarInstance = new Chart(ctx, {
