@@ -41,6 +41,52 @@ def get_stats(current_user):
         return api_error(f"获取档案失败: {e}")
 
 
+@profile_bp.route("/leaderboard", methods=["GET"])
+def get_leaderboard():
+    """排行榜：按批改记录统计用户做题量与平均成绩。
+
+    口径与个人档案一致——只统计批改记录（submissions），
+    排名按平均成绩，展示做题量、今日/本周动态。至少 3 次批改才上榜。
+    """
+    from datetime import datetime, timedelta
+
+    db = get_db()
+    now = datetime.now()
+    today = now.date().isoformat()
+    week_ago = (now - timedelta(days=7)).date().isoformat()
+
+    rows = db.execute(
+        """SELECT u.uid, u.nickname, u.username,
+                  COUNT(s.sid) AS total_count,
+                  AVG(s.score) AS avg_score,
+                  SUM(CASE WHEN substr(s.created_at, 1, 10) = ? THEN 1 ELSE 0 END) AS today_count,
+                  SUM(CASE WHEN substr(s.created_at, 1, 10) >= ? THEN 1 ELSE 0 END) AS week_count
+           FROM users u
+           LEFT JOIN submissions s ON s.uid = u.uid AND s.score IS NOT NULL
+           WHERE u.status = 'active'
+           GROUP BY u.uid
+           HAVING total_count >= 3
+           ORDER BY avg_score DESC, total_count DESC
+           LIMIT 20""",
+        (today, week_ago),
+    ).fetchall()
+
+    board = []
+    for i, r in enumerate(rows, 1):
+        board.append({
+            "rank": i,
+            "uid": r["uid"],
+            "nickname": (r["nickname"] or r["username"] or "匿名用户").strip(),
+            "total_count": r["total_count"],
+            "avg_score": round(float(r["avg_score"]), 1) if r["avg_score"] is not None else 0.0,
+            "today_count": r["today_count"] or 0,
+            "week_count": r["week_count"] or 0,
+        })
+    resp = make_response(api_success({"board": board}))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return resp
+
+
 @profile_bp.route("/profile/refresh", methods=["POST"])
 @token_required
 def refresh_stats(current_user):

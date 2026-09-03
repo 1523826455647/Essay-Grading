@@ -169,6 +169,10 @@ def create_app():
     def tickets():
         return render_template('tickets.html')
 
+    @app.route('/leaderboard')
+    def leaderboard():
+        return render_template('leaderboard.html')
+
     @app.route('/topics/<int:topic_id>')
     def topic_detail(topic_id):
         import jwt

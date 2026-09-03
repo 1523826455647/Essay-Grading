@@ -186,43 +186,27 @@ def _dims_to_rates(qtype: str, dims: dict) -> dict:
 
 
 # ============================================================
-# 采集：合并 submissions + question_type_drills
+# 采集：以批改记录（submissions）为唯一口径
 # ============================================================
 def collect_practices(db, uid: str) -> list[dict]:
-    """采集用户全部练习记录，统一结构。
+    """采集用户练习记录（仅批改记录，作为统计的唯一口径）。
 
     返回元素: {source, ref_id, qtype, score, dims, created_at}
-    注意：question_type_drills 是题型训练主战场，此前完全没进统计，
-          这是"练习趋势空白"的直接原因。
+    说明：此前合并了 question_type_drills / diagnostic_reports 三个来源，
+    而批改时 record_drill 会同步写一条 drill、诊断报告又聚合一次，
+    导致"本周做题量/题型分布/能力雷达"与批改记录不一致（含测试数据、
+    幻影大作文等）。现在统一以批改记录为准。
     """
     out: list[dict] = []
 
-    # 1) 题型训练
     try:
         rows = db.execute(
-            "SELECT id, question_type, score, dimension_scores, created_at "
-            "FROM question_type_drills WHERE uid=?", (uid,)
-        ).fetchall()
-        for r in rows:
-            d = dict(r) if not isinstance(r, dict) else r
-            dims = parse_dims(d.get("dimension_scores"))
-            out.append({
-                "source": "drill",
-                "ref_id": d.get("id"),
-                "qtype": (d.get("question_type") or "").strip(),
-                "score": d.get("score"),
-                "dims": dims,
-                "created_at": d.get("created_at") or "",
-                "valid": _is_valid(dims, d.get("score")),
-            })
-    except Exception as e:
-        print(f"[聚合] 读取 question_type_drills 失败: {e}")
-
-    # 2) 提交批改（submissions）
-    try:
-        rows = db.execute(
-            "SELECT sid, qid, score, dimension_scores, created_at, missing_points "
-            "FROM submissions WHERE uid=?", (uid,)
+            "SELECT s.sid, s.qid, s.score, s.dimension_scores, s.created_at, "
+            "s.missing_points, d.question_type "
+            "FROM submissions s "
+            "LEFT JOIN question_type_drills d ON d.sid = s.sid AND d.id = ("
+            "  SELECT MAX(id) FROM question_type_drills WHERE sid = s.sid)"
+            "WHERE s.uid=?", (uid,)
         ).fetchall()
         for r in rows:
             d = dict(r) if not isinstance(r, dict) else r
@@ -230,7 +214,9 @@ def collect_practices(db, uid: str) -> list[dict]:
             out.append({
                 "source": "submission",
                 "ref_id": d.get("sid"),
-                "qtype": "",   # submissions 未直接记录题型，维度键反推
+                # 题型优先取批改时同步写入的 drill 行（经孤儿清理后与批改记录一一对应），
+                # 缺失时在 calc_abilities/_guess_type 中按维度键反推
+                "qtype": (d.get("question_type") or "").strip(),
                 "score": d.get("score"),
                 "dims": dims,
                 "created_at": d.get("created_at") or "",
@@ -239,37 +225,6 @@ def collect_practices(db, uid: str) -> list[dict]:
             })
     except Exception as e:
         print(f"[聚合] 读取 submissions 失败: {e}")
-
-    # 3) 诊断报告（含五题型分数，能力雷达的重要补充源）
-    try:
-        rows = db.execute(
-            "SELECT id, score_guina, score_zonghe, score_duice, score_zhixing, "
-            "score_zuowen, overall_score, created_at FROM diagnostic_reports "
-            "WHERE uid=?", (uid,)
-        ).fetchall()
-        for r in rows:
-            d = dict(r) if not isinstance(r, dict) else r
-            for qt in ("guina", "zonghe", "duice", "zhixing", "zuowen"):
-                sc = d.get(f"score_{qt}")
-                if sc is None:
-                    continue
-                try:
-                    sc = float(sc)
-                except (TypeError, ValueError):
-                    continue
-                if sc <= 0:      # 0 分视为该题型未纳入诊断，跳过
-                    continue
-                out.append({
-                    "source": "diagnosis",
-                    "ref_id": d.get("id"),
-                    "qtype": qt,
-                    "score": sc,
-                    "dims": {},
-                    "created_at": d.get("created_at") or "",
-                    "valid": True,
-                })
-    except Exception as e:
-        print(f"[聚合] 读取 diagnostic_reports 失败: {e}")
 
     # 按时间排序
     out.sort(key=lambda x: x.get("created_at") or "")
@@ -363,30 +318,51 @@ def sync_dimension_trends(db, uid: str, abilities: dict) -> None:
 def sync_daily_practice(db, uid: str, practices: list[dict]) -> None:
     """写入 daily_practice（练习趋势数据源）。
 
-    关键修复：把题型训练（question_type_drills）的记录也纳入，
-    此前只统计"每日一练"，导致练了很多题但趋势图空白。
+    口径与 collect_practices 一致：只按批改记录（submissions）按日聚合。
+    旧版本把题型训练/诊断报告也写进来（qid 前缀 drill:/diag:），造成趋势
+    与批改记录不一致；现在统一清理后按批改记录重写。
     """
     try:
-        # 只清理本服务写入的记录（source 标记在 qid 前缀），
-        # 避免误删"每日一练"接口写入的数据
+        # 清理旧口径（drill:/diag:/diagnosis:）与本服务此前写入的 sub: 行，
+        # 避免误删"每日一练"接口写入的数据（其 qid 无前缀）
         db.execute(
             "DELETE FROM daily_practice WHERE uid=? AND "
-            "(qid LIKE 'drill:%' OR qid LIKE 'diag:%')", (uid,)
+            "(qid LIKE 'drill:%' OR qid LIKE 'diag:%' OR qid LIKE 'diagnosis:%' "
+            "OR qid LIKE 'sub:%')", (uid,)
         )
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # 按日聚合批改记录（daily_practice 唯一键为 uid+practice_date）
+        per_day: dict[str, dict] = {}
         for p in practices:
-            if p["source"] == "submission":
-                continue  # submissions 由原接口负责，不重复写
+            if p["source"] != "submission":
+                continue
             created = (p.get("created_at") or "")[:10]
             if not created:
                 continue
-            qid = f"{p['source']}:{p.get('ref_id')}"
+            acc = per_day.setdefault(created, {"total": 0.0, "n": 0, "dims": {}})
+            if p.get("valid") is not False and p.get("score") is not None:
+                acc["total"] += float(p["score"])
+                acc["n"] += 1
+            if p.get("dims"):
+                acc["dims"] = p["dims"]
+        for day, acc in per_day.items():
+            # daily_practice 唯一键为 uid+practice_date；若该日期已有
+            # "每日一练"接口写入的无前缀行，保留原行，避免互相覆盖
+            existing = db.execute(
+                "SELECT qid FROM daily_practice WHERE uid=? AND practice_date=?",
+                (uid, day),
+            ).fetchone()
+            if existing:
+                q = (existing["qid"] if isinstance(existing, dict) else existing[0]) or ""
+                if not q.startswith("sub:"):
+                    continue
+            score = round(acc["total"] / acc["n"], 1) if acc["n"] else None
             db.execute(
                 "INSERT OR REPLACE INTO daily_practice "
                 "(uid, practice_date, pid, qid, score, dimension_scores, created_at) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (uid, created, "", qid, p.get("score"),
-                 json.dumps(p.get("dims") or {}, ensure_ascii=False), now),
+                (uid, day, "", f"sub:{day}", score,
+                 json.dumps(acc["dims"] or {}, ensure_ascii=False), now),
             )
     except Exception as e:
         print(f"[聚合] 写入 daily_practice 失败: {e}")

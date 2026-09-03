@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}排行榜 - 申论帮{% endblock %}
+{% block description %}批改排行榜：按做题量与平均成绩排名{% endblock %}
+
+{% block extra_css %}
+<style>
+  .lb-page { width: min(880px, calc(100% - 32px)); margin: 0 auto; padding: 8px 0 48px; }
+  .lb-hero {
+    background: linear-gradient(135deg, #0b6fbe, #0c8ee7 55%, #12a8c9);
+    border-radius: 18px; color: #fff; padding: 26px 28px; margin-bottom: 18px;
+    box-shadow: 0 10px 28px rgba(12,142,231,.18);
+  }
+  .lb-hero h1 { margin: 0 0 8px; font-size: 1.5rem; }
+  .lb-hero p { margin: 0; color: rgba(255,255,255,.9); font-size: 14px; }
+  .lb-card { background: #fff; border: 1px solid #d7e6f5; border-radius: 16px; padding: 18px 20px; box-shadow: 0 4px 16px rgba(12,142,231,.05); }
+  .lb-table { width: 100%; border-collapse: collapse; }
+  .lb-table th {
+    text-align: left; padding: 10px 12px; font-size: 12.5px; color: #64748b;
+    border-bottom: 1px solid #eef4fb; font-weight: 600;
+  }
+  .lb-table td { padding: 12px; font-size: 14px; color: #334155; border-bottom: 1px solid #f1f6fc; }
+  .lb-table tr:last-child td { border-bottom: none; }
+  .lb-rank { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; font-weight: 700; font-size: 13px; background: #f1f5f9; color: #64748b; }
+  .lb-rank.r1 { background: #fef3c7; color: #b45309; }
+  .lb-rank.r2 { background: #e2e8f0; color: #475569; }
+  .lb-rank.r3 { background: #fde8d7; color: #c05621; }
+  .lb-nick { font-weight: 650; color: #0f172a; }
+  .lb-avg { font-weight: 800; color: #0c8ee7; }
+  .lb-badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; background: #eaf4ff; color: #0b6fbe; }
+  .lb-me { background: #f0f8ff !important; }
+  .lb-empty { text-align: center; color: #94a3b8; padding: 40px 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div class="lb-page">
+    <div class="lb-hero">
+      <h1>🏆 批改排行榜</h1>
+      <p>按批改记录统计：排名以平均成绩为准，展示累计做题量与今日/本周动态（至少 3 次批改上榜）。</p>
+    </div>
+
+    <div class="lb-card">
+      <div id="lb-loading" style="text-align:center;padding:30px;color:#94a3b8;">加载中...</div>
+      <table class="lb-table" id="lb-table" style="display:none;">
+        <thead>
+          <tr>
+            <th style="width:64px;">排名</th>
+            <th>用户</th>
+            <th style="text-align:right;">累计做题</th>
+            <th style="text-align:right;">平均成绩</th>
+            <th style="text-align:right;">本周</th>
+            <th style="text-align:right;">今日</th>
+          </tr>
+        </thead>
+        <tbody id="lb-body"></tbody>
+      </table>
+      <div id="lb-empty" class="lb-empty" style="display:none;">暂无上榜数据</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const LB_API = '/api/leaderboard';
+  function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  async function loadLeaderboard() {
+    // 若已登录，获取自己的 uid 用于高亮
+    let meUid = null;
+    const token = localStorage.getItem('slb_token') || localStorage.getItem('token');
+    if (token) {
+      try {
+        const r = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (r.ok) {
+          const d = await r.json();
+          meUid = (d.data && d.data.uid) || null;
+        }
+      } catch (e) {}
+    }
+    try {
+      const res = await fetch(LB_API);
+      const payload = await res.json();
+      const board = (payload.data && payload.data.board) || [];
+      document.getElementById('lb-loading').style.display = 'none';
+      if (!board.length) {
+        document.getElementById('lb-empty').style.display = '';
+        return;
+      }
+      document.getElementById('lb-table').style.display = '';
+      document.getElementById('lb-body').innerHTML = board.map(u => {
+        const rankCls = u.rank === 1 ? 'r1' : u.rank === 2 ? 'r2' : u.rank === 3 ? 'r3' : '';
+        const isMe = meUid && u.uid === meUid;
+        return '<tr class="' + (isMe ? 'lb-me' : '') + '">' +
+          '<td><span class="lb-rank ' + rankCls + '">' + u.rank + '</span></td>' +
+          '<td class="lb-nick">' + esc(u.nickname) + (isMe ? ' <span class="lb-badge">我</span>' : '') + '</td>' +
+          '<td style="text-align:right;">' + u.total_count + ' 题</td>' +
+          '<td style="text-align:right;" class="lb-avg">' + u.avg_score + '</td>' +
+          '<td style="text-align:right;">' + u.week_count + ' 题</td>' +
+          '<td style="text-align:right;">' + u.today_count + ' 题</td>' +
+        '</tr>';
+      }).join('');
+    } catch (e) {
+      document.getElementById('lb-loading').textContent = '加载失败，请刷新重试';
+    }
+  }
+
+  loadLeaderboard();
+</script>
+{% endblock %}
