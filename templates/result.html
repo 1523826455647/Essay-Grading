@@ -625,6 +625,10 @@
     };
   }
   function modeLabel(mode) { return MODE_LABELS[mode] || mode || '单模型批改'; }
+  // 过滤多模型聚合时拼入的内部模型 ID 溯源标记，如（model_xxx、model_yyy）
+  function cleanFeedback(text) {
+    return String(text || '').replace(/[（(]\s*model_[A-Za-z0-9_]+(?:\s*[、,，]\s*model_[A-Za-z0-9_]+)*\s*[)）]/g, '');
+  }
   function toggleCollapse(id, headEl) {
     const body = document.getElementById(id);
     if (!body) return;
@@ -756,9 +760,9 @@
 
     // AI 批改意见
     document.getElementById('ai-feedback').textContent =
-      data.ai_feedback ||
-      (showEssay ? (essay.overall_evaluation || essay.tier_reason || '') : '') ||
-      '暂无批改意见';
+      cleanFeedback(data.ai_feedback ||
+        (showEssay ? (essay.overall_evaluation || essay.tier_reason || '') : '') ||
+        '暂无批改意见');
 
     // 改进建议（大作文取仲裁后的 top_improvements）
     const sugEl = document.getElementById('improving-suggestions');
@@ -806,7 +810,7 @@
         TYPE_LABELS[data.question_type] || data.question_type || '单题批改';
       document.getElementById('rv-tier-sub').textContent =
         data.grading_mode ? `模式：${modeLabel(data.grading_mode)}` : '';
-      const fb = data.ai_feedback || aggregate.ai_feedback || '';
+      const fb = cleanFeedback(data.ai_feedback || aggregate.ai_feedback || '');
       document.getElementById('rv-verdict-text').textContent =
         fb.length > 160 ? fb.slice(0, 160) + '…' : (fb || '暂无评审结论');
     }
@@ -857,7 +861,7 @@
       notice.style.display = 'flex';
       if (isPending) {
         document.getElementById('review-notice-title').textContent = '批改已转入待复核';
-        document.getElementById('review-notice-text').textContent = data.ai_feedback || '当前没有可用的有效模型成绩，系统未生成综合分数。';
+        document.getElementById('review-notice-text').textContent = cleanFeedback(data.ai_feedback || '当前没有可用的有效模型成绩，系统未生成综合分数。');
       }
     } else {
       notice.style.display = 'none';
