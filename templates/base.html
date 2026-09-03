@@ -18,11 +18,11 @@
   <!-- Fonts: Manrope + Noto Sans SC -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
 
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Lucide Icons（本地化，避免国内 unpkg 加载失败） -->
+  <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
 
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <!-- Chart.js（本地化，避免国内 jsdelivr CDN 加载失败导致图表空白） -->
+  <script src="{{ url_for('static', filename='js/chart.umd.min.js', v=1) }}"></script>
 
   <!-- GSAP + ScrollTrigger -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
