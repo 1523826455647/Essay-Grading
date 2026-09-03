@@ -154,30 +154,35 @@ def _is_valid(dims: dict, score) -> bool:
         return False
 
 
-def dim_rate(score: float, question_type: str, dim_key: str) -> float | None:
-    """把维度分转为得分率（0~1）。
+def _dims_to_rates(qtype: str, dims: dict) -> dict:
+    """把一条练习记录的维度分统一转为 0~1 得分率。
 
-    新口径：维度分已统一归一为 0-100 百分比（见 scorer.normalize_dimensions_to_percent），
-    故得分率 = score/100；旧数据若为按题型满分的绝对分（如踩点命中 0-70），
-    用 100×维度权重 兜底折算。
+    系统存在两种存储口径：
+      - 绝对分：各维度满分为 100×题型权重（如归纳题踩点命中满 70），
+        一条记录各维度之和 ≤ 100（权重和恰好为 1）；
+      - 百分比：新批改链路统一存 0-100 百分比，各维度之和可高达 500。
+    按「维度和是否 > 110」自动识别口径：绝对分按 100×权重 折算，
+    百分比直接 /100。避免旧绝对分被当成百分比（能力雷达被拉低）。
     """
-    if score is None:
-        return None
-    try:
-        score = float(score)
-    except (TypeError, ValueError):
-        return None
-    # 新口径：已是 0-100 百分比
-    if 0 <= score <= 100:
-        return max(0.0, min(1.0, score / 100.0))
-    # 旧数据兜底：绝对分按权重折算
-    w = QUESTION_TYPE_DIMENSIONS.get(question_type, {}).get(dim_key)
-    if not w:
-        return None
-    full = 100.0 * w
-    if full <= 0:
-        return None
-    return max(0.0, min(1.0, score / full))
+    if not dims or not qtype:
+        return {}
+    weights = QUESTION_TYPE_DIMENSIONS.get(qtype)
+    if not weights:
+        return {}
+    numeric = {k: float(v) for k, v in dims.items() if _is_num(v)}
+    if not numeric:
+        return {}
+    is_percent = sum(numeric.values()) > 110.0
+    rates = {}
+    for k, v in numeric.items():
+        w = weights.get(k)
+        if not w:
+            continue
+        if is_percent:
+            rates[k] = max(0.0, min(1.0, v / 100.0))
+        else:
+            rates[k] = max(0.0, min(1.0, v / (100.0 * w)))
+    return rates
 
 
 # ============================================================
@@ -294,24 +299,30 @@ def calc_abilities(practices: list[dict]) -> dict:
         # 传入的 qtype 为空时，用维度键反推题型（submissions 场景）
         if not qt and dims:
             qt = _guess_type(dims)
+        if not qt:
+            continue
+
+        # 整条记录的维度统一折算（自动识别绝对分/百分比口径）
+        rates = _dims_to_rates(qt, dims)
+        score_rate = None
+        if p.get("score") is not None:
+            try:
+                score_rate = max(0.0, min(1.0, float(p["score"]) / 100.0))
+            except (TypeError, ValueError):
+                score_rate = None
 
         for ability, pairs in ABILITY_MAP.items():
-            rates = []
+            bucket_vals = []
             for t, key in pairs:
                 if t != qt:
                     continue
-                if key in dims:
-                    r = dim_rate(dims[key], t, key)
-                    if r is not None:
-                        rates.append(r)
-            if rates:
-                bucket[ability].extend(rates)
-            elif t == qt and p.get("score") is not None:
+                if key in rates:
+                    bucket_vals.append(rates[key])
+            if bucket_vals:
+                bucket[ability].extend(bucket_vals)
+            elif score_rate is not None:
                 # 退化：该题型下无细分维度数据，用总分（0~100 即得分率）
-                try:
-                    bucket[ability].append(max(0.0, min(1.0, float(p["score"]) / 100.0)))
-                except (TypeError, ValueError):
-                    pass
+                bucket[ability].append(score_rate)
 
     result = {}
     for ability in ABILITY_MAP:
