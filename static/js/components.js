@@ -357,16 +357,24 @@
      全局初始化
      ======================================== */
   function init() {
-    SLBToast.init();
-    initMobileMenu();
-    initTabs();
-    initDropdowns();
-    initSearchBoxes();
-    initAccordions();
-    initBackToTop();
-    initScoreRings();
-    initCounters();
-    GradingProgress.init();
+    // 每个组件独立容错：单个初始化失败（如缺少 IntersectionObserver/
+    // 某些 DOM 元素）不应中断后续组件，尤其不能阻断 SLBCharts 的挂载。
+    const steps = [
+      ['toast', () => SLBToast.init()],
+      ['mobileMenu', initMobileMenu],
+      ['tabs', initTabs],
+      ['dropdowns', initDropdowns],
+      ['searchBoxes', initSearchBoxes],
+      ['accordions', initAccordions],
+      ['backToTop', initBackToTop],
+      ['scoreRings', initScoreRings],
+      ['counters', initCounters],
+      ['gradingProgress', () => { try { GradingProgress && GradingProgress.init && GradingProgress.init(); } catch (e) {} }],
+    ];
+    for (const [name, fn] of steps) {
+      try { fn && fn(); }
+      catch (e) { try { console.warn('[SLB] 组件初始化失败:', name, e); } catch (_) {} }
+    }
   }
 
   if (document.readyState === 'loading') {
