@@ -7,7 +7,7 @@
       三张表，但此前无任何写入逻辑，导致能力雷达、题型分布、薄弱项全部空白。
       现由 profile_stats_service 负责聚合写入，本模块负责对外输出。
 """
-from flask import Blueprint
+from flask import Blueprint, make_response
 
 from src.api.utils import api_success, api_error, token_required, get_db
 from src.services.profile_stats_service import (
@@ -33,7 +33,10 @@ def get_stats(current_user):
     try:
         stats = get_profile_stats(uid, db=db)
         stats["ability_labels"] = ABILITY_LABELS
-        return api_success(stats)
+        resp = make_response(api_success(stats))
+        # 统计数据实时变化，禁止浏览器缓存，避免前端一直显示旧值
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        return resp
     except Exception as e:  # noqa: BLE001
         return api_error(f"获取档案失败: {e}")
 
