@@ -144,10 +144,33 @@ class TesseractProvider(BaseOcrProvider):
             text = pytesseract.image_to_string(
                 image, lang='chi_sim+eng', config='--psm 6 --oem 3'
             )
+            # 质量校验：低精度模型对手写/表格试卷常输出乱码，
+            # 有效字符占比过低时视为识别失败（返回空），由门面层
+            # 给出明确的"未能识别"提示，而不是把垃圾字符透传给用户。
+            if not _tesseract_text_quality_ok(text):
+                logger.warning(
+                    'Tesseract OCR output discarded as garbage (%d chars, low valid ratio)',
+                    len(text or ''),
+                )
+                return OcrResult('', self.name)
             return OcrResult(text, self.name)
         except Exception as e:
             logger.warning('Tesseract OCR failed: %s', e)
             return OcrResult('', self.name)
+
+
+def _tesseract_text_quality_ok(text: str) -> bool:
+    """Tesseract 输出质量校验：有效字符（中英文、数字、常用标点空白）
+    占比 >= 60% 才视为有效识别结果。"""
+    if not text or not text.strip():
+        return False
+    total = len(text)
+    valid = sum(
+        1 for ch in text
+        if '\u4e00' <= ch <= '\u9fff' or ch.isalnum()
+        or ch in '，。、；：！？“”‘’（）《》〈〉【】…—·～%,.:;!?"\'()[]{}<>+-*/=_\n\r\t '
+    )
+    return valid / total >= 0.6
 
 
 # ---------------------------------------------------------------------------
@@ -456,7 +479,10 @@ class OcrService:
                 logger.warning('OCR provider %s failed: %s', provider.name, e)
                 continue
 
-        return OcrResult('所有 OCR 供应商均未能识别出有效文字', 'none')
+        return OcrResult(
+            '未能识别出有效文字。若为手写或拍照模糊，建议在 .env 中配置'
+            ' BAIDU_OCR_API_KEY / BAIDU_OCR_SECRET_KEY（百度手写识别，免费 500 次/天）'
+            '后重启服务重试', 'none')
 
 
 # 全局单例

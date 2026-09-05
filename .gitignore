@@ -38,6 +38,11 @@ _probe*.py
 ops/
 scripts/
 
+# 本地开发机 Docker compose 覆盖（含本机专用挂载，不入仓）
+docker-compose.override.yml
+# Tesseract 高精度模型（约 13MB，本地 data/tessdata/ 下，不入仓）
+data/tessdata/
+
 # IDE
 .vscode/
 .idea/
