@@ -21,8 +21,8 @@ def _bounded_env_int(name: str, default: int, minimum: int, maximum: int) -> int
 MAX_MODELS_PER_SUBMISSION = _bounded_env_int(
     "MAX_MODELS_PER_SUBMISSION", 4, 1, 4
 )
-DEFAULT_MODEL_TIMEOUT_SECONDS = 180
-MAX_MODEL_TIMEOUT_SECONDS = 300
+DEFAULT_MODEL_TIMEOUT_SECONDS = 600
+MAX_MODEL_TIMEOUT_SECONDS = 600
 MODEL_FIELDS = {
     "name",
     "protocol",

@@ -28,4 +28,5 @@ RUN mkdir -p /app/data
 
 EXPOSE 8790
 
-CMD ["gunicorn", "-w", "2", "--preload", "-b", "0.0.0.0:8790", "--timeout", "300", "--access-logfile", "-", "src.app:app"]
+# gunicorn timeout 660 > 批改 deadline 600s（用户要求最长等待 10 分钟），防止 worker 被杀
+CMD ["gunicorn", "-w", "2", "--preload", "-b", "0.0.0.0:8790", "--timeout", "660", "--access-logfile", "-", "src.app:app"]

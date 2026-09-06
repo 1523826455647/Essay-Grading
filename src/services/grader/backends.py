@@ -177,13 +177,8 @@ def _model_timeout(model_config: dict) -> int:
 
 
 def _max_tokens(model_config: dict) -> int | None:
-    try:
-        value = int(model_config.get("max_tokens") or 0)
-    except (TypeError, ValueError):
-        return None
-    if value <= 0:
-        return None
-    return max(128, min(value, 200000))
+    """不再限制模型输出 token（用户要求）：始终返回 None，即不向 API 传 max_tokens。"""
+    return None
 
 
 def _litellm_model_name(model_config: dict) -> str:

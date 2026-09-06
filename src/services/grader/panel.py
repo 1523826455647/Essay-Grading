@@ -163,14 +163,7 @@ def _complete_json(
     runtime["timeout_seconds"] = budget_timeout(
         runtime.get("timeout_seconds", 120), deadline
     )
-    if max_tokens_cap:
-        try:
-            mt = int(runtime.get("max_tokens") or 0)
-        except (TypeError, ValueError):
-            mt = 0
-        runtime["max_tokens"] = max(
-            256, min(mt if mt > 0 else max_tokens_cap, max_tokens_cap)
-        )
+    # max_tokens_cap 已停用（用户要求不限制模型输出 token），保留参数以兼容调用方
     adapter = adapter_for_protocol(model_config.get("protocol"))
     last_error = None
     for attempt in range(2):

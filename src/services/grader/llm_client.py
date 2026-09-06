@@ -63,16 +63,16 @@ def call_chat_completion(messages: list, config: dict, parse_json: bool = True):
 
     endpoint = build_chat_completions_endpoint(config.get("base_url", ""))
     attempts = max(1, min(int(config.get("max_attempts", 2)), 3))
-    timeout = max(5, min(int(config.get("timeout", 60)), 300))
+    # 用户要求：模型调用最长等待 10 分钟，不做 300s 上限截断
+    timeout = max(5, min(int(config.get("timeout", 600)), 600))
     retry_delay = max(0.0, min(float(config.get("retry_delay", 0.5)), 5.0))
     request_body = {
         "model": config["model"],
         "messages": messages,
         "temperature": config.get("temperature", 0.3),
     }
-    mt = config.get("max_tokens")
-    if mt and int(mt) > 0:
-        request_body["max_tokens"] = int(mt)
+    # max_tokens 不再限制：无论配置什么值都不向模型 API 传 max_tokens，
+    # 让模型按其自身上限输出，避免评分/建议被截断
 
     for attempt in range(attempts):
         try:

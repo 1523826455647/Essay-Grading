@@ -134,7 +134,8 @@ def get_llm_config() -> dict:
         'api_key': db_config.get('llm_api_key', Config.LLM_API_KEY),
         'base_url': db_config.get('llm_base_url', Config.LLM_BASE_URL),
         'temperature': Config.LLM_TEMPERATURE,
-        'max_tokens': Config.LLM_MAX_TOKENS,
+        # 不限制模型输出 token：0 表示调用链路不向 API 传 max_tokens
+        'max_tokens': 0,
         'timeout': Config.LLM_TIMEOUT,
         'max_attempts': Config.LLM_MAX_ATTEMPTS,
         'retry_delay': Config.LLM_RETRY_DELAY,
