@@ -24,6 +24,7 @@ from src.api.grading_chat import grading_chat_bp
 from src.api.community import community_bp
 from src.api.tickets import tickets_bp
 from src.api.profile import profile_bp
+from src.api.aptitude import aptitude_bp
 
 
 def create_app():
@@ -51,6 +52,8 @@ def create_app():
     app.register_blueprint(community_bp)
     app.register_blueprint(tickets_bp)
     app.register_blueprint(profile_bp)
+    # 行测统计：管理员私有，不进公开导航
+    app.register_blueprint(aptitude_bp)
 
     # Initialize database
     with app.app_context():
@@ -172,6 +175,11 @@ def create_app():
     @app.route('/leaderboard')
     def leaderboard():
         return render_template('leaderboard.html')
+
+    # 行测统计（管理员私有页面，不进公开导航）
+    @app.route('/aptitude')
+    def aptitude():
+        return render_template('aptitude.html')
 
     @app.route('/topics/<int:topic_id>')
     def topic_detail(topic_id):

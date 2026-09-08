@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% block title %}行测统计 - 申论帮{% endblock %}
+{% block description %}行测套题统计（私有）{% endblock %}
+
+{% block extra_css %}
+<style>
+  .apt-page { width: min(960px, calc(100% - 32px)); margin: 0 auto; padding: 8px 0 48px; }
+  .apt-hero {
+    background: linear-gradient(135deg, #7c3aed, #9333ea 55%, #a855f7);
+    border-radius: 18px; color: #fff; padding: 22px 26px; margin-bottom: 16px;
+    box-shadow: 0 10px 28px rgba(124,58,237,.18);
+  }
+  .apt-hero h1 { margin: 0 0 6px; font-size: 1.35rem; }
+  .apt-hero p { margin: 0; color: rgba(255,255,255,.88); font-size: 13px; }
+  .apt-card { background: #fff; border: 1px solid #e6e0f5; border-radius: 16px; padding: 18px 20px; margin-bottom: 16px; box-shadow: 0 4px 16px rgba(124,58,237,.05); }
+  .apt-card h2 { font-size: 15.5px; font-weight: 700; color: #5b21b6; margin: 0 0 12px; }
+  .apt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 14px; }
+  .apt-field label { display: block; font-size: 12px; color: #64748b; margin-bottom: 4px; font-weight: 600; }
+  .apt-field input, .apt-field select {
+    width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #ddd6fe;
+    border-radius: 9px; font-size: 13.5px; background: #faf9ff; color: #1e293b;
+  }
+  .apt-field input:focus { outline: none; border-color: #8b5cf6; background: #fff; }
+  .apt-mod { border: 1px dashed #ddd6fe; border-radius: 12px; padding: 12px 14px; }
+  .apt-mod-title { font-size: 13px; font-weight: 700; color: #7c3aed; margin-bottom: 8px; }
+  .apt-mod-row { display: flex; gap: 10px; }
+  .apt-mod-row .apt-field { flex: 1; }
+  .apt-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .apt-stat { background: #f7f4ff; border-radius: 12px; padding: 12px 14px; }
+  .apt-stat .k { font-size: 12px; color: #64748b; }
+  .apt-stat .v { font-size: 22px; font-weight: 800; color: #5b21b6; }
+  .apt-bar-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+  .apt-bar-name { width: 72px; font-size: 13px; color: #334155; flex: 0 0 72px; }
+  .apt-bar-track { flex: 1; height: 10px; background: #ede9fe; border-radius: 999px; overflow: hidden; }
+  .apt-bar-fill { height: 100%; background: linear-gradient(90deg, #8b5cf6, #a855f7); border-radius: 999px; }
+  .apt-bar-val { width: 110px; font-size: 12.5px; color: #64748b; text-align: right; flex: 0 0 110px; }
+  .apt-table { width: 100%; border-collapse: collapse; }
+  .apt-table th { text-align: left; padding: 8px 10px; font-size: 12px; color: #64748b; border-bottom: 1px solid #ede9fe; white-space: nowrap; }
+  .apt-table td { padding: 9px 10px; font-size: 13px; color: #334155; border-bottom: 1px solid #f5f3ff; }
+  .apt-rate { font-weight: 700; color: #7c3aed; }
+  .apt-del { color: #dc2626; cursor: pointer; font-size: 12.5px; background: none; border: none; }
+  .apt-del:hover { text-decoration: underline; }
+  .apt-empty { text-align: center; color: #94a3b8; padding: 26px 0; font-size: 13.5px; }
+  .apt-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .apt-charts { grid-template-columns: 1fr; } }
+  .apt-note { font-size: 12px; color: #94a3b8; margin-top: 8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div class="apt-page">
+    <div class="apt-hero">
+      <h1>📊 行测套题统计（私有）</h1>
+      <p>手工录入每套行测卷的各模块对题数与总分，系统自动汇总正确率与成绩趋势。此页面不对外展示，仅管理员可用。</p>
+    </div>
+
+    <div id="apt-denied" class="apt-card" style="display:none;">
+      <div class="apt-empty">⛔ 仅管理员可访问此页面</div>
+    </div>
+
+    <div id="apt-main" style="display:none;">
+      <!-- 录入表单 -->
+      <div class="apt-card">
+        <h2>➕ 录入一套行测题</h2>
+        <div class="apt-grid" style="margin-bottom:12px;">
+          <div class="apt-field" style="grid-column: span 2;">
+            <label>套题名称 *</label>
+            <input id="f-name" placeholder="如：2023 国考行测（副省级）">
+          </div>
+          <div class="apt-field">
+            <label>做题日期 *</label>
+            <input id="f-date" type="date">
+          </div>
+          <div class="apt-field">
+            <label>用时（分钟）</label>
+            <input id="f-duration" type="number" min="0" placeholder="如 120">
+          </div>
+        </div>
+        <div class="apt-grid" id="moduleFields"></div>
+        <div class="apt-grid" style="margin-top:12px;">
+          <div class="apt-field">
+            <label>总分（按你的口径自填）</label>
+            <input id="f-score" type="number" step="0.1" placeholder="如 68.5">
+          </div>
+          <div class="apt-field">
+            <label>总分满分</label>
+            <input id="f-score-max" type="number" step="0.1" value="100">
+          </div>
+          <div class="apt-field" style="grid-column: span 2;">
+            <label>备注</label>
+            <input id="f-notes" placeholder="选填">
+          </div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
+          <button class="btn btn-primary" id="saveBtn" onclick="saveTest()">保存本套</button>
+          <span id="formMsg" style="font-size:12.5px;color:#64748b;"></span>
+        </div>
+      </div>
+
+      <!-- 汇总统计 -->
+      <div class="apt-card">
+        <h2>📈 累计统计</h2>
+        <div class="apt-stats" id="statCards"></div>
+        <div style="margin-top:14px;" id="moduleBars"></div>
+        <div class="apt-charts" style="margin-top:14px;">
+          <div><canvas id="radarChart" width="380" height="260"></canvas></div>
+          <div><canvas id="trendChart" width="440" height="260"></canvas></div>
+        </div>
+        <div class="apt-note">各模块正确率 = 该模块累计正确数 ÷ 累计总题数；总分按你录入时的口径直接汇总，不做换算。</div>
+      </div>
+
+      <!-- 记录列表 -->
+      <div class="apt-card">
+        <h2>🗂 全部记录</h2>
+        <div style="overflow-x:auto;">
+          <table class="apt-table">
+            <thead><tr>
+              <th>日期</th><th>套题</th>
+              <th>常识</th><th>言语</th><th>数量</th><th>判断</th><th>资料</th>
+              <th>总分</th><th>用时</th><th>备注</th><th></th>
+            </tr></thead>
+            <tbody id="testBody"></tbody>
+          </table>
+        </div>
+        <div id="listEmpty" class="apt-empty" style="display:none;">还没有记录，先在上面录入一套吧</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const APT_API = '/api/aptitude';
+const token = localStorage.getItem('slb_token') || localStorage.getItem('token');
+const MODULES = [
+  { key: 'common',   name: '常识判断', short: '常识' },
+  { key: 'verbal',   name: '言语理解', short: '言语' },
+  { key: 'quant',    name: '数量关系', short: '数量' },
+  { key: 'judge',    name: '判断推理', short: '判断' },
+  { key: 'material', name: '资料分析', short: '资料' },
+];
+let aptSummary = null;
+
+function headers() { return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }; }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ---------- 初始化 ----------
+async function init() {
+  if (!token) { showDenied(); return; }
+  try {
+    const r = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+    const d = await r.json();
+    const role = d?.data?.role;
+    if (!['admin', 'super_admin'].includes(role)) { showDenied(); return; }
+  } catch (e) { showDenied(); return; }
+
+  document.getElementById('apt-main').style.display = '';
+  document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+  buildModuleFields();
+  await refresh();
+}
+
+function showDenied() {
+  document.getElementById('apt-denied').style.display = '';
+}
+
+function buildModuleFields() {
+  const box = document.getElementById('moduleFields');
+  box.innerHTML = MODULES.map(m => `
+    <div class="apt-mod">
+      <div class="apt-mod-title">${m.name}</div>
+      <div class="apt-mod-row">
+        <div class="apt-field"><label>正确数</label><input id="f-${m.key}-correct" type="number" min="0" placeholder="0"></div>
+        <div class="apt-field"><label>总题数</label><input id="f-${m.key}-total" type="number" min="0" placeholder="0"></div>
+      </div>
+    </div>`).join('');
+}
+
+// ---------- 保存 ----------
+async function saveTest() {
+  const msg = document.getElementById('formMsg');
+  const body = { score_max: document.getElementById('f-score-max').value || 100 };
+  body.paper_name = document.getElementById('f-name').value.trim();
+  body.test_date = document.getElementById('f-date').value;
+  body.total_score = document.getElementById('f-score').value;
+  body.duration_minutes = document.getElementById('f-duration').value;
+  body.notes = document.getElementById('f-notes').value.trim();
+  for (const m of MODULES) {
+    body[m.key + '_correct'] = document.getElementById(`f-${m.key}-correct`).value || 0;
+    body[m.key + '_total'] = document.getElementById(`f-${m.key}-total`).value || 0;
+  }
+  if (!body.paper_name || !body.test_date) { msg.textContent = '⚠ 请填写套题名称和日期'; return; }
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  try {
+    const res = await fetch(APT_API + '/tests', { method: 'POST', headers: headers(), body: JSON.stringify(body) });
+    const d = await res.json();
+    if (!res.ok) { msg.textContent = '⚠ ' + (d.error || '保存失败'); return; }
+    msg.textContent = '✅ 已保存';
+    document.getElementById('f-name').value = '';
+    ['f-score', 'f-duration', 'f-notes'].forEach(id => document.getElementById(id).value = '');
+    MODULES.forEach(m => {
+      document.getElementById(`f-${m.key}-correct`).value = '';
+      document.getElementById(`f-${m.key}-total`).value = '';
+    });
+    await refresh();
+  } finally {
+    btn.disabled = false;
+    setTimeout(() => { msg.textContent = ''; }, 2500);
+  }
+}
+
+async function deleteTest(id) {
+  if (!confirm('确定删除这条记录？')) return;
+  await fetch(`${APT_API}/tests/${id}`, { method: 'DELETE', headers: headers() });
+  await refresh();
+}
+
+// ---------- 加载与渲染 ----------
+async function refresh() {
+  const [sRes, lRes] = await Promise.all([
+    fetch(APT_API + '/summary', { headers: headers() }),
+    fetch(APT_API + '/tests', { headers: headers() }),
+  ]);
+  aptSummary = (await sRes.json())?.data || {};
+  const tests = (await lRes.json())?.data?.tests || [];
+  renderStats(aptSummary);
+  renderList(tests);
+  renderCharts(aptSummary);
+}
+
+function renderStats(s) {
+  const cards = [
+    ['已做套数', s.test_count ?? 0],
+    ['平均总分', s.avg_score ?? '--'],
+    ['最高总分', s.best_score ?? '--'],
+    ['最近一次', s.latest_score ?? '--'],
+  ];
+  document.getElementById('statCards').innerHTML = cards.map(([k, v]) =>
+    `<div class="apt-stat"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`).join('');
+
+  const mods = s.modules || [];
+  document.getElementById('moduleBars').innerHTML = mods.map(m => {
+    const rate = m.rate == null ? '--' : m.rate + '%';
+    const width = m.rate == null ? 0 : Math.min(100, m.rate);
+    const detail = m.total ? `（${m.correct}/${m.total}）` : '（未录入）';
+    return `<div class="apt-bar-row">
+      <div class="apt-bar-name">${esc(m.name)}</div>
+      <div class="apt-bar-track"><div class="apt-bar-fill" style="width:${width}%"></div></div>
+      <div class="apt-bar-val"><span class="apt-rate">${rate}</span> ${detail}</div>
+    </div>`;
+  }).join('');
+}
+
+function rateCell(m) {
+  if (!m || !m.total) return '<span style="color:#cbd5e1;">--</span>';
+  const rate = Math.round(m.correct / m.total * 100);
+  const color = rate >= 75 ? '#16a34a' : rate >= 60 ? '#d97706' : '#dc2626';
+  return `<span class="apt-rate" style="color:${color};">${m.correct}/${m.total}</span> <span style="font-size:11px;color:#94a3b8;">${rate}%</span>`;
+}
+
+function renderList(tests) {
+  const body = document.getElementById('testBody');
+  document.getElementById('listEmpty').style.display = tests.length ? 'none' : '';
+  body.innerHTML = tests.map(t => {
+    const mod = {};
+    MODULES.forEach(m => { mod[m.key] = { correct: t[m.key + '_correct'], total: t[m.key + '_total'] }; });
+    return `<tr>
+      <td style="white-space:nowrap;">${esc(t.test_date)}</td>
+      <td style="font-weight:600;">${esc(t.paper_name)}</td>
+      ${MODULES.map(m => `<td>${rateCell(mod[m.key])}</td>`).join('')}
+      <td style="font-weight:700;color:#5b21b6;">${t.total_score ?? '--'}<span style="font-size:11px;color:#94a3b8;">/${t.score_max ?? 100}</span></td>
+      <td style="white-space:nowrap;">${t.duration_minutes ? t.duration_minutes + ' 分' : '--'}</td>
+      <td style="max-width:160px;color:#64748b;">${esc(t.notes || '')}</td>
+      <td><button class="apt-del" onclick="deleteTest(${t.id})">删除</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderCharts(s) {
+  if (!window.Chart) return;
+  const mods = s.modules || [];
+  const labels = mods.map(m => m.name);
+  const rates = mods.map(m => m.rate == null ? 0 : m.rate);
+
+  // 雷达：各模块累计正确率
+  const radarEl = document.getElementById('radarChart');
+  const radarCtx = radarEl.getContext('2d');
+  if (window._aptRadar) window._aptRadar.destroy();
+  window._aptRadar = new Chart(radarCtx, {
+    type: 'radar',
+    data: { labels, datasets: [{ label: '累计正确率 %', data: rates,
+      borderColor: 'rgba(124,58,237,.9)', backgroundColor: 'rgba(124,58,237,.15)', pointBackgroundColor: '#7c3aed' }] },
+    options: { responsive: false, plugins: { legend: { display: false }, title: { display: true, text: '五模块正确率', font: { size: 13 } } },
+      scales: { r: { beginAtZero: true, max: 100, ticks: { stepSize: 20, backdropColor: 'transparent', font: { size: 9 } }, pointLabels: { font: { size: 11 } } } } }
+  });
+
+  // 折线：总分趋势
+  const trend = s.trend || [];
+  const trendEl = document.getElementById('trendChart');
+  const trendCtx = trendEl.getContext('2d');
+  if (window._aptTrend) window._aptTrend.destroy();
+  window._aptTrend = new Chart(trendCtx, {
+    type: 'line',
+    data: { labels: trend.map(t => t.date),
+      datasets: [{ label: '总分', data: trend.map(t => t.total_score), tension: 0.3, fill: false,
+        borderColor: '#7c3aed', backgroundColor: '#7c3aed', pointRadius: 4 }] },
+    options: { responsive: false, plugins: { legend: { display: false }, title: { display: true, text: '总分趋势', font: { size: 13 } },
+      tooltip: { callbacks: { title: items => { const t = trend[items[0].dataIndex]; return t ? t.paper_name : ''; } } } },
+      scales: { y: { beginAtZero: false } } }
+  });
+}
+
+init();
+</script>
+{% endblock %}

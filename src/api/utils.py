@@ -193,6 +193,33 @@ NEW_TABLES = {
         );
         CREATE INDEX IF NOT EXISTS idx_ticket_replies_ticket ON ticket_replies(ticket_id);
     """,
+    # 行测套题统计（管理员私有录入，不对外展示）：每套题记录名称/日期、
+    # 五个模块的正确数与总题数、用户按自己口径填写的主观总分
+    'aptitude_tests': """
+        CREATE TABLE IF NOT EXISTS aptitude_tests (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            uid              TEXT NOT NULL,
+            paper_name       TEXT NOT NULL,
+            test_date        TEXT NOT NULL,
+            common_correct   INTEGER NOT NULL DEFAULT 0,
+            common_total     INTEGER NOT NULL DEFAULT 0,
+            verbal_correct   INTEGER NOT NULL DEFAULT 0,
+            verbal_total     INTEGER NOT NULL DEFAULT 0,
+            quant_correct    INTEGER NOT NULL DEFAULT 0,
+            quant_total      INTEGER NOT NULL DEFAULT 0,
+            judge_correct    INTEGER NOT NULL DEFAULT 0,
+            judge_total      INTEGER NOT NULL DEFAULT 0,
+            material_correct INTEGER NOT NULL DEFAULT 0,
+            material_total   INTEGER NOT NULL DEFAULT 0,
+            total_score      REAL,
+            score_max        REAL NOT NULL DEFAULT 100,
+            duration_minutes INTEGER,
+            notes            TEXT,
+            created_at       DATETIME DEFAULT (datetime('now')),
+            FOREIGN KEY (uid) REFERENCES users(uid)
+        );
+        CREATE INDEX IF NOT EXISTS idx_apt_tests_uid ON aptitude_tests(uid, test_date);
+    """,
 }
 
 
