@@ -81,6 +81,12 @@
           </span>
           <span>账号设置</span>
         </a>
+        <a href="/aptitude" class="pf-nav-item" id="pf-nav-aptitude" style="display:none;" aria-hidden="true">
+          <span class="pf-nav-ico" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-6 4 3 5-8"/></svg>
+          </span>
+          <span>行测统计</span>
+        </a>
         <a href="/tickets" class="pf-nav-item">
           <span class="pf-nav-ico" aria-hidden="true">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -982,6 +988,12 @@
       document.getElementById('profile-role').textContent =
         (role === 'vip' || user.is_vip) ? 'VIP 用户' :
         (role === 'admin' || role === 'super_admin') ? '管理员' : '普通用户';
+      // 行测统计入口仅管理员可见（页面与数据均不对外）
+      const aptNav = document.getElementById('pf-nav-aptitude');
+      if (aptNav && ['admin', 'super_admin'].includes(role)) {
+        aptNav.style.display = '';
+        aptNav.removeAttribute('aria-hidden');
+      }
     } catch (e) {}
   }
 
