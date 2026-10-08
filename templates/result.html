@@ -657,10 +657,41 @@
       const { data } = await res.json();
       renderResult(data || {});
       loadSummary();
+      // 批改仍在进行（大作文流水线可能 3~10 分钟）：显示提示并自动轮询刷新
+      if (data && data.status === 'grading') startGradingPoll();
     } catch (e) {
       console.error(e);
       if (typeof SLBToast !== 'undefined') SLBToast.error('加载失败，请刷新重试');
     }
+  }
+
+  // ================= 批改进行中自动轮询 =================
+  let _gradingPollTimer = null;
+  function startGradingPoll() {
+    if (_gradingPollTimer) return;
+    let tries = 0;
+    _gradingPollTimer = setInterval(async () => {
+      tries++;
+      try {
+        const token = localStorage.getItem('slb_token') || localStorage.getItem('token');
+        const res = await fetch(`/api/submissions/${sid}`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) return;
+        const { data } = await res.json();
+        if (data && data.status && data.status !== 'grading') {
+          clearInterval(_gradingPollTimer);
+          _gradingPollTimer = null;
+          renderResult(data);
+          loadSummary();
+          if (typeof SLBToast !== 'undefined') SLBToast.success('批改已完成');
+        } else if (tries >= 35) {
+          // 约 12 分钟仍未完成：停止轮询，保留提示让用户手动刷新
+          clearInterval(_gradingPollTimer);
+          _gradingPollTimer = null;
+        }
+      } catch (e) { /* 网络波动时跳过本轮，下一轮重试 */ }
+    }, 20000);
   }
 
   // ================= 本次批改小结 =================
@@ -856,8 +887,15 @@
   function renderNotice(data, showEssay) {
     const score = finiteNumber(data.score);
     const isPending = data.status === 'pending_review' || (data.needs_review && score === null);
+    const isGrading = data.status === 'grading';
     const notice = document.getElementById('review-notice');
-    if (isPending || data.needs_review) {
+    if (isGrading) {
+      notice.style.display = 'flex';
+      document.getElementById('review-notice-title').textContent = '⏳ 批改进行中…';
+      document.getElementById('review-notice-text').textContent =
+        '大作文批改流水线较长（多模型评审 + 评审团 + 仲裁，约 3～10 分钟），' +
+        '本页每 20 秒自动刷新，出结果后会自动展示，请稍候，无需重复提交。';
+    } else if (isPending || data.needs_review) {
       notice.style.display = 'flex';
       if (isPending) {
         document.getElementById('review-notice-title').textContent = '批改已转入待复核';
