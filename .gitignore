@@ -54,3 +54,8 @@ shenlun-zuowen-train.jsonl
 
 # 本仓库开发工具内部状态（安全扫描等）
 .mimosa/
+
+# 数据导出包/合并中间库（大文件，不入仓）
+data/export/
+data/merge-20260909/
+data/slb.db.local-pre-*
