@@ -2,6 +2,8 @@
 
 > AI 驱动的公务员申论备考平台 —— 智能批改 · 批改问答 · 卷库训练 · 能力诊断
 
+不想部署？快速开始：https://slb.aidrawpic.top
+
 **当前版本：v1.0.9**
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
