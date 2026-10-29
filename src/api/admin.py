@@ -334,8 +334,10 @@ def get_dashboard_stats():
         "SELECT COUNT(*) FROM submissions WHERE score < 60 OR is_reviewed = 0"
     ).fetchone()[0]
 
-    # Papers stats
-    total_papers = db.execute("SELECT COUNT(*) FROM papers").fetchone()[0]
+    # Papers stats（排除自定义批改产生的私有试卷，只统计官方题库）
+    total_papers = db.execute(
+        "SELECT COUNT(*) FROM papers WHERE status != 'custom'"
+    ).fetchone()[0]
 
     # Pending phrases
     pending_phrases = db.execute(
@@ -377,6 +379,7 @@ def get_dashboard_stats():
                   AVG(s.score) as avg_score
            FROM papers p
            LEFT JOIN submissions s ON p.pid = s.pid
+           WHERE p.status != 'custom'
            GROUP BY p.pid ORDER BY submission_count DESC LIMIT 10"""
     ).fetchall()]
 
@@ -781,10 +784,18 @@ def list_papers():
     per_page = clamp_per_page(request.args.get('limit', 20, type=int))
     status = request.args.get('status')
     exam_type = request.args.get('exam_type')
+    # 数据隔离：默认只看官方题库；type=custom 查看自定义任务；type=all 全部
+    paper_type = (request.args.get('type') or 'official').strip().lower()
 
     db = get_db()
     query = "SELECT * FROM papers WHERE 1=1"
     params = []
+
+    if paper_type == 'custom':
+        query += " AND status = 'custom'"
+    elif paper_type != 'all':
+        # official（默认）：排除自定义批改产生的私有试卷
+        query += " AND status != 'custom'"
 
     if status:
         query += " AND status = ?"
@@ -806,6 +817,170 @@ def list_papers():
         'total': total,
         'page': page,
         'pages': (total + per_page - 1) // per_page
+    })
+
+
+# ============ Submission Records (admin, cross-user) ============
+
+@admin_bp.route('/submissions', methods=['GET'])
+@admin_required('submissions.view')
+def admin_list_submissions():
+    """跨用户批改记录列表，支持用户/试卷/题目/日期筛选与分页。"""
+    page = max(1, request.args.get('page', 1, type=int))
+    per_page = clamp_per_page(request.args.get('limit', 20, type=int))
+    uid = (request.args.get('uid') or '').strip()
+    pid = (request.args.get('pid') or '').strip()
+    qid = (request.args.get('qid') or '').strip()
+    date_from = (request.args.get('date_from') or '').strip()
+    date_to = (request.args.get('date_to') or '').strip()
+    keyword = (request.args.get('keyword') or '').strip()
+
+    where = ["1=1"]
+    params = []
+    if uid:
+        where.append("s.uid = ?")
+        params.append(uid)
+    if pid:
+        where.append("s.pid = ?")
+        params.append(pid)
+    if qid:
+        where.append("s.qid = ?")
+        params.append(qid)
+    if date_from:
+        where.append("date(s.created_at) >= date(?)")
+        params.append(date_from)
+    if date_to:
+        where.append("date(s.created_at) <= date(?)")
+        params.append(date_to)
+    if keyword:
+        where.append("(u.nickname LIKE ? OR p.title LIKE ?)")
+        like = f"%{keyword}%"
+        params.extend([like, like])
+    where_sql = " AND ".join(where)
+
+    db = get_db()
+    base = (" FROM submissions s "
+            "LEFT JOIN users u ON u.uid = s.uid "
+            "LEFT JOIN papers p ON p.pid = s.pid ")
+    total = db.execute(
+        "SELECT COUNT(*) " + base + " WHERE " + where_sql, params
+    ).fetchone()[0]
+
+    rows = db.execute(
+        "SELECT s.sid, s.uid, u.nickname, s.pid, p.title AS paper_title, s.qid, "
+        "s.score, s.grading_mode, s.needs_review, s.valid_judges, s.failed_judges, "
+        "s.created_at, s.graded_at " + base +
+        "WHERE " + where_sql + " ORDER BY s.created_at DESC LIMIT ? OFFSET ?",
+        params + [per_page, (page - 1) * per_page],
+    ).fetchall()
+
+    return api_success({
+        'submissions': [dict(r) for r in rows],
+        'total': total,
+        'page': page,
+        'pages': (total + per_page - 1) // per_page,
+    })
+
+
+@admin_bp.route('/submissions/<sid>', methods=['GET'])
+@admin_required('submissions.view')
+def admin_submission_detail(sid):
+    """单条批改详情：答题原文、材料、各模型评分与评语、采分点、token 消耗。"""
+    import json as _json
+
+    db = get_db()
+    sub = db.execute(
+        """SELECT s.*, u.nickname, u.username, p.title AS paper_title,
+                  p.material AS paper_material, p.questions AS paper_questions
+           FROM submissions s
+           LEFT JOIN users u ON u.uid = s.uid
+           LEFT JOIN papers p ON p.pid = s.pid
+           WHERE s.sid = ?""",
+        (sid,),
+    ).fetchone()
+    if not sub:
+        return api_error('批改记录不存在', 404)
+
+    def _loads(raw, default):
+        if not raw:
+            return default
+        try:
+            return _json.loads(raw) if isinstance(raw, str) else raw
+        except Exception:
+            return default
+
+    material = _loads(sub['paper_material'], [])
+    stem = ''
+    for q in _loads(sub['paper_questions'], []):
+        if str(q.get('qid')) == str(sub['qid']):
+            stem = q.get('stem') or q.get('question_text') or ''
+            break
+
+    judgments = []
+    for row in db.execute(
+        """SELECT j.judgment_id, j.model_id, m.name AS model_name, j.status,
+                  j.score, j.dimension_scores, j.result_json, j.error_code,
+                  j.latency_ms, j.created_at
+           FROM submission_judgments j
+           LEFT JOIN llm_models m ON m.model_id = j.model_id
+           WHERE j.sid = ? ORDER BY j.created_at""",
+        (sid,),
+    ).fetchall():
+        detail = _loads(row['result_json'], {})
+        judgments.append({
+            'judgment_id': row['judgment_id'],
+            'model_id': row['model_id'],
+            'model_name': row['model_name'] or row['model_id'],
+            'status': row['status'],
+            'score': row['score'],
+            'dimension_scores': _loads(row['dimension_scores'], {}),
+            'ai_feedback': (detail.get('ai_feedback') or '')[:2000],
+            'error_code': row['error_code'],
+            'latency_ms': row['latency_ms'],
+            'created_at': row['created_at'],
+        })
+
+    try:
+        tokens = [dict(r) for r in db.execute(
+            """SELECT model_name, COUNT(*) AS calls,
+                      SUM(prompt_tokens) AS prompt_tokens,
+                      SUM(completion_tokens) AS completion_tokens,
+                      SUM(total_tokens) AS total_tokens,
+                      SUM(cost) AS cost
+               FROM token_usage_logs WHERE sid = ? GROUP BY model_name""",
+            (sid,),
+        ).fetchall()]
+    except Exception:
+        # 旧库可能尚未建 token_usage_logs 表（schema 演进中），详情不因此失败
+        tokens = []
+
+    return api_success({
+        'submission': {
+            'sid': sub['sid'],
+            'uid': sub['uid'],
+            'nickname': sub['nickname'],
+            'username': sub['username'],
+            'pid': sub['pid'],
+            'paper_title': sub['paper_title'],
+            'qid': sub['qid'],
+            'question_stem': stem,
+            'user_answer': sub['user_answer'],
+            'score': sub['score'],
+            'grading_mode': sub['grading_mode'],
+            'needs_review': sub['needs_review'],
+            'valid_judges': sub['valid_judges'],
+            'failed_judges': sub['failed_judges'],
+            'created_at': sub['created_at'],
+            'graded_at': sub['graded_at'],
+            'ai_feedback': sub['ai_feedback'],
+            'improving_suggestions': _loads(sub['improving_suggestions'], []),
+            'hit_points': _loads(sub['hit_points'], []),
+            'missing_points': _loads(sub['missing_points'], []),
+            'dimension_scores': _loads(sub['dimension_scores'], {}),
+        },
+        'material': material,
+        'judgments': judgments,
+        'tokens': tokens,
     })
 
 

@@ -243,6 +243,10 @@ def create_app():
     def admin_papers():
         return _admin_page('admin/papers.html')
 
+    @app.route('/admin/submissions')
+    def admin_submissions():
+        return _admin_page('admin/submissions.html')
+
     @app.route('/admin/models')
     def admin_models():
         return _admin_page('admin/models.html')

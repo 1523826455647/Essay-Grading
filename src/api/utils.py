@@ -28,6 +28,8 @@ SCHEMA_COLUMN_MIGRATIONS = {
     'llm_models': {
         'deleted_at': 'ALTER TABLE llm_models ADD COLUMN "deleted_at" DATETIME',
         'credit_cost': 'ALTER TABLE llm_models ADD COLUMN "credit_cost" REAL',
+        'input_price_per_mtok': 'ALTER TABLE llm_models ADD COLUMN "input_price_per_mtok" REAL DEFAULT 0',
+        'output_price_per_mtok': 'ALTER TABLE llm_models ADD COLUMN "output_price_per_mtok" REAL DEFAULT 0',
     },
     'users': {
         'grading_credits': 'ALTER TABLE users ADD COLUMN "grading_credits" REAL DEFAULT 1.0',
@@ -219,6 +221,20 @@ NEW_TABLES = {
             FOREIGN KEY (uid) REFERENCES users(uid)
         );
         CREATE INDEX IF NOT EXISTS idx_apt_tests_uid ON aptitude_tests(uid, test_date);
+    """,
+    # 自定义批改限流与审计：每次 POST /api/custom-grade 落一条，
+    # 既做滑动窗口限流（按 uid 计数），也留存 uid/ip/ua 审计轨迹。
+    'audit_custom_grade': """
+        CREATE TABLE IF NOT EXISTS audit_custom_grade (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            uid        TEXT NOT NULL,
+            ip         TEXT NOT NULL DEFAULT '',
+            ua         TEXT NOT NULL DEFAULT '',
+            sid        TEXT,
+            created_at DATETIME DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_audit_cg_uid_time
+            ON audit_custom_grade(uid, created_at);
     """,
 }
 

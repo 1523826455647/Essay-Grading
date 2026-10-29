@@ -227,7 +227,7 @@ def create_custom_paper(
            VALUES (?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, 3, 0, ?, 'custom', ?)""",
         (
             pid,
-            '用户上传',
+            'custom',
             '自定义',
             datetime.now().year,
             paper_title,

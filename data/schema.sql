@@ -511,6 +511,9 @@ CREATE TABLE IF NOT EXISTS llm_models (
     last_test_error   TEXT,
     last_latency_ms   INTEGER,
     deleted_at        DATETIME,
+    credit_cost       REAL DEFAULT 1.0,
+    input_price_per_mtok  REAL DEFAULT 0,
+    output_price_per_mtok REAL DEFAULT 0,
     created_at        DATETIME DEFAULT (datetime('now')),
     updated_at        DATETIME DEFAULT (datetime('now'))
 );
@@ -593,3 +596,36 @@ CREATE TABLE IF NOT EXISTS aptitude_tests (
     FOREIGN KEY (uid) REFERENCES users(uid)
 );
 CREATE INDEX IF NOT EXISTS idx_apt_tests_uid ON aptitude_tests(uid, test_date);
+
+-- ============================================================
+-- 自定义批改限流与审计（按 uid 滑动窗口计数 + uid/ip/ua 留痕）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS audit_custom_grade (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    uid        TEXT NOT NULL,
+    ip         TEXT NOT NULL DEFAULT '',
+    ua         TEXT NOT NULL DEFAULT '',
+    sid        TEXT,
+    created_at DATETIME DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_audit_cg_uid_time
+    ON audit_custom_grade(uid, created_at);
+
+-- ============================================================
+-- LLM token 用量日志（详情页统计各模型消耗）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS token_usage_logs (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    model_id          TEXT,
+    model_name        TEXT,
+    prompt_tokens     INTEGER DEFAULT 0,
+    completion_tokens INTEGER DEFAULT 0,
+    total_tokens      INTEGER DEFAULT 0,
+    input_price       REAL DEFAULT 0,
+    output_price      REAL DEFAULT 0,
+    cost              REAL DEFAULT 0,
+    source            TEXT,
+    created_at        DATETIME DEFAULT (datetime('now')),
+    sid               TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_token_usage_sid ON token_usage_logs(sid);

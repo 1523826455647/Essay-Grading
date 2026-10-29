@@ -45,6 +45,10 @@
           <i data-lucide="file-text"></i>
           试卷管理
         </a>
+        <a href="/admin/submissions" class="admin-nav-item {% if '/admin/submissions' in request.path %}active{% endif %}">
+          <i data-lucide="clipboard-list"></i>
+          批改记录
+        </a>
         <a href="/admin/models" class="admin-nav-item {% if '/admin/models' in request.path %}active{% endif %}">
           <i data-lucide="cpu"></i>
           模型管理

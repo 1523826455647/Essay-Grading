@@ -1,0 +1,212 @@
+{% extends "admin/base.html" %}
+
+{% block title %}批改记录 - 申论帮管理后台{% endblock %}
+{% block page_title %}批改记录{% endblock %}
+
+{% block admin_content %}
+<div class="filter-bar">
+  <div class="filter-item">
+    <label>用户 UID</label>
+    <input type="text" id="filter-uid" placeholder="精确 UID" onkeyup="if(event.key==='Enter')loadSubmissions()">
+  </div>
+  <div class="filter-item">
+    <label>关键词</label>
+    <input type="text" id="filter-keyword" placeholder="昵称 / 试卷标题" onkeyup="if(event.key==='Enter')loadSubmissions()">
+  </div>
+  <div class="filter-item">
+    <label>开始日期</label>
+    <input type="date" id="filter-date-from" onchange="loadSubmissions()">
+  </div>
+  <div class="filter-item">
+    <label>结束日期</label>
+    <input type="date" id="filter-date-to" onchange="loadSubmissions()">
+  </div>
+  <button class="btn btn-primary" onclick="loadSubmissions()">
+    <i data-lucide="search"></i>
+    筛选
+  </button>
+</div>
+
+<div class="admin-table-container">
+  <div class="admin-table-header">
+    <h3 class="admin-table-title">批改记录 <span id="submissions-total" style="font-size:13px;color:#94a3b8;font-weight:400;"></span></h3>
+  </div>
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>提交时间</th>
+        <th>用户</th>
+        <th>试卷</th>
+        <th>题号</th>
+        <th>得分</th>
+        <th>模式</th>
+        <th>状态</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="submissions-table">
+      <tr><td colspan="8" style="text-align:center;padding:24px;color:#94a3b8;">加载中...</td></tr>
+    </tbody>
+  </table>
+  <div class="pagination" id="submissions-pagination"></div>
+</div>
+
+<!-- 详情弹窗 -->
+<div id="detail-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:1000;padding:24px;overflow-y:auto;">
+  <div style="max-width:980px;margin:20px auto;background:#fff;border-radius:14px;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="margin:0;font-size:17px;color:#0f172a;">批改详情</h3>
+      <button class="btn btn-secondary btn-sm" onclick="closeDetail()">关闭</button>
+    </div>
+    <div id="detail-body" style="font-size:13.5px;line-height:1.7;color:#334155;"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentPage = 1;
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function loadSubmissions(page = 1) {
+  currentPage = page;
+  const params = new URLSearchParams({ page, limit: 20 });
+  const uid = document.getElementById('filter-uid').value.trim();
+  const keyword = document.getElementById('filter-keyword').value.trim();
+  const dateFrom = document.getElementById('filter-date-from').value;
+  const dateTo = document.getElementById('filter-date-to').value;
+  if (uid) params.append('uid', uid);
+  if (keyword) params.append('keyword', keyword);
+  if (dateFrom) params.append('date_from', dateFrom);
+  if (dateTo) params.append('date_to', dateTo);
+
+  const tbody = document.getElementById('submissions-table');
+  try {
+    const data = await adminFetch(`/submissions?${params}`);
+    const payload = data.data || {};
+    const items = payload.submissions || [];
+    document.getElementById('submissions-total').textContent = `（共 ${payload.total ?? 0} 条）`;
+
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#94a3b8;">暂无记录</td></tr>';
+    } else {
+      tbody.innerHTML = items.map(s => {
+        const status = s.needs_review ? '<span style="color:#d97706;">待复核</span>' :
+          (s.score == null ? '<span style="color:#94a3b8;">处理中</span>' : '<span style="color:#16a34a;">已完成</span>');
+        return `<tr>
+          <td style="white-space:nowrap;">${esc((s.created_at || '').replace('T', ' ').slice(0, 16))}</td>
+          <td>${esc(s.nickname || s.uid)}</td>
+          <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.paper_title || s.pid)}</td>
+          <td>${esc(s.qid)}</td>
+          <td style="font-weight:600;">${s.score == null ? '--' : s.score}</td>
+          <td>${esc(s.grading_mode || '--')}</td>
+          <td>${status}</td>
+          <td><button class="btn btn-secondary btn-sm" onclick="openDetail('${esc(s.sid)}')">详情</button></td>
+        </tr>`;
+      }).join('');
+    }
+    renderPagination(payload.page || 1, payload.pages || 1);
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#dc2626;">加载失败</td></tr>';
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+function renderPagination(page, pages) {
+  const box = document.getElementById('submissions-pagination');
+  if (pages <= 1) { box.innerHTML = ''; return; }
+  let html = '';
+  for (let i = 1; i <= pages; i++) {
+    if (pages > 12 && Math.abs(i - page) > 3 && i !== 1 && i !== pages) continue;
+    html += `<button class="pagination-btn ${i === page ? 'active' : ''}" onclick="loadSubmissions(${i})">${i}</button>`;
+  }
+  box.innerHTML = html;
+}
+
+async function openDetail(sid) {
+  const body = document.getElementById('detail-body');
+  body.innerHTML = '加载中...';
+  document.getElementById('detail-modal').style.display = 'block';
+  try {
+    const res = await adminFetch(`/submissions/${encodeURIComponent(sid)}`);
+    const d = res.data || {};
+    const s = d.submission || {};
+    const material = Array.isArray(d.material) ? d.material : [];
+    const hits = s.hit_points || [];
+    const misses = s.missing_points || [];
+    const suggestions = s.improving_suggestions || [];
+    const judgments = d.judgments || [];
+    const tokens = d.tokens || [];
+
+    const pointRow = (label, arr) => arr.length
+      ? `<ul style="margin:4px 0 10px;padding-left:20px;">${arr.map(p => `<li>${esc(typeof p === 'string' ? p : (p.point || JSON.stringify(p)))}</li>`).join('')}</ul>`
+      : '<div style="color:#94a3b8;margin:4px 0 10px;">无</div>';
+
+    body.innerHTML = `
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+        <div><b>用户：</b>${esc(s.nickname || '')} <span style="color:#94a3b8;">${esc(s.uid || '')}</span></div>
+        <div><b>试卷：</b>${esc(s.paper_title || s.pid || '')}（题号 ${esc(s.qid || '')}）</div>
+        <div><b>提交：</b>${esc((s.created_at || '').replace('T', ' '))} ｜ <b>完成：</b>${esc((s.graded_at || '').replace('T', ' ') || '--')}</div>
+        <div><b>得分：</b>${s.score == null ? '--' : s.score} ｜ <b>模式：</b>${esc(s.grading_mode || '--')} ｜ <b>有效/失败模型：</b>${s.valid_judges ?? 0}/${s.failed_judges ?? 0}</div>
+      </div>
+
+      <h4 style="margin:12px 0 6px;color:#5b21b6;">题目</h4>
+      <div style="white-space:pre-wrap;background:#fafafa;border-radius:8px;padding:10px 12px;">${esc(s.question_stem || '（无题干）')}</div>
+
+      <h4 style="margin:12px 0 6px;color:#5b21b6;">材料</h4>
+      <div style="white-space:pre-wrap;background:#fafafa;border-radius:8px;padding:10px 12px;max-height:220px;overflow-y:auto;">${esc(material.join('\n') || '（无材料）')}</div>
+
+      <h4 style="margin:12px 0 6px;color:#5b21b6;">答题原文</h4>
+      <div style="white-space:pre-wrap;background:#fafafa;border-radius:8px;padding:10px 12px;max-height:260px;overflow-y:auto;">${esc(s.user_answer || '')}</div>
+
+      <h4 style="margin:12px 0 6px;color:#5b21b6;">AI 批改意见</h4>
+      <div style="white-space:pre-wrap;background:#fafafa;border-radius:8px;padding:10px 12px;">${esc(s.ai_feedback || '（无）')}</div>
+
+      <h4 style="margin:12px 0 6px;color:#5b21b6;">改进建议</h4>
+      ${pointRow('', suggestions)}
+
+      <h4 style="margin:12px 0 6px;color:#5b21b6;">采分点</h4>
+      <div><b style="color:#16a34a;">命中 ${hits.length} 项</b>${pointRow('', hits)}</div>
+      <div><b style="color:#dc2626;">遗漏 ${misses.length} 项</b>${pointRow('', misses)}</div>
+
+      <h4 style="margin:12px 0 6px;color:#5b21b6;">各模型评分与评语</h4>
+      <table class="admin-table" style="font-size:12.5px;">
+        <thead><tr><th>模型</th><th>状态</th><th>得分</th><th>耗时</th><th>评语</th></tr></thead>
+        <tbody>
+          ${judgments.length ? judgments.map(j => `<tr>
+            <td>${esc(j.model_name)}</td>
+            <td>${esc(j.status)}${j.error_code ? '（' + esc(j.error_code) + '）' : ''}</td>
+            <td>${j.score == null ? '--' : j.score}</td>
+            <td>${j.latency_ms == null ? '--' : Math.round(j.latency_ms / 1000) + 's'}</td>
+            <td style="max-width:420px;white-space:pre-wrap;">${esc(j.ai_feedback || '--')}</td>
+          </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">无判定记录</td></tr>'}
+        </tbody>
+      </table>
+
+      <h4 style="margin:12px 0 6px;color:#5b21b6;">Token 消耗</h4>
+      <table class="admin-table" style="font-size:12.5px;">
+        <thead><tr><th>模型</th><th>调用次数</th><th>输入</th><th>输出</th><th>合计</th><th>成本</th></tr></thead>
+        <tbody>
+          ${tokens.length ? tokens.map(t => `<tr>
+            <td>${esc(t.model_name)}</td><td>${t.calls}</td>
+            <td>${t.prompt_tokens ?? '--'}</td><td>${t.completion_tokens ?? '--'}</td>
+            <td>${t.total_tokens ?? '--'}</td><td>${t.cost == null ? '--' : Number(t.cost).toFixed(4)}</td>
+          </tr>`).join('') : '<tr><td colspan="6" style="text-align:center;color:#94a3b8;">无 token 记录</td></tr>'}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    body.innerHTML = '<div style="color:#dc2626;">详情加载失败</div>';
+  }
+}
+
+function closeDetail() {
+  document.getElementById('detail-modal').style.display = 'none';
+}
+
+loadSubmissions();
+</script>
+{% endblock %}

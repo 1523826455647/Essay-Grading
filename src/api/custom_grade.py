@@ -20,6 +20,73 @@ from src.services.grader.rubric import normalize_question_type
 custom_grade_bp = Blueprint('custom_grade', __name__, url_prefix='/api/custom-grade')
 logger = logging.getLogger(__name__)
 
+# 输入长度上限（字符）：材料 2 万、答案 5 千、标题 100
+MAX_MATERIAL_CHARS = 20000
+MAX_ANSWER_CHARS = 5000
+MAX_TITLE_CHARS = 100
+
+# 限流阈值（可配置）：滑动窗口按 uid 计数，由 audit_custom_grade 共享存储
+def _rate_limits() -> tuple[int, int]:
+    try:
+        per_min = int(os.getenv('CUSTOM_GRADE_PER_MINUTE', '6'))
+        per_day = int(os.getenv('CUSTOM_GRADE_PER_DAY', '60'))
+    except (TypeError, ValueError):
+        per_min, per_day = 6, 60
+    return max(1, per_min), max(1, per_day)
+
+
+def _client_ip() -> str:
+    """取真实客户端 IP（Cloudflare 隧道下 remote_addr 是容器网关）。"""
+    forwarded = (request.headers.get('X-Forwarded-For') or '').split(',')[0].strip()
+    return (request.headers.get('CF-Connecting-IP') or forwarded
+            or request.remote_addr or 'unknown')[:64]
+
+
+def _material_length(material) -> int:
+    if isinstance(material, (list, tuple)):
+        return sum(len(str(part or '')) for part in material)
+    return len(str(material or ''))
+
+
+def _check_custom_grade_quota(uid: str) -> tuple[bool, int]:
+    """滑动窗口限流检查并写审计；返回 (是否放行, Retry-After 秒)。
+
+    使用 SQLite 审计表计数（两个 gunicorn worker 共享），保证阈值精确。
+    """
+    per_min, per_day = _rate_limits()
+    db = get_db()
+    minute_hits = db.execute(
+        "SELECT COUNT(*) FROM audit_custom_grade "
+        "WHERE uid = ? AND created_at >= datetime('now', '-60 seconds')",
+        (uid,),
+    ).fetchone()[0]
+    if minute_hits >= per_min:
+        return False, 60
+
+    day_hits = db.execute(
+        "SELECT COUNT(*) FROM audit_custom_grade "
+        "WHERE uid = ? AND created_at >= datetime('now', '-1 day')",
+        (uid,),
+    ).fetchone()[0]
+    if day_hits >= per_day:
+        return False, 3600
+
+    db.execute(
+        "INSERT INTO audit_custom_grade (uid, ip, ua) VALUES (?, ?, ?)",
+        (uid, _client_ip(), (request.headers.get('User-Agent') or '')[:300]),
+    )
+    db.commit()
+    return True, 0
+
+
+def _rate_limited(retry_after: int):
+    resp = api_error('提交过于频繁，请稍后再试', 429)
+    try:
+        resp[0].headers['Retry-After'] = str(retry_after)
+    except Exception:
+        pass
+    return resp
+
 
 def _multi_model_enabled() -> bool:
     return str(os.getenv('MULTI_MODEL_ENABLED', 'false')).strip().lower() in {
@@ -153,8 +220,18 @@ def create_custom_grade(current_user):
 
     if not material or not stem or not user_answer:
         return api_error('请提供材料、题目和你的答案', 400)
-    if len(user_answer) > 20000:
-        return api_error('答案过长', 400)
+    # 输入长度校验（超限 400，不消耗限流配额）
+    if _material_length(material) > MAX_MATERIAL_CHARS:
+        return api_error(f'材料过长（上限 {MAX_MATERIAL_CHARS} 字）', 400)
+    if len(user_answer) > MAX_ANSWER_CHARS:
+        return api_error(f'答案过长（上限 {MAX_ANSWER_CHARS} 字）', 400)
+    if len(str(title)) > MAX_TITLE_CHARS:
+        return api_error(f'标题过长（上限 {MAX_TITLE_CHARS} 字）', 400)
+
+    # 按用户滑动窗口限流（6 次/分、60 次/天，可用环境变量配置）
+    allowed, retry_after = _check_custom_grade_quota(current_user['uid'])
+    if not allowed:
+        return _rate_limited(retry_after)
 
     try:
         created = custom_grade_service.create_custom_paper(
@@ -181,6 +258,17 @@ def create_custom_grade(current_user):
     sid = submission_service.create_submission(
         current_user['uid'], pid, qid, user_answer
     )
+    # 审计关联：将本次提交 sid 回填到该用户最近一条审计记录
+    try:
+        audit_db = get_db()
+        audit_db.execute(
+            "UPDATE audit_custom_grade SET sid = ? "
+            "WHERE id = (SELECT MAX(id) FROM audit_custom_grade WHERE uid = ?)",
+            (sid, current_user['uid']),
+        )
+        audit_db.commit()
+    except Exception:
+        logger.exception('custom-grade 审计回填 sid 失败')
 
     # Prefer multi-model registry path when models are available / requested.
     use_registry = requested_mode is not None or requested_model_ids is not None

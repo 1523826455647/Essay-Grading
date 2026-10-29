@@ -7,6 +7,14 @@
 <!-- 筛选栏 -->
 <div class="filter-bar">
   <div class="filter-item">
+    <label>数据范围</label>
+    <select id="filter-type" onchange="loadPapers()">
+      <option value="official" selected>官方题库</option>
+      <option value="custom">自定义任务</option>
+      <option value="all">全部</option>
+    </select>
+  </div>
+  <div class="filter-item">
     <label>考试类型</label>
     <select id="filter-exam-type" onchange="loadPapers()">
       <option value="">全部</option>
@@ -88,6 +96,8 @@
     const search = document.getElementById('filter-search').value;
 
     const params = new URLSearchParams({ page, limit: 20 });
+    const paperType = document.getElementById('filter-type').value;
+    if (paperType) params.append('type', paperType);
     if (examType) params.append('exam_type', examType);
     if (year) params.append('year', year);
     if (status) params.append('status', status);

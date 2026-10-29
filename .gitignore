@@ -59,3 +59,6 @@ shenlun-zuowen-train.jsonl
 data/export/
 data/merge-20260909/
 data/slb.db.local-pre-*
+
+# 测试虚拟环境（本机）
+.venv-test/
